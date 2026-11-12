@@ -1,0 +1,191 @@
+/* Mobile-native baseline: document shell, safe areas, liquid-glass materials, buttons, card states. */
+
+/* ================= MOBILE-NATIVE BASELINE ================= */
+/* Top safe area used by the top bar, drawer, banner and sheets. On a phone it is the real status-bar
+   inset (unchanged). On a desktop (mouse/trackpad) there is no status bar, so reserve the same room an
+   iPhone's time/battery row takes, keeping the layout identical to the phone. */
+:root { --safe-top: env(safe-area-inset-top, 0px); }
+@media (hover: hover) and (pointer: fine) {
+    :root { --safe-top: max(env(safe-area-inset-top, 0px), 47px); }
+}
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background-color: #08080a;        /* matches the preloader and Home at y=0 so status bar starts seamless dark */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;   /* no font inflation in landscape */
+    overscroll-behavior: none;        /* app shell: no page bounce / pull-to-refresh hijack */
+    transition: background-color 0.35s ease;
+}
+@media (min-width: 640px) {
+    html, body { background-color: #08080a !important; }
+}
+html.drawer-open, body.drawer-open {
+    background-color: #064e3b !important;
+    background: radial-gradient(ellipse 110% 85% at 85% 0%, rgba(16, 185, 129, 0.45) 0%, rgba(4, 60, 44, 0.8) 42%, #022c22 75%, #011d16 100%) !important;
+}
+* {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;       /* no 300ms double-tap-zoom delay */
+}
+/* Allow content to bleed behind the top status bar with no unwanted bottom padding */
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.35s ease;
+}
+/* Custom header sits safely below time/battery while overlapping the status bar region at margin-top: 0 */
+.custom-header, #app-top-bar {
+    margin-top: 0;
+    padding-top: max(0.75rem, calc(var(--safe-top) + 0.35rem));
+    transition: background-color 0.32s var(--ease-out), background 0.32s var(--ease-out), border-color 0.32s var(--ease-out), box-shadow 0.32s var(--ease-out), opacity 0.25s var(--ease-drawer);
+}
+/* Ensure no awkward bottom bar padding or white gap */
+.content-container, #app-container, #app-main-stage {
+    padding-bottom: 0;
+}
+/* Controls aren't content: long-press shouldn't select labels or pop the callout */
+button, [role="button"], [role="tab"], .nav-btn {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+/* Inner scrollers keep their own bounce but never chain scroll to the shell */
+.view-section, #modal-content {
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+/* iOS zooms the page on focus when input text is under 16px */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+        font-size: 16px !important;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(200, 200, 200, 0.3);
+    border-radius: 9999px;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.spring-transition {
+    transition: transform 0.4s var(--ease-spring);
+}
+.pill-transition {
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Authentic iOS Liquid Glass Material */
+.liquid-glass {
+    background: linear-gradient(
+        135deg, 
+        rgba(255, 255, 255, 0.28) 0%, 
+        rgba(255, 255, 255, 0.08) 100%
+    );
+    backdrop-filter: blur(35px) saturate(190%);
+    -webkit-backdrop-filter: blur(35px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),     /* Top light refraction edge */
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.12),        /* Bottom shadow occlusion */
+        0 20px 40px -15px rgba(0, 0, 0, 0.35);         /* Ambient background projection */
+    transition: transform 0.16s var(--ease-out), box-shadow 0.3s ease;
+}
+.liquid-glass:active {
+    transform: scale(0.97);
+    box-shadow: 
+        inset 0 2px 4px 0 rgba(255, 255, 255, 0.8),
+        0 10px 20px -10px rgba(0, 0, 0, 0.4);
+}
+
+/* Apple-esque Button & Inset Group Enhancements */
+.apple-button {
+    transition: transform 0.2s var(--ease-out), background-color 0.2s ease, opacity 0.2s ease;
+}
+.apple-button:active {
+    transform: scale(0.97) !important;
+    opacity: 0.85 !important;
+    transition: transform 0.12s var(--ease-out), opacity 0.12s ease !important;
+}
+.apple-inset-group {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+    border-radius: 28px;
+    overflow: hidden;
+}
+.apple-list-group {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-radius: 24px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+.apple-list-item {
+    transition: background-color 0.2s ease, transform 0.15s var(--ease-out);
+}
+.apple-list-item:active {
+    background-color: rgba(241, 245, 249, 0.9);
+    transform: scale(0.99);
+}
+
+.true-glass {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 100%);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 15px 35px 0 rgba(0, 0, 0, 0.08), 
+                inset 0 1px 0 0 rgba(255, 255, 255, 1);
+}
+.true-glass-emerald {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.08) 100%);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 15px 35px 0 rgba(16, 185, 129, 0.1), 
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+.true-glass-blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(37, 99, 235, 0.08) 100%);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    box-shadow: 0 15px 35px 0 rgba(59, 130, 246, 0.1), 
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Apple Card State Transition */
+.roster-card-transition {
+    transition: background-color 0.45s var(--ease-drawer), 
+                border-color 0.45s var(--ease-drawer), 
+                box-shadow 0.45s var(--ease-drawer), 
+                transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-card-smooth {
+    transition: background-color 0.5s var(--ease-drawer),
+                border-color 0.5s var(--ease-drawer),
+                box-shadow 0.5s var(--ease-drawer),
+                transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}

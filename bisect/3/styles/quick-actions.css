@@ -1,0 +1,253 @@
+/* Home: Quick Actions (Roster, Timesheets, Chat, Site) and the Home list (Poppy, Team, Tools).
+   OLED smoked glass, monochrome icons. Lime is reserved for high-signal values only
+   (the Tools availability count); navigation icons and labels never turn lime. */
+
+#view-home {
+    --home-icon: #a1a1aa;          /* zinc-400: all navigation icons */
+    --home-muted: #8e9299;         /* secondary values */
+    --home-signal: #ccff00;        /* high-signal values */
+    --home-glass: rgba(255, 255, 255, 0.05);
+    --home-glass-edge: rgba(255, 255, 255, 0.08);
+}
+
+/* ================= QUICK ACTIONS ================= */
+.quick-actions {
+    container-type: inline-size;
+}
+
+.quick-actions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+    margin-bottom: 8px;                        /* label -> tiles */
+}
+
+.quick-actions-title {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+/* 44px tap target; the negative margins keep it from changing the header's height */
+.quick-actions-action {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 16px;
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -14px -8px -14px 0;
+    padding: 0 8px;
+    transition: color 150ms ease;
+}
+.quick-actions-action:hover {
+    color: #ffffff;
+}
+
+/* Four equal tiles in one row; 2x2 when the row is too narrow for "Timesheets" at full size */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+@container (max-width: 340px) {
+    .quick-actions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.qa-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;                         /* 2px less than before, so the 24px icon keeps the tile height */
+    border-radius: 16px;                       /* rounded-2xl */
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms var(--ease-out), background-color 160ms ease;
+}
+@supports (corner-shape: squircle) {
+    .qa-tile { border-radius: 20px; corner-shape: squircle; }
+}
+
+.qa-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    color: var(--home-icon, #a1a1aa);
+    line-height: 1;
+}
+
+.qa-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: #ffffff;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Labels may use the tile's 8px side padding too, so "Timesheets" fits at full 12px size */
+    max-width: calc(100% + 12px);
+    margin-inline: -6px;
+}
+
+/* Unread count, top-right of the tile (iOS app badge) */
+.qa-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Press: instant, quiet response */
+.qa-tile:active {
+    transform: scale(0.96);
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 60ms;
+}
+@media (hover: hover) and (pointer: fine) {
+    .qa-tile:hover { background-color: rgba(255, 255, 255, 0.065); }
+}
+.qa-tile:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 2px;
+}
+
+/* ================= HOME LIST (Poppy, Team, Tools) ================= */
+/* One smoked-glass group, iOS Settings style: whole-row tap targets, inset hairlines that start
+   at the label (48px), no borders on individual rows. */
+.home-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 24px;
+    background: var(--home-glass, rgba(255, 255, 255, 0.05));
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--home-glass-edge, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+}
+.home-nav-list li { position: relative; }
+.home-nav-list li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 48px;                                /* ml-12: aligned with the labels */
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+}
+
+.home-nav-row {
+    position: relative;
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;                        /* px-4 py-3.5 */
+    background: transparent;
+    border: 0;
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 120ms ease;
+}
+.home-nav-row:active {
+    background-color: rgba(255, 255, 255, 0.06);
+    transition-duration: 0ms;
+}
+@media (hover: hover) and (pointer: fine) {
+    .home-nav-row:hover { background-color: rgba(255, 255, 255, 0.035); }
+}
+.home-nav-row:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: -2px;
+}
+
+/* 20px icon column (16px gutter + 20px + 12px gap = labels at 48px) */
+.home-nav-icon {
+    width: 20px;
+    height: 26px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--home-icon, #a1a1aa);
+}
+/* Poppy: the WebGL orb, 26px, centred over the same icon column */
+.home-nav-orb canvas {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: block;
+    border-radius: 9999px;
+    box-shadow: 0 0 12px rgba(94, 230, 168, 0.35);
+}
+
+.home-nav-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+}
+.home-nav-value {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 55%;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--home-muted, #8e9299);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.home-nav-value.is-signal {
+    color: var(--home-signal, #ccff00);
+    font-weight: 600;
+}
+.home-nav-chevron {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #8a8a94;                            /* 4.9:1 on the list glass (was zinc-600, 2.6:1) */
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .qa-tile, .qa-tile:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+    .home-nav-list { background: #141416; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

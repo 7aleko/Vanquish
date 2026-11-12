@@ -1,0 +1,417 @@
+/* My Week roster cards: liquid-glass materials, accordion drawer, rain-mode motion and protocol pill. */
+
+/* Ultra-Authentic Apple Liquid Glass Roster Materials (Tuned for 120Hz Mobile Safari) */
+.glass-tile-apple {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.78) 100%);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.04),
+        0 10px 24px -4px rgba(15, 23, 42, 0.07),
+        0 4px 8px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* Today's date tile: the app's interactive accent (the same lime + glow as the nav pill and the
+   Home "Sign In" control) so it reads as "you are here" at a glance. Dark ink on lime for contrast. */
+.glass-tile-today {
+    background: linear-gradient(160deg, #d9ff33 0%, #ccff00 55%, #b8e600 100%);
+    border: 1px solid rgba(204, 255, 0, 0.9);
+    box-shadow:
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.06),
+        0 0 20px rgba(204, 255, 0, 0.35),
+        0 10px 22px -6px rgba(15, 23, 42, 0.25);
+}
+
+.glass-card-apple {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.78) 100%);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.03),
+        0 14px 32px -8px rgba(15, 23, 42, 0.08),
+        0 4px 12px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* Today's card: same deep emerald surface, lifted above the other days by a luminous inner rim
+   (the Home site card's lime -> cyan iridescent edge, static) and a soft inner glow. */
+.glass-card-today {
+    background: linear-gradient(135deg, #022c22 0%, #061e14 50%, #020617 100%);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    box-shadow:
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.25),
+        inset 0 0 14px rgba(163, 230, 53, 0.1),
+        0 18px 40px -8px rgba(0, 0, 0, 0.55),
+        0 0 28px -4px rgba(16, 185, 129, 0.3);
+}
+.glass-card-today::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg,
+        rgba(204, 255, 0, 0.55) 0%,
+        rgba(74, 222, 128, 0.18) 35%,
+        rgba(34, 211, 238, 0.14) 70%,
+        rgba(56, 189, 248, 0.45) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.glass-card-rain {
+    background: linear-gradient(145deg, rgba(11, 26, 56, 0.97) 0%, rgba(12, 22, 45, 0.98) 50%, rgba(6, 11, 24, 0.99) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    box-shadow: 
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3),
+        0 18px 40px -8px rgba(0, 0, 0, 0.55),
+        0 0 28px -4px rgba(59, 130, 246, 0.3);
+}
+
+/* Native Calendar Picker Full-Surface Hit Target */
+.native-date-overlay::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* Spacious Fixed-Height Roster Cards + Fluid Apple Accordion */
+.roster-card-header {
+    transition: transform 160ms var(--ease-out);
+}
+.roster-card-header:active {
+    transform: scale(0.988);
+}
+.roster-expandable-drawer {
+    height: 0px;
+    overflow: hidden;
+    transition: height 340ms var(--ease-drawer);
+    will-change: height;
+}
+.roster-drawer-inner {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+    transition: opacity 240ms var(--ease-out), transform 300ms var(--ease-drawer);
+}
+.roster-expandable-drawer.is-expanded .roster-drawer-inner {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+}
+.roster-chevron {
+    transition: transform 340ms var(--ease-drawer);
+}
+
+/* ================= APPLE-ESQUE RAIN MODE MOTION ================= */
+.roster-card-surface {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    transition: border-color 380ms var(--ease-out),
+                box-shadow 380ms var(--ease-out),
+                color 320ms var(--ease-out);
+    will-change: border-color, box-shadow;
+}
+
+.roster-card-surface.is-rain-mode {
+    border-color: rgba(96, 165, 250, 0.45) !important;
+    box-shadow: 
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.3),
+        0 18px 40px -8px rgba(0, 0, 0, 0.55),
+        0 0 28px -4px rgba(59, 130, 246, 0.3) !important;
+}
+
+.roster-rain-backdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 24px;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 400ms cubic-bezier(0.23, 1, 0.32, 1);
+    background: linear-gradient(145deg, rgba(11, 26, 56, 0.97) 0%, rgba(12, 22, 45, 0.98) 50%, rgba(6, 11, 24, 0.99) 100%);
+    will-change: opacity;
+}
+
+.roster-card-surface.is-rain-mode .roster-rain-backdrop {
+    opacity: 1;
+}
+
+/* Rain site toggle button with Apple physics */
+.roster-rain-btn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 350ms var(--ease-out),
+                color 350ms var(--ease-out),
+                border-color 350ms var(--ease-out),
+                box-shadow 350ms var(--ease-out),
+                transform 150ms var(--ease-out);
+    will-change: transform, background-color, border-color, box-shadow;
+}
+.roster-rain-btn:active {
+    transform: scale(0.90) !important;
+}
+
+.roster-rain-btn.is-inactive {
+    background-color: #0f172a;
+    color: #60a5fa;
+    border: 1px solid rgba(96, 165, 250, 0.5);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+@media (hover: hover) and (pointer: fine) {
+    .roster-rain-btn.is-inactive:hover {
+        background-color: #1e293b;
+        border-color: rgba(96, 165, 250, 0.7);
+    }
+}
+
+.roster-rain-btn.is-active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: 1px solid #93c5fd;
+    box-shadow: 0 0 18px rgba(59, 130, 246, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+@media (hover: hover) and (pointer: fine) {
+    .roster-rain-btn.is-active:hover {
+        background-color: #2563eb;
+    }
+}
+
+@keyframes appleToggleSpring {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.76); }
+    60% { transform: scale(1.24); }
+    85% { transform: scale(0.96); }
+    100% { transform: scale(1); }
+}
+
+.roster-rain-icon {
+    display: inline-block;
+    transition: transform 200ms var(--ease-out);
+}
+
+.roster-rain-icon.spring-pop {
+    animation: appleToggleSpring 420ms var(--ease-spring);
+}
+
+.roster-rain-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    transition: background-color 350ms var(--ease-out),
+                color 350ms var(--ease-out),
+                border-color 350ms var(--ease-out);
+}
+
+.roster-rain-badge.is-inactive {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: 1.5px solid #ffffff;
+}
+
+.roster-rain-badge.is-active {
+    background-color: #ffffff;
+    color: #2563eb;
+    border: 1.5px solid #bfdbfe;
+}
+
+.roster-rain-badge-icon {
+    font-size: 9px;
+    line-height: 1;
+    display: inline-block;
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.roster-rain-btn.is-active .roster-rain-badge-icon {
+    transform: rotate(180deg);
+}
+
+.roster-rain-btn.is-inactive .roster-rain-badge-icon {
+    transform: rotate(0deg);
+}
+
+/* Chevron Container transitions */
+.roster-chevron-btn {
+    transition: background-color 350ms var(--ease-out),
+                border-color 350ms var(--ease-out),
+                color 350ms var(--ease-out);
+}
+.roster-chevron-btn.is-dark {
+    color: #e2e8f0;
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+@media (hover: hover) and (pointer: fine) {
+    .roster-chevron-btn.is-dark:hover {
+        background-color: rgba(255, 255, 255, 0.20);
+    }
+}
+.roster-chevron-btn.is-light {
+    color: #475569;
+    background-color: rgba(15, 23, 42, 0.05);
+    border: 1px solid rgba(15, 23, 42, 0.10);
+}
+@media (hover: hover) and (pointer: fine) {
+    .roster-chevron-btn.is-light:hover {
+        background-color: rgba(15, 23, 42, 0.10);
+    }
+}
+
+/* Title and Address text crossfade */
+.site-title {
+    transition: opacity 180ms var(--ease-out),
+                transform 180ms var(--ease-out),
+                color 320ms var(--ease-out);
+}
+.site-address {
+    transition: color 320ms var(--ease-out);
+}
+.site-address-text {
+    display: inline-block;
+    transition: opacity 180ms var(--ease-out),
+                transform 180ms var(--ease-out);
+}
+
+/* Team divider and chips */
+.roster-team-divider {
+    transition: border-color 350ms var(--ease-out);
+}
+.roster-with-label {
+    transition: color 350ms var(--ease-out);
+}
+.roster-team-chip {
+    transition: background-color 350ms var(--ease-out),
+                color 350ms var(--ease-out),
+                border-color 350ms var(--ease-out);
+}
+
+/* Rain Protocol Pill Slot — Apple Dynamic Island style emergence & graceful collapse */
+.rain-protocol-pill-slot {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0px;
+    opacity: 0;
+    pointer-events: none;
+    transition: grid-template-rows 360ms cubic-bezier(0.23, 1, 0.32, 1),
+                margin-top 360ms cubic-bezier(0.23, 1, 0.32, 1),
+                opacity 280ms var(--ease-out);
+    will-change: grid-template-rows, margin-top, opacity;
+}
+
+.rain-protocol-pill-slot.is-active {
+    grid-template-rows: 1fr;
+    margin-top: 10px;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.rain-protocol-pill-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.rain-protocol-pill-content {
+    transform: scale(0.92) translateY(-8px);
+    opacity: 0;
+    transition: transform 380ms cubic-bezier(0.175, 0.885, 0.32, 1.2),
+                opacity 300ms var(--ease-out);
+    will-change: transform, opacity;
+}
+
+.rain-protocol-pill-slot.is-active .rain-protocol-pill-content {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+.rain-protocol-pill-slot:not(.is-active) .rain-protocol-pill-content {
+    transform: scale(0.94) translateY(-6px);
+    opacity: 0;
+    transition: transform 240ms var(--ease-out),
+                opacity 200ms var(--ease-out);
+}
+
+.rain-pill-umbrella-icon {
+    display: inline-block;
+    transition: transform 380ms cubic-bezier(0.175, 0.885, 0.32, 1.25);
+}
+.rain-protocol-pill-slot.is-active .rain-pill-umbrella-icon {
+    transform: scale(1.15) rotate(-6deg);
+}
+
+
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background-color: #020617;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    transition: opacity 0.24s var(--ease-out);
+}
+#preloader.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.rain-drop {
+    position: absolute;
+    width: 1.5px;
+    height: 18px;
+    background: linear-gradient(transparent, rgba(147, 197, 253, 0.75));
+    animation: fall linear infinite;
+    pointer-events: none;
+}
+@keyframes fall {
+    0% { transform: translateY(-20px); opacity: 0; }
+    30% { opacity: 0.8; }
+    100% { transform: translateY(220px); opacity: 0; }
+}
+
+@keyframes subtlePulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.06); opacity: 1; }
+}
+.ai-star-glow {
+    animation: subtlePulse 3s ease-in-out infinite;
+}
+
+
+
+
+/* Apple Signature Spring Curve (specific properties, never `all`) */
+.apple-spring {
+    transition: transform 0.45s var(--ease-drawer), opacity 0.45s var(--ease-drawer), background-color 0.3s ease, box-shadow 0.3s ease;
+}

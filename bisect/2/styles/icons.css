@@ -1,0 +1,38 @@
+/* Icon system: Phosphor Icons, Fill weight (rendered by scripts/components/icons.js inside the
+   existing <i>). Solid silhouettes, one family. Colour comes from the <i>'s text colour.
+   Neutral by default; lime is reserved for active states and primary actions. */
+:root {
+    --icon-muted: #AEB6C2;   /* default icon colour on dark surfaces */
+    --icon-accent: #CCFF00;  /* active / primary only */
+}
+
+i.ph-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.2em;            /* sized from the element's font-size, like the old glyphs */
+    height: 1.2em;
+    font-style: normal;
+    line-height: 1;
+    vertical-align: -0.22em;
+}
+i.ph-icon > span {
+    font-size: 1.2em;        /* Phosphor glyphs fill their em box */
+    line-height: 1;
+}
+/* Font Awesome is loaded only for the weather glyph: stop its font glyph doubling up */
+i.ph-icon::before { content: none !important; }
+
+/* ---- Size scale ---- */
+/* Standard (top bar): 24px */
+.top-bar-icon i.ph-icon { width: 24px; height: 24px; }
+.top-bar-icon i.ph-icon > span { font-size: 24px; }
+/* Home navigation, monochrome zinc-400: Quick Action tiles 24px, Home list 20px */
+.qa-icon i.ph-icon { width: 24px; height: 24px; }
+.qa-icon i.ph-icon > span { font-size: 24px; }
+.home-nav-icon i.ph-icon { width: 20px; height: 20px; }
+.home-nav-icon i.ph-icon > span { font-size: 20px; }
+/* Secondary (back / screen actions in round buttons): 20px */
+.nav-back i.ph-icon, .nav-action i.ph-icon { width: 20px; height: 20px; }
+.nav-back i.ph-icon > span, .nav-action i.ph-icon > span { font-size: 20px; }

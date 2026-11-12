@@ -1,0 +1,69 @@
+/* Reduced-motion and accessibility overrides. Must load after the rules it overrides. */
+
+/* ================= ACCESSIBILITY ================= */
+/* Reduced motion = gentler, not none: keep fades that explain a change, drop movement,
+   loops and overshoot. Gestures stay 1:1 (the user is producing that motion). */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+    .rain-drop, .ai-star-glow, .animate-pulse, .spring-pop, .poppy-orb-halo, .poppy-orb-aurora, .poppy-orb-bloom { animation: none !important; }
+    #modal-content, #tool-transfer-sheet {
+        transition-duration: 0.01ms !important;
+    }
+
+    #modal-overlay, #tool-transfer-modal-overlay { transition: opacity 0.2s ease !important; }
+    #app-side-drawer, #drawer-layer-card, #app-main-stage {
+        transition-duration: 0.01ms !important;
+    }
+    .roster-card-header {
+        transition-duration: 0.01ms !important;
+    }
+    .roster-expandable-drawer, .roster-chevron {
+        transition-duration: 240ms !important;
+    }
+
+    /* Screen changes: cross-fade in place instead of sliding */
+    .view-tab-animate {
+        animation: reducedFadeIn var(--dur-fast) ease both !important;
+    }
+    .view-apple-push-enter, .view-apple-pop-underlay-enter {
+        animation: reducedFadeIn 0.24s ease both !important;
+    }
+    .view-apple-push-underlay-exit, .view-apple-pop-slide-away {
+        animation: reducedFadeOut 0.24s ease both !important;
+    }
+
+    .roster-drawer-inner {
+        transform: none !important;
+        transition: opacity 0.16s ease !important;
+    }
+    /* Press feedback becomes a tint, not a size change */
+    :where(button, a[href], [role="button"], [role="tab"], [onclick]):active {
+        scale: none !important;
+    }
+}
+
+@keyframes reducedFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes reducedFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Higher contrast: solid surfaces with defined edges */
+@media (prefers-contrast: more) {
+    .view-section [class*="bg-white/"] {
+        background-color: #ffffff !important;
+    }
+    .view-section [class*="border-white/"], .view-section [class*="border-slate-200/"] {
+        border-color: rgba(15, 23, 42, 0.28) !important;
+    }
+    .text-slate-400, .text-slate-500 {
+        color: #475569 !important;
+    }
+}

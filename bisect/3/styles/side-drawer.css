@@ -1,0 +1,312 @@
+/* 3D off-canvas side drawer. */
+
+/* ================= 3D OFF-CANVAS SIDE DRAWER (APPLE PHYSICAL FEEL - RIGHT DRAWER) ================= */
+.side-drawer {
+position: fixed;
+top: 0;
+bottom: 0;
+height: 100%;
+min-height: 100dvh;
+padding-top: env(safe-area-inset-top, 20px);
+padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+#app-side-drawer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#drawer-layer-card {
+    transition: transform 0.42s var(--ease-drawer), opacity 0.35s var(--ease-drawer);
+    will-change: transform, opacity;
+    transform-origin: left center;
+}
+
+#app-main-stage {
+    transition: transform 0.42s var(--ease-drawer), border-radius 0.42s var(--ease-drawer), box-shadow 0.42s var(--ease-drawer);
+    transform-origin: left center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#app-container.drawer-open #app-side-drawer {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+}
+
+#app-container.drawer-open #drawer-layer-card {
+    opacity: 0.8;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: translate3d(-54%, 0, 0) scale(0.82);
+    box-shadow: 16px 12px 40px rgba(0, 0, 0, 0.35), 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+#app-container {
+    background: radial-gradient(ellipse 110% 85% at 85% 0%, rgba(16, 185, 129, 0.45) 0%, rgba(4, 60, 44, 0.8) 42%, #022c22 75%, #011d16 100%) !important;
+    background-color: #022c22 !important;
+}
+/* Mobile: fill the entire screen edge-to-edge with 100vw/100vh, no bottom padding or white gap */
+@media (max-width: 639px) {
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow-x: hidden;
+    }
+    #app-container {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        margin: 0;
+        padding-bottom: 0;
+        width: 100vw;
+        height: 100vh;
+    }
+}
+
+#app-container.drawer-open #app-main-stage {
+    transform: translate3d(-74%, 0, 0) scale(0.85);
+    border-radius: 36px;
+    box-shadow: 20px 15px 50px rgba(0, 0, 0, 0.45), 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+/* The top bar is the first child of #app-main-stage: when the 3D menu opens it scales and slides
+   away with the screen it belongs to, keeping its own colours (no separate restyle). */
+#app-top-bar {
+    position: relative;
+    z-index: 40 !important;
+    pointer-events: auto !important;
+    background-color: #08080a;                 /* Home's dark; status-bar.js sets each screen's surface */
+}
+
+/* Drawer header: keeps the menu list where it sat when the bar was above the stage, and puts the
+   close button exactly where the menu button is (bar padding-top + 2px, 4px from the screen edge),
+   allowing for the drawer's own 12px top / 24px right padding. */
+.drawer-top {
+    height: calc(max(0.75rem, calc(var(--safe-top) + 0.35rem)) + 59px);
+}
+.drawer-close-btn {
+    position: absolute;
+    top: calc(max(0.75rem, calc(var(--safe-top) + 0.35rem)) - 10px);
+    right: -20px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: none;
+    color: #ffffff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 120ms ease, transform 120ms var(--ease-out);
+}
+.drawer-close-btn:active { opacity: 0.5; transform: scale(0.92); transition-duration: 60ms; }
+.drawer-close-btn:focus-visible { outline: 2px solid #ffffff; outline-offset: 0; border-radius: 12px; }
+.drawer-close-btn i.ph-icon { width: 24px; height: 24px; }
+.drawer-close-btn i.ph-icon > span { font-size: 24px; }
+
+/* Prevent any clicks, taps, or focus on main stage elements while drawer is open or closing */
+#app-container.drawer-open #app-main-stage > *:not(#drawer-dismiss-overlay),
+#app-container.drawer-closing #app-main-stage > *:not(#drawer-dismiss-overlay) {
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+#drawer-dismiss-overlay {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s var(--ease-drawer);
+}
+
+#app-container.drawer-open #drawer-dismiss-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#app-container.drawer-closing #drawer-dismiss-overlay {
+    opacity: 0;
+    pointer-events: auto;
+}
+
+.drawer-nav-item, #app-side-drawer button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-nav-item {
+    transition: background-color 0.2s ease, transform 0.2s var(--ease-spring), color 0.2s ease;
+}
+.drawer-nav-item:active {
+    transform: scale(0.97) !important;
+}
+
+/* ================= DRAWER CONTENT: profile card, two sections, five rows =================
+   Glass on the drawer's emerald, white type, one row style everywhere. Rows keep 44px icon tiles and
+   60px+ tap targets; compactness comes from tight section spacing, not smaller type. Pills share one
+   right-aligned column. Status colours: lime = balance, amber = action due, rose = gear due. */
+.drawer-profile-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px 12px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    text-align: left;
+    color: #fff;
+    cursor: pointer;
+}
+@supports (corner-shape: squircle) { .drawer-profile-card { border-radius: 26px; corner-shape: squircle; } }
+@media (hover: hover) and (pointer: fine) { .drawer-profile-card:hover { background: rgba(255, 255, 255, 0.11); } }
+.drawer-profile-card:active { background: rgba(255, 255, 255, 0.12); }
+.drawer-profile-card:focus-visible, .drawer-row:focus-visible { outline: 2px solid #ccff00; outline-offset: 2px; }
+
+.drawer-profile-avatar {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #020617, #0f172a 60%, #1e293b);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #ccff00;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+}
+.drawer-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.drawer-profile-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.drawer-profile-id {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(167, 243, 208, 0.7);
+}
+
+.drawer-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.drawer-section-label {
+    margin: 14px 12px 4px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(110, 231, 183, 0.6);
+}
+
+.drawer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 10px;
+    border-radius: 18px;
+    text-align: left;
+    color: #fff;
+    cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) { .drawer-row:hover { background: rgba(255, 255, 255, 0.08); } }
+.drawer-row:active { background: rgba(255, 255, 255, 0.1); }
+
+.drawer-row-icon {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 18px;
+    color: #fff;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+    .drawer-row:hover .drawer-row-icon { background: #ccff00; color: #020617; }
+}
+.drawer-row-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background: #f43f5e;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 18px;
+    text-align: center;
+    box-shadow: 0 0 0 2px #061e14;
+}
+/* The drawer column is ~265px: full-size labels wrap to two balanced lines rather than truncate */
+.drawer-row-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    text-wrap: balance;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.drawer-row-chevron { flex-shrink: 0; font-size: 12px; color: rgba(255, 255, 255, 0.4); }
+.drawer-profile-card .drawer-row-chevron { color: rgba(255, 255, 255, 0.5); }
+
+.drawer-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.drawer-pill[hidden] { display: none; }
+.drawer-pill.is-lime  { background: rgba(204, 255, 0, 0.16); color: #ccff00; border-color: rgba(204, 255, 0, 0.3); }
+.drawer-pill.is-amber { background: rgba(251, 191, 36, 0.14); color: #fcd34d; border-color: rgba(251, 191, 36, 0.3); text-transform: uppercase; }
+.drawer-pill.is-rose  { background: rgba(244, 63, 94, 0.18); color: #fda4af; border-color: rgba(244, 63, 94, 0.3); }
+.drawer-pill.is-status { background: rgba(52, 211, 153, 0.1); color: #6ee7b7; border-color: rgba(52, 211, 153, 0.22); text-transform: uppercase; }
+.drawer-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.drawer-pill.is-status[data-state="syncing"] { background: rgba(251, 191, 36, 0.12); color: #fcd34d; border-color: rgba(251, 191, 36, 0.28); }
+.drawer-pill.is-status[data-state="offline"] { background: rgba(244, 63, 94, 0.14); color: #fda4af; border-color: rgba(244, 63, 94, 0.28); }
+
+@media (prefers-reduced-transparency: reduce) {
+    .drawer-profile-card { background: rgba(6, 40, 30, 0.95); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

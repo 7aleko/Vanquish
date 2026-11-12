@@ -1,0 +1,40 @@
+/* Construction multi-week trade whiteboard (Schedule view). */
+
+/* ================= CONSTRUCTION MULTI-WEEK TRADE WHITEBOARD ================= */
+.wb-trade-scroll-canvas {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+.wb-trade-scroll-canvas::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.wb-trade-scroll-canvas::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+}
+.wb-trade-scroll-canvas::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 9999px;
+}
+.wb-trade-scroll-canvas::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.wb-trade-bar {
+    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease, filter 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+}
+@media (hover: hover) and (pointer: fine) {
+    .wb-trade-bar:hover {
+        filter: brightness(1.12);
+        box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
+    }
+}
+.wb-trade-bar:active {
+    transform: scale(0.985);
+}

@@ -43,11 +43,16 @@
     -webkit-mask: radial-gradient(ellipse at center, transparent 58%, black 95%);
     mask: radial-gradient(ellipse at center, transparent 58%, black 95%);
     opacity: 0.32;
-    filter: blur(12px);
     mix-blend-mode: screen;
-    /* The blur spreads past the rounded corners and a mask only clips to the square box, which left
-       sharp green corners. Clip the result to the card's radius. */
-    clip-path: inset(0 round 24px);
+}
+/* The blur lives one level down, so this element's rounded overflow clips it to the card's corners.
+   (Blurring this element itself spread the glow past the rounded corners into square green patches;
+   a clip-path fix for that crashed iOS Safari under Poppy's backdrop blur.) */
+.site-card-glow-blur {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    filter: blur(12px);
 }
 
 /* 2. Permanent Subtle Iridescent Base Glass Rim (Muted Lime on Left, Muted Cyan on Right) */

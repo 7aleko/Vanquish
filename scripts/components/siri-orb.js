@@ -13,7 +13,7 @@ function createAssistantOrb(canvas, options = {}) {
     const gl = canvas.getContext('webgl', { 
         alpha: true, 
         premultipliedAlpha: true, 
-        antialias: true,
+        antialias: options.antialias ?? true,
         powerPreference: 'high-performance'
     });
     if (!gl) {
@@ -196,23 +196,25 @@ function createAssistantOrb(canvas, options = {}) {
 
     let rafId = null;
     let isDestroyed = false;
+    let isPaused = false;                      // pause(): stop drawing while hidden behind a sheet
+    const maxDpr = options.maxDpr ?? 3;
     const start = performance.now();
 
     // Reduced motion: an idle orb is drawn once and held still. Listening/thinking still
     // animate, because there the motion is the state indication.
     const reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     const shouldHoldStill = () => !!(reduceMotion && reduceMotion.matches && config.state === 'idle');
-    const resume = () => { if (!isDestroyed && !rafId) frame(); };
+    const resume = () => { if (!isDestroyed && !isPaused && !rafId) frame(); };
     if (reduceMotion && reduceMotion.addEventListener) reduceMotion.addEventListener('change', resume);
 
     function frame() {
         rafId = null;
-        if (isDestroyed) return;
+        if (isDestroyed || isPaused) return;
         const t = (performance.now() - start) * 0.001;
         const stateVal = config.state === 'thinking' ? 2.0 : (config.state === 'listening' ? 1.0 : 0.0);
 
         // High-DPI Retina resolution sync (auto-adapts up to 3x on mobile OLED / Super Retina displays)
-        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
         const displayW = canvas.clientWidth || 180;
         const displayH = canvas.clientHeight || 180;
         const targetW = Math.round(displayW * dpr);
@@ -253,6 +255,11 @@ function createAssistantOrb(canvas, options = {}) {
         setScale: (val) => { config.scale = val; },
         setWhiteIntensity: (val) => { config.whiteIntensity = val; },
         setCreaseSharpness: (val) => { config.creaseSharpness = val; },
+        setPaused: (paused) => {
+            isPaused = !!paused;
+            if (isPaused && rafId) { cancelAnimationFrame(rafId); rafId = null; }
+            else resume();
+        },
         destroy: () => {
             isDestroyed = true;
             if (rafId) cancelAnimationFrame(rafId);
@@ -262,6 +269,10 @@ function createAssistantOrb(canvas, options = {}) {
                 gl.deleteShader(vs);
                 gl.deleteShader(fs);
                 gl.deleteBuffer(buffer);
+                // Hand the GPU context back now instead of waiting for GC: iOS Safari reloads the page
+                // when too many WebGL contexts / too much GPU memory pile up (each Poppy open makes one)
+                const lose = gl.getExtension('WEBGL_lose_context');
+                if (lose) lose.loseContext();
             } catch (_) {}
         }
     };

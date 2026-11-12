@@ -87,14 +87,13 @@
     mask-composite: exclude;
 }
 
-/* Every surface layer is clipped to the card's own rounded corners. The card's overflow:hidden is not
-   enough on WebKit: a backdrop blur and a composited WebGL canvas escape a parent's border-radius and show
-   as square corners of green. */
+/* Every surface layer carries the card's own rounded corners (WebKit doesn't clip a backdrop blur to a
+   parent's border-radius). Plain border-radius only: a clip-path on the WebGL canvas / backdrop-blur layer
+   is very costly on iOS under a sheet's own backdrop blur (opening Poppy crashed Safari). */
 #site-hero-card .sc-energy-canvas,
 #site-hero-card .sc-frost,
 #site-hero-card .sc-grain {
     border-radius: inherit;
-    clip-path: inset(0 round 24px);
 }
 
 /* The old ambient bottom gradient is superseded by the energy shader */

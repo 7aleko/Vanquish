@@ -6,8 +6,17 @@ function openLiveChat() {
     switchTab('chat');
 }
 
+// While a sheet covers the page, Home's live shaders (site card energy, Poppy orb) pause: they are
+// hidden behind the sheet, and the sheet's backdrop blur would otherwise be recomputed every frame
+// they animate. That stacked GPU load (plus Poppy's own orb) crashed iOS Safari.
+function setBackgroundShadersPaused(paused) {
+    if (typeof dockOrbInstance !== 'undefined' && dockOrbInstance && dockOrbInstance.setPaused) dockOrbInstance.setPaused(paused);
+    if (typeof setSiteCardEnergyPaused === 'function') setSiteCardEnergyPaused(paused);
+}
+
 function openModal(title, htmlContent) {
     closeSideDrawer();
+    setBackgroundShadersPaused(true);
     triggerHaptic('medium');
     const titleEl = document.getElementById('modal-title');
     const headerContainer = document.getElementById('modal-header-container');
@@ -66,6 +75,7 @@ function closeModal(fromDrag = false, startYOffset = 0, releaseVelocity = 0) {
     if (typeof _poppyOrbState !== 'undefined' && _poppyOrbState !== 'idle') {
         if (typeof setPoppyOrbState === 'function') setPoppyOrbState('idle');
     }
+    setBackgroundShadersPaused(false);
 
     content.classList.remove('is-dragging');
     const sheetH = content.offsetHeight || 500;

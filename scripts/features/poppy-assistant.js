@@ -115,7 +115,11 @@ function openPoppyBotChat() {
             speed: 0.85,
             creaseSharpness: 0.90,
             scale: 1.15,
-            whiteIntensity: 0.35
+            whiteIntensity: 0.35,
+            // A soft 190px sphere: 2x density without MSAA looks the same and is about half the GPU
+            // work of 3x + antialias, which was enough to crash iPhones on top of Home's shaders
+            maxDpr: 2,
+            antialias: false
         });
     }
 }

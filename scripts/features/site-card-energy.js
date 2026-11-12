@@ -175,6 +175,7 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
     // Continuous while the shader is animating on screen; otherwise only while values ease,
     // then a slow tick so the progress keeps up with the clock.
     let visible = true;
+    let paused = false;                        // a sheet covers the card (scripts/core/modal.js)
     let raf = 0;
     let idleTimer = 0;
 
@@ -182,7 +183,7 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
         raf = 0;
         const moving = updateState();
         if (draw) draw(now);
-        if (!visible || document.hidden) return;
+        if (!visible || document.hidden || paused) return;
         if (moving || (draw && !reducedMotion.matches)) {
             raf = requestAnimationFrame(frame);
         } else {
@@ -191,7 +192,7 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
     }
     function kick() {
         clearTimeout(idleTimer);
-        if (!raf && visible && !document.hidden) raf = requestAnimationFrame(frame);
+        if (!raf && visible && !paused && !document.hidden) raf = requestAnimationFrame(frame);
     }
 
     new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; kick(); }).observe(card);
@@ -199,6 +200,11 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
     reducedMotion.addEventListener('change', kick);
     // Sign in / out (from the card or a notification): start easing straight away, the loop may be idling
     window.kickSiteCardEnergy = kick;
+    window.setSiteCardEnergyPaused = (p) => {
+        paused = !!p;
+        if (paused) { if (raf) { cancelAnimationFrame(raf); raf = 0; } clearTimeout(idleTimer); }
+        else kick();
+    };
 
     updateState();
     kick();

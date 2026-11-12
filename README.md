@@ -1,0 +1,94 @@
+# Lifestyle App
+
+A mobile-first site-management dashboard (roster, site, schedule whiteboard, team, tools, chat, notifications).
+It is a **no-build vanilla JS app**: open `index.html` directly in a browser (`file://` works) or serve the folder with any static server.
+
+## Project structure
+
+```
+index.html                  Markup for every view + ordered <link>/<script> tags (no inline app logic)
+styles/                     Plain CSS, loaded in cascade order (see index.html)
+  tokens.css                Motion easing tokens
+  base.css                  Mobile-native shell, safe areas, glass materials
+  roster.css                My Week roster cards + rain mode
+  modal.css                 Shared bottom-sheet modal
+  view-transitions.css      Tab / subpage transitions
+  dock.css                  Poppy assistant orb artwork and assistant sheet
+  quick-actions.css         Home Quick Actions tiles + navigation list
+  accessibility.css         Reduced-motion / transparency overrides (must follow the rules it overrides)
+  side-drawer.css           3D side drawer
+  attendance.css            Home hero attendance card
+  whiteboard.css            Schedule whiteboard
+  notification-banner.css   iOS-style notification banner (birthday reminders)
+  top-bar.css               Top bar: Home brand/notifications/menu vs pushed-screen back + inline title
+  home-dark.css             Home screen dark mode (Tesla-style)
+  site-card.css             Home site card: energy-glass surface, timeline, Sign In pill
+  icons.css                 Icon sizes + colour tokens (muted #AEB6C2, lime #CCFF00 for active/primary)
+scripts/
+  config/tailwind.config.js Tailwind CDN theme (fonts, brand colours, shadows)
+  utils/                    Stateless helpers: feedback (haptics/confetti/toast), clipboard, dates
+  data/                     Pure datasets (no logic) - the app's mock "database"
+  core/                     App shell: boot/preloader, navigation & routing, status bar, side drawer, gestures, modal
+  core/top-bar.js           iOS top bar: switches root/pushed mode, back label, actions, large-title collapse
+  components/               Reusable widgets: WebGL Siri orb, calendar date picker
+  components/icons.js       Icon system: maps every fa-NAME in markup/templates to Phosphor Fill (Bold for line glyphs)
+  features/                 One file per feature/page (roster, chat, site-sites, whiteboard, team, tools, transfer, ...)
+  features/today-summary.js Birthday notification banner (APP_TODAY / CURRENT_EMPLOYEE_ID live here)
+  features/home-nav.js      Home list (Poppy, Team, Tools): live crew-on-site and tools-available values
+  features/site-sites.js    Site screen: assigned-site switcher, week/day selector, selected site card
+  features/site-card-energy.js  Site card shader + live shift progress from the real clock
+  data/account.js           Your own account: profile, leave, role sign-off, workwear, Procore status (drives the drawer)
+  features/account.js       Side drawer profile card + status pills, profile photo, Role / Safety & Training / App Guide sheets
+  main.js                   Final boot step - must be the last script
+assets/images/              Media assets (currently not referenced by the app)
+reference/smoothui-react/   Original React/TSX SmoothUI sources the vanilla orb was ported from (not used at runtime)
+archive/                    Previous single-file versions of the app, kept for rollback/reference
+```
+
+## How the scripts work together
+
+- All scripts are **classic scripts sharing one global scope** (deliberately not ES modules, so `file://` keeps working).
+  Inline `onclick="..."` handlers in the markup and in rendered templates call these globals directly.
+- **Load order matters** and is set in `index.html`:
+  1. `utils/` and `data/` first: they have no dependencies.
+  2. `core/`, `components/` and `features/` follow the original execution order, so `DOMContentLoaded`, `load`
+     and `keydown` listeners register in the same order as before (some handlers depend on running after others).
+  3. `main.js` last.
+- Functions may reference each other across files freely, because nothing runs until `DOMContentLoaded` (except `main.js`).
+  Top-level code that *executes* at load time must only use things defined in earlier files.
+
+## Adding things
+
+- **New data**: add a file in `scripts/data/`, include it with the other data scripts.
+- **New feature/page**: add markup to `index.html` (a `<main id="view-NAME" class="view-section hidden ...">`),
+  register `NAME` in `ALL_APP_VIEWS` / `VIEW_HIERARCHY_DEPTH` / `subpageParentMap` in `scripts/core/navigation.js`,
+  and put its logic in `scripts/features/NAME.js` (loaded before `main.js`).
+  Give the page an `<h2 class="page-title" data-large-title>` (its large title) and, if it has top-bar actions,
+  a `<div class="nav-actions-group" data-view="NAME" hidden>` inside `#nav-actions` in the top bar.
+- **Styles**: Tailwind utility classes in markup; custom CSS in the matching `styles/` file.
+
+## Design system (`styles/tokens.css` + `styles/system.css`)
+
+- **Tokens**: ink/surface/brand colours, radii (`--radius-control/card/hero`), elevation (`--shadow-card/raised`),
+  motion curves (`--ease-out`, `--ease-in-out`, `--ease-drawer`) and durations (`--dur-press` 120ms, `--dur-fast` 160ms,
+  `--dur-base` 240ms, `--dur-snap` 280ms). Use these instead of new hand-typed values.
+- **Radius scale** (Tailwind config + CSS tokens): `rounded-hero` 32px (hero cards, sheets) > `rounded-card` 28px (page cards,
+  list groups) > `rounded-inset` 24px (cards inside a sheet, compact row cards) > `rounded-2xl` 16px (buttons, icon squircles)
+  > `rounded-xl` 12px (chips). Don't add arbitrary `rounded-[Npx]` values.
+- **Type scale**: 11 / 12 (`text-xs`) / 13 / 14 (`text-sm`) / 15 / 16 (`text-base`) / 17 / 18 (`text-lg`) / 20 (`text-xl`) / 22 / 24 / 30 / 36.
+  11px is the floor. Use the named Tailwind size when one exists instead of `text-[Npx]`.
+- **Tailwind version**: the CDN is Tailwind **v3**. v4-only utilities (`shadow-xs`, `shadow-2xs`, `p-4.5`…) render nothing unless
+  defined in `scripts/config/tailwind.config.js` - the ones the app uses are defined there.
+- **Type roles**: `.page-title` / `.page-subtitle` for every page header, `.btn-primary` for the main action in a sheet,
+  `.tabular` for times and counts. Nothing renders below 11px.
+- **Interaction**: every button / tappable row gets press feedback automatically (`scale` 0.97 controls, 0.985 rows) - don't add
+  `active:scale-90`. Custom `:hover` rules must sit inside `@media (hover: hover) and (pointer: fine)`.
+  Use `.hit-44` on controls smaller than 44px. Clickable `<div onclick>` rows are made keyboard-accessible by `scripts/core/a11y.js`.
+- **Motion rules**: tab switches cross-fade only (100+/day); push/pop slides are for subpages; no infinite loops on persistent
+  UI; never `transition-all` on something whose size changes (name the property, e.g. `transition-[width]`).
+  Reduced motion turns slides into fades and holds the idle orb still (`styles/accessibility.css`, `siri-orb.js`).
+- **Layering**: views are isolated stacking contexts; decorative ambient orbs sit at `z-index: -1` behind cards.
+
+## External dependencies (CDN)
+
+Tailwind CSS Play CDN, Font Awesome 6.4.0, Phosphor Icons 2.1.2 (Bold weight only), Inter (Google Fonts), canvas-confetti 1.9.3.

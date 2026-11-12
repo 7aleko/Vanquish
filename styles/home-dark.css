@@ -1,0 +1,58 @@
+/* Home in dark mode (OLED smoked glass): near-black page with one soft ambient light at the top,
+   white brand and icons in the bar. The hero card (styles/site-card.css) and the Home list
+   (styles/quick-actions.css) share the same smoked-glass material; the hero card stays the focal point.
+   The top bar colour itself is set by applyTopBarSurface('home-dark') in status-bar.js. */
+
+#view-home {
+    background-color: #08080a;
+    /* Ambient light near the top only; it fades to transparent at the very top edge so the page
+       meets the solid #08080A top bar without a seam. */
+    background-image:
+        radial-gradient(95% 26% at 24% 26%, rgba(16, 185, 129, 0.36) 0%, rgba(16, 185, 129, 0.13) 50%, transparent 78%),
+        radial-gradient(70% 22% at 92% 40%, rgba(37, 99, 235, 0.17) 0%, transparent 72%);
+    background-repeat: no-repeat;
+    /* Home now runs under the (solid) bar: keep the light exactly where it was, below the bar */
+    background-position: 0 var(--top-bar-h, 0px);
+    background-size: 100% calc(100% - var(--top-bar-h, 0px));
+    color-scheme: dark;
+}
+
+/* Home header aligns to the same 16px gutter as the hero card, tiles and list */
+#app-top-bar[data-mode="root"] {
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+/* Bell badge ring matches the dark bar */
+#app-top-bar.on-dark #notif-badge-count {
+    border-color: #08080a;
+}
+
+/* Section label + Edit: quiet slate */
+#view-home .quick-actions-title { color: #8e9299; }
+#view-home .quick-actions-action { color: #8e9299; font-weight: 600; }
+@media (hover: hover) and (pointer: fine) { #view-home .quick-actions-action:hover { color: #ffffff; } }
+
+/* Hero weather glyph: a lit gradient per condition, clipped to the icon, with a matching soft glow.
+   Light falls from the top-left (pale highlight there, deeper colour at the bottom-right), which gives the
+   flat glyph some volume. The tone comes from getWeatherIconTone() in scripts/features/weather.js. */
+#hero-weather-icon {
+    --wx-grad: linear-gradient(140deg, #fde68a 0%, #fbbf24 30%, #e0f2fe 52%, #7dd3fc 100%);
+    --wx-glow: rgba(125, 211, 252, 0.45);
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.12)) drop-shadow(0 2px 10px var(--wx-glow));
+}
+#hero-weather-icon i {
+    background-image: var(--wx-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+#hero-weather-icon[data-wx-tone="sun"]          { --wx-grad: linear-gradient(140deg, #fff7c2 0%, #fcd34d 35%, #f59e0b 70%, #f97316 100%); --wx-glow: rgba(251, 191, 36, 0.5); }
+#hero-weather-icon[data-wx-tone="moon"]         { --wx-grad: linear-gradient(140deg, #eef2ff 0%, #c7d2fe 40%, #818cf8 100%);               --wx-glow: rgba(129, 140, 248, 0.45); }
+#hero-weather-icon[data-wx-tone="partly-night"] { --wx-grad: linear-gradient(140deg, #e0e7ff 0%, #a5b4fc 32%, #e2e8f0 55%, #94a3b8 100%); --wx-glow: rgba(165, 180, 252, 0.4); }
+#hero-weather-icon[data-wx-tone="cloud"]        { --wx-grad: linear-gradient(160deg, #ffffff 0%, #e2e8f0 45%, #94a3b8 100%);               --wx-glow: rgba(203, 213, 225, 0.3); }
+#hero-weather-icon[data-wx-tone="rain"]         { --wx-grad: linear-gradient(160deg, #e0f2fe 0%, #7dd3fc 40%, #38bdf8 70%, #2563eb 100%); --wx-glow: rgba(56, 189, 248, 0.45); }
+#hero-weather-icon[data-wx-tone="heavy-rain"]   { --wx-grad: linear-gradient(160deg, #bfdbfe 0%, #60a5fa 40%, #2563eb 75%, #1e40af 100%); --wx-glow: rgba(59, 130, 246, 0.5); }
+#hero-weather-icon[data-wx-tone="snow"]         { --wx-grad: linear-gradient(160deg, #ffffff 0%, #e0f2fe 50%, #93c5fd 100%);               --wx-glow: rgba(186, 230, 253, 0.4); }
+#hero-weather-icon[data-wx-tone="storm"]        { --wx-grad: linear-gradient(160deg, #fef9c3 0%, #fde047 35%, #f59e0b 70%, #ea580c 100%); --wx-glow: rgba(245, 158, 11, 0.5); }

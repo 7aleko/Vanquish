@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Claude / agent tooling (not part of the app)
+.agents/
+.claude/
+skills-lock.json
+
+# Local dependencies and logs
+node_modules/
+*.log

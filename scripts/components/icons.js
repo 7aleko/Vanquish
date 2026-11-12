@@ -80,7 +80,9 @@ function renderAppIcon(el) {
         return;
     }
     const glyph = document.createElement('span');
-    glyph.className = `${PHOSPHOR_LINE_GLYPHS.has(name) ? 'ph-bold' : 'ph-fill'} ph-${name}`;
+    // data-icon-weight="bold" opts a glyph into the line weight (Home's bell, to match the menu icon's stroke)
+    const weight = el.dataset.iconWeight || (PHOSPHOR_LINE_GLYPHS.has(name) ? 'bold' : 'fill');
+    glyph.className = `ph-${weight} ph-${name}`;
     glyph.setAttribute('aria-hidden', 'true');
     el.replaceChildren(glyph);
     el.dataset.icon = fa;

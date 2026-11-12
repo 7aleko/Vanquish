@@ -135,4 +135,4 @@
 }
 /* Screens start under the bar; pushed screens keep just 4px above the large title (was 16px) */
 #app-main-stage > .view-section { padding-top: calc(var(--top-bar-h) + 4px); }
-#app-main-stage > #view-home { padding-top: calc(var(--top-bar-h) + 8px); }   /* Home unchanged */
+#app-main-stage > #view-home { padding-top: calc(var(--top-bar-h) + 8px); }   /* Home: 8px under the solid bar so the date never touches it */

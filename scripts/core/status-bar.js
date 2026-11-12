@@ -36,7 +36,8 @@ function applyTopBarSurface(surface) {
     const titleEl = document.getElementById('app-top-bar-title');
     if (!topBar) return;
 
-    topBar.classList.toggle('on-dark', ['home-dark', 'emerald', 'rain', 'slate', 'blue'].includes(surface));
+    // App-wide dark theme: every surface is dark, so the bar always uses white ink
+    topBar.classList.toggle('on-dark', true);
 
     if (surface === 'home-dark') {
         // Home is a dark (Tesla-style) screen: the bar is the same near-black, no edge
@@ -70,19 +71,20 @@ function applyTopBarSurface(surface) {
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#2563eb', true);
     } else if (surface === 'light-scrolled') {
-        topBar.style.background = '#ffffff';
-        topBar.style.borderColor = 'rgba(15, 23, 42, 0.06)';
-        topBar.style.boxShadow = '0 6px 20px -6px rgba(15, 23, 42, 0.06)';
-        if (titleEl) { titleEl.classList.remove('text-white'); titleEl.classList.add('text-slate-900'); }
-        setStatusBarThemeColor('#ffffff', false);
+        // Content scrolled under the bar: solid page colour with a faint hairline (dark theme)
+        topBar.style.background = '#08080a';
+        topBar.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+        topBar.style.boxShadow = 'none';
+        if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
+        setStatusBarThemeColor('#08080a', true);
     } else {
         // Default 'light-top': clear, so the screen and its ambient glow show through (the page runs under
-        // the bar, styles/top-bar.css); the status bar colour stays the #F3F4F6 page colour
+        // the bar, styles/top-bar.css); the status bar matches the dark page
         topBar.style.background = 'transparent';
         topBar.style.borderColor = 'transparent';
         topBar.style.boxShadow = '';
-        if (titleEl) { titleEl.classList.remove('text-white'); titleEl.classList.add('text-slate-900'); }
-        setStatusBarThemeColor('#F3F4F6', false);
+        if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
+        setStatusBarThemeColor('#08080a', true);
     }
 }
 
@@ -108,7 +110,7 @@ function syncDynamicStatusBar() {
     const isModalOpen = (modalOverlay && !modalOverlay.classList.contains('opacity-0')) ||
                         (transferOverlay && !transferOverlay.classList.contains('opacity-0'));
     if (isModalOpen) {
-        setStatusBarThemeColor('#e4e6ec', false);
+        setStatusBarThemeColor('#08080a', true);
         return;
     }
 

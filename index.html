@@ -48,6 +48,7 @@
     <link rel="stylesheet" href="styles/home-dark.css">
     <link rel="stylesheet" href="styles/site-card.css">
     <link rel="stylesheet" href="styles/icons.css">
+    <link rel="stylesheet" href="styles/dark-theme.css">
 </head>
 <body class="bg-slate-950 sm:bg-slate-950 text-gray-900 sm:h-full sm:flex sm:justify-center sm:items-center font-sans antialiased selection:bg-brand-lime selection:text-black">
     
@@ -183,9 +184,9 @@
                             aria-label="Activity and Notifications" 
                             title="Notifications" 
                             class="top-bar-icon relative">
-                        <i id="notif-top-icon" class="fa-solid fa-bell" aria-hidden="true"></i>
+                        <i id="notif-top-icon" class="fa-solid fa-bell" data-icon-weight="bold" aria-hidden="true"></i>
                         <!-- Apple-style Unread Notification Counter Badge -->
-                        <span id="notif-badge-count" class="absolute top-0.5 right-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black leading-none flex items-center justify-center border-2 border-[#F3F4F6] shadow-sm pointer-events-none transition-transform duration-200">3</span>
+                        <span id="notif-badge-count" class="absolute min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black leading-none flex items-center justify-center border-2 border-[#08080a] shadow-sm pointer-events-none transition-transform duration-200">3</span>
                     </button>
 
                     <!-- Hamburger Menu Button (Squircle - 48x48px) -->
@@ -369,22 +370,31 @@
 <main id="view-home" class="view-section flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-4 pb-8">
     <!-- HERO: header, greeting and the Lugarno card sit directly on the page (no outer frame);
          the obsidian page + ambient green glow come from styles/home-dark.css -->
-<div class="relative pt-2 group">
+<div class="relative group">
         <div class="relative z-10">
-            <!-- HERO HEADER: date (left) + weather (right) on one row, greeting below -->
-            <div class="flex items-center justify-between gap-3 mb-2 pt-1">
-                <p class="min-w-0 flex items-center gap-2 text-sm font-extrabold tracking-wider text-emerald-300 uppercase tabular-nums">
+            <!-- HERO HEADER (styles/home-dark.css): two columns. Left: date flush to the top, greeting below.
+                 Right: the weather widget stretches to the full height of that stack. -->
+            <div class="hero-header">
+                <div class="hero-header-text">
+                <p class="hero-date-line min-w-0 flex items-center gap-2 text-sm font-extrabold tracking-wider text-emerald-300 uppercase tabular-nums">
                     <i class="fa-regular fa-calendar text-[13px] text-emerald-300" aria-hidden="true"></i>
                     <!-- Filled by updateHeroGreetingAndDate() in scripts/features/weather.js, e.g. "WED 11 NOV" -->
                     <span id="hero-date">WED 11 NOV</span>
                 </p>
 
-                <!-- Weather: icon hugs a temperature / condition stack -->
+                <!-- Greeting: 32px / 700 / 1.12 / -0.02em (styles/home-dark.css) -->
+                <h1 class="hero-greeting text-white">
+                    <span class="block"><span id="hero-salutation">Good evening</span>,</span>
+                    <span id="hero-user-name" class="block text-brand-lime drop-shadow-[0_0_12px_rgba(163,230,53,0.35)]">Alexander</span>
+                </h1>
+                </div>
+
+                <!-- Weather: icon above a temperature / condition stack -->
                 <button type="button"
                         id="hero-weather-module"
                         onclick="openWidgetDetail('weather')"
                         aria-label="Current weather in Lugarno: 21 degrees, Partly Cloudy. Tap for details."
-                        class="group/weather shrink-0 flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/[0.08] hover:border-emerald-500/30 backdrop-blur-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-lime shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
+                        class="hero-weather group/weather shrink-0 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 border border-white/[0.08] hover:border-emerald-500/30 backdrop-blur-xl transition-[background-color,border-color,transform] duration-200 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-lime shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
                     <span id="hero-weather-icon" data-icon-lib="fa" data-wx-tone="partly" class="text-cyan-300 text-2xl transition-transform duration-300 group-hover/weather:scale-110 drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]" aria-hidden="true">
                         <i class="fa-solid fa-cloud-sun"></i>
                     </span>
@@ -394,13 +404,6 @@
                     </span>
                 </button>
             </div>
-
-            <!-- Greeting -->
-            <!-- mb-4: 16px rhythm between Home sections (header, hero card, quick actions, list) -->
-            <h1 class="mb-4 text-2xl sm:text-[28px] font-extrabold tracking-[-0.02em] leading-[1.2] text-white">
-                <span class="block"><span id="hero-salutation">Good evening</span>,</span>
-                <span id="hero-user-name" class="block text-brand-lime drop-shadow-[0_0_12px_rgba(163,230,53,0.35)]">Alexander</span>
-            </h1>
 
             <!-- ULTRA-MINIMAL APPLE GLASS SITE CARD WRAPPER WITH OPAL GLOWING BORDER BEAM -->
             <div class="relative group/site-wrap">
@@ -510,13 +513,12 @@
                             <div class="sc-track-now"></div>
                         </div>
 
-                        <!-- Time Labels: 7:00 AM (left), current time while signed in (middle), 3:30 PM (right) -->
+                        <!-- Time Labels: shift start (left end of the track) and end (right end); the moving dot shows now -->
                         <div class="sc-times">
                             <span class="sc-time">
                                 <i class="fa-regular fa-clock" aria-hidden="true"></i>
                                 <span>7:00 AM</span>
                             </span>
-                            <span id="site-shift-now" class="sc-time-now" aria-hidden="true"></span>
                             <span class="sc-time">3:30 PM</span>
                         </div>
                     </div>
@@ -1067,7 +1069,7 @@
                  aria-modal="true" 
                  aria-labelledby="transfer-modal-title" 
                  aria-describedby="transfer-modal-subtitle"
-                 class="relative w-full sm:max-w-md bg-[#F2F2F7]/95 backdrop-blur-3xl text-slate-900 rounded-t-hero sm:rounded-hero shadow-[0_-14px_44px_rgba(15,23,42,0.14),0_0_1px_rgba(15,23,42,0.08),inset_0_1px_1px_rgba(255,255,255,1)] border-t border-x sm:border border-white/90 transform translate-y-[120%] max-h-[84dvh] sm:max-h-[86vh] flex flex-col overflow-hidden will-change-transform pb-3" style="background-color: rgba(242, 242, 247, 0.97); padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));">
+                 class="relative w-full sm:max-w-md bg-[#121215]/95 backdrop-blur-3xl text-slate-900 rounded-t-hero sm:rounded-hero shadow-[0_-14px_44px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] border-t border-x sm:border border-white/90 transform translate-y-[120%] max-h-[84dvh] sm:max-h-[86vh] flex flex-col overflow-hidden will-change-transform pb-3" style="background-color: rgba(18, 18, 21, 0.97); padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));">
                 
                 <!-- Dynamic Apple Ambient Glow Orbs -->
                 <div id="transfer-sheet-glow-1" class="absolute -top-16 -left-10 w-52 h-52 bg-slate-300/15 rounded-full blur-[65px] pointer-events-none transition-colors duration-500"></div>

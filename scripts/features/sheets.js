@@ -83,7 +83,7 @@ function openProfileModal() {
                             font-size: 1.25rem;
                             font-weight: 900;
                             letter-spacing: -0.03em;
-                            color: #0f172a;
+                            color: var(--ink-primary);
                         }
                     </style>
                     <div class="relative flex items-center">

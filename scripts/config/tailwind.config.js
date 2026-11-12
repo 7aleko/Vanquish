@@ -26,7 +26,7 @@ tailwind.config = {
             colors: {
                 limeAccent: '#D2F818',
                 appDark: '#121820',
-                appBg: '#F3F4F6',
+                appBg: '#08080a',                // app-wide dark page (matches Home)
                 brandBlue: '#007AFF',
                 rainBg: '#0F172A',
                 brand: {
@@ -59,10 +59,11 @@ tailwind.config = {
                 '400': '400ms',
             },
             boxShadow: {
-                '2xs': '0 1px rgb(0 0 0 / 0.05)',
-                'xs': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-                'apple': '0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04)',
-                'apple-lg': '0 20px 40px -10px rgba(0, 0, 0, 0.12), 0 8px 16px -4px rgba(0, 0, 0, 0.06)',
+                // Dark theme: shadows are deeper (they sit on near-black) and carry no white glow
+                '2xs': '0 1px rgb(0 0 0 / 0.3)',
+                'xs': '0 1px 2px 0 rgb(0 0 0 / 0.3)',
+                'apple': '0 10px 30px -8px rgba(0, 0, 0, 0.5), 0 4px 12px -4px rgba(0, 0, 0, 0.3)',
+                'apple-lg': '0 20px 40px -12px rgba(0, 0, 0, 0.6), 0 8px 16px -6px rgba(0, 0, 0, 0.35)',
                 'glow': '0 0 25px -5px rgba(204, 255, 0, 0.4)',
                 'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
             }

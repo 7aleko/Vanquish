@@ -45,6 +45,9 @@
     opacity: 0.32;
     filter: blur(12px);
     mix-blend-mode: screen;
+    /* The blur spreads past the rounded corners and a mask only clips to the square box, which left
+       sharp green corners. Clip the result to the card's radius. */
+    clip-path: inset(0 round 24px);
 }
 
 /* 2. Permanent Subtle Iridescent Base Glass Rim (Muted Lime on Left, Muted Cyan on Right) */
@@ -161,9 +164,10 @@
 .hero-site-grid .hero-site-name { grid-area: name; margin-top: 8px; }
 .hero-site-grid .hero-site-address { grid-area: address; margin-top: 4px; }
 
-/* Too narrow for status + control side by side (status label ~108px + 8px gap + 130px control): the control
-   becomes a wide Control Centre module under the address instead of wrapping awkwardly. */
-@container (max-width: 246px) {
+/* Too narrow for status + control side by side (longest status, "Shift Completed" at 13px with its dot,
+   ~146px + 8px gap + 130px control): the control becomes a wide Control Centre module under the address
+   instead of colliding with the label. */
+@container (max-width: 286px) {
     .hero-site-grid {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: "status" "name" "address" "action";
@@ -314,6 +318,6 @@
     .liquid-glass, .true-glass, .apple-inset-group, .apple-list-group, #modal-content, #tool-transfer-sheet, .glass-card-apple, .glass-tile-apple {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        background: #ffffff !important;
+        background: #141416 !important;   /* dark theme: solid version of the smoked glass */
     }
 }

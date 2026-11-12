@@ -3,7 +3,7 @@
 /* 4. Smooth Apple Tab Switch Fade & Spring Scale */
 /* ================= APPLE TAB SWITCH & SUBPAGE SLIDE-AWAY CHOREOGRAPHY ================= */
 .view-section {
-    background-color: #F3F4F6;
+    background-color: var(--surface-app, #08080a);   /* dark theme page colour (Home) */
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     transform-origin: center center;

@@ -28,9 +28,11 @@ i.ph-icon::before { content: none !important; }
 /* Standard (top bar): 24px */
 .top-bar-icon i.ph-icon { width: 24px; height: 24px; }
 .top-bar-icon i.ph-icon > span { font-size: 24px; }
-/* Home navigation (Quick Actions, Home list): 20px, monochrome zinc-400 */
-.qa-icon i.ph-icon, .home-nav-icon i.ph-icon { width: 20px; height: 20px; }
-.qa-icon i.ph-icon > span, .home-nav-icon i.ph-icon > span { font-size: 20px; }
+/* Home navigation, monochrome zinc-400: Quick Action tiles 24px, Home list 20px */
+.qa-icon i.ph-icon { width: 24px; height: 24px; }
+.qa-icon i.ph-icon > span { font-size: 24px; }
+.home-nav-icon i.ph-icon { width: 20px; height: 20px; }
+.home-nav-icon i.ph-icon > span { font-size: 20px; }
 /* Secondary (back / screen actions in round buttons): 20px */
 .nav-back i.ph-icon, .nav-action i.ph-icon { width: 20px; height: 20px; }
 .nav-back i.ph-icon > span, .nav-action i.ph-icon > span { font-size: 20px; }

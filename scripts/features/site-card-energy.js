@@ -20,7 +20,6 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
     const canvas = card && card.querySelector('.sc-energy-canvas');
     if (!card || !canvas) return;
 
-    const nowLabel = document.getElementById('site-shift-now');
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const RENDER_SCALE = 0.6;
 
@@ -30,17 +29,9 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
         const mins = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
         return Math.max(0, Math.min(1, (mins - SITE_SHIFT_START) / (SITE_SHIFT_END - SITE_SHIFT_START)));
     };
-    const fmt = (mins) => {
-        let h = Math.floor(mins / 60);
-        const m = Math.floor(mins % 60);
-        const ap = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return `${h}:${String(m).padStart(2, '0')} ${ap}`;
-    };
 
     let shownP = realProgress();
     let shownOn = signedIn();
-    let lastLabel = '';
 
     // Ease the shown values toward the real ones. Returns true while still moving.
     function updateState() {
@@ -53,10 +44,8 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
 
         card.style.setProperty('--p', shownP.toFixed(4));
         card.style.setProperty('--on', shownOn.toFixed(4));
-        if (nowLabel) {
-            const label = fmt(SITE_SHIFT_START + shownP * (SITE_SHIFT_END - SITE_SHIFT_START));
-            if (label !== lastLabel) { nowLabel.textContent = label; lastLabel = label; }
-        }
+        // "Signed In" -> "Shift Completed" once the clock passes the shift end (no-op unless it changes)
+        if (typeof renderSiteSignedInStatus === 'function') renderSiteSignedInStatus();
         return shownP !== targetP || shownOn !== targetOn;
     }
 

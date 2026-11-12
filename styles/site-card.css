@@ -87,6 +87,16 @@
     mask-composite: exclude;
 }
 
+/* Every surface layer is clipped to the card's own rounded corners. The card's overflow:hidden is not
+   enough on WebKit: a backdrop blur and a composited WebGL canvas escape a parent's border-radius and show
+   as square corners of green. */
+#site-hero-card .sc-energy-canvas,
+#site-hero-card .sc-frost,
+#site-hero-card .sc-grain {
+    border-radius: inherit;
+    clip-path: inset(0 round 24px);
+}
+
 /* The old ambient bottom gradient is superseded by the energy shader */
 #site-hero-card .hero-ambient-progress { display: none; }
 
@@ -109,13 +119,15 @@
 /* Status (attendance.js swaps its colour classes; type and dot come from here) */
 #site-hero-card #site-status-kicker {
     gap: 8px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 #site-hero-card #site-status-kicker.text-amber-400 { color: var(--sc-amber); }
 #site-hero-card #site-status-kicker.text-brand-lime { color: var(--sc-lime); }
+/* Shift over but still signed in (attendance.js): calmer jade instead of the live lime */
+#site-hero-card #site-status-kicker[data-state="completed"] { color: var(--sc-mint); }
 #site-hero-card #site-status-kicker > span:first-child,
 #site-hero-card #site-status-kicker > span:first-child > span {
     width: 7px;
@@ -138,9 +150,9 @@
 #site-hero-card .hero-site-grid .hero-site-address {
     margin-top: 0;
     gap: 8px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 400;
-    color: var(--sc-muted);
+    color: rgba(255, 255, 255, 0.9);
 }
 #site-hero-card .hero-site-address i { font-size: 12px; color: currentColor; }
 
@@ -177,17 +189,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
-    color: rgba(235, 242, 238, 0.85);
-}
-#site-hero-card .sc-time { display: flex; align-items: center; gap: 7px; }
-#site-hero-card .sc-time i { font-size: 11px; color: currentColor; }
-#site-hero-card .sc-time-now {
-    color: #b8ffe0;                            /* pale mint */
-    opacity: var(--on);
+    color: rgba(255, 255, 255, 0.9);
     font-variant-numeric: tabular-nums;
 }
+/* Two labels only: start under the track's left end, end under its right end */
+#site-hero-card .sc-time { display: flex; align-items: center; gap: 7px; }
+#site-hero-card .sc-time i { font-size: 12px; color: currentColor; }
 
 /* ---- Sign In control: lime capsule (rounded-full) with an inner glass ring; dark glass once signed in ----
    (Size, label roll and icon swap are unchanged in behaviour; see styles/attendance.css.) */
@@ -195,15 +204,20 @@
     border-color: rgba(255, 255, 255, 0.25);
     box-shadow: 0 6px 22px -6px rgba(204, 255, 0, 0.55);
 }
+/* Signed in (Sign Out): a darker, more opaque glass with a clearly visible rim and a lit top edge,
+   so it reads as a solid control over the bright energy outdoors */
 #site-hero-card #site-signin-btn.is-signed-in {
-    background: rgba(10, 14, 12, 0.55);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: none;
+    background: rgba(4, 10, 9, 0.72);
+    border-color: rgba(255, 255, 255, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 14px -6px rgba(0, 0, 0, 0.6);
 }
 #site-hero-card #site-signin-btn.is-signed-in #site-btn-icon-box {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.16);
     box-shadow: none;
 }
+#site-hero-card #site-signin-btn .apple-control-label { font-weight: 700; }
+#site-hero-card #site-label-signin { color: #0c0f05; }          /* dark ink on the lime pill */
+#site-hero-card #site-label-signout { color: #ffffff; }
 #site-hero-card #site-signin-btn #site-btn-icon-box i { font-size: 15px; }
 /* Chrome doesn't clip a backdrop blur to its parent's rounded overflow: round the pill's frosted
    base layer itself to the capsule. */

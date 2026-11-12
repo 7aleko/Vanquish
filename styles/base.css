@@ -126,38 +126,38 @@ button, [role="button"], [role="tab"], .nav-btn {
     transition: transform 0.12s var(--ease-out), opacity 0.12s ease !important;
 }
 .apple-inset-group {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.05);          /* dark theme: Home's smoked glass */
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
     border-radius: 28px;
     overflow: hidden;
 }
 .apple-list-group {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.05);          /* dark theme: Home's smoked glass */
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
     border-radius: 24px;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
     overflow: hidden;
 }
 .apple-list-item {
     transition: background-color 0.2s ease, transform 0.15s var(--ease-out);
 }
 .apple-list-item:active {
-    background-color: rgba(241, 245, 249, 0.9);
+    background-color: rgba(255, 255, 255, 0.06);
     transform: scale(0.99);
 }
 
 .true-glass {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 100%);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.04) 100%);   /* dark theme */
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 15px 35px 0 rgba(0, 0, 0, 0.08), 
-                inset 0 1px 0 0 rgba(255, 255, 255, 1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 .true-glass-emerald {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.08) 100%);

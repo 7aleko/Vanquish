@@ -20,25 +20,31 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 4px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;                        /* label -> tiles */
 }
 
 .quick-actions-title {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
+    line-height: 16px;
     letter-spacing: 0.08em;
     color: #94a3b8;
     text-transform: uppercase;
 }
 
+/* 44px tap target; the negative margins keep it from changing the header's height */
 .quick-actions-action {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
+    line-height: 16px;
     color: #94a3b8;
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 2px 4px;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -14px -8px -14px 0;
+    padding: 0 8px;
     transition: color 150ms ease;
 }
 .quick-actions-action:hover {
@@ -62,7 +68,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 14px 8px;                         /* py-3.5 px-2 */
+    padding: 12px 8px;                         /* 2px less than before, so the 24px icon keeps the tile height */
     border-radius: 16px;                       /* rounded-2xl */
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -79,7 +85,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 20px;
+    height: 24px;
     color: var(--home-icon, #a1a1aa);
     line-height: 1;
 }
@@ -236,7 +242,7 @@
 .home-nav-chevron {
     flex-shrink: 0;
     font-size: 13px;
-    color: #52525b;                            /* zinc-600 */
+    color: #8a8a94;                            /* 4.9:1 on the list glass (was zinc-600, 2.6:1) */
 }
 
 @media (prefers-reduced-motion: reduce) {

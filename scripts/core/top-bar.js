@@ -78,3 +78,18 @@ function updateTopBarInlineTitle() {
     }
     bar.classList.toggle('is-title-collapsed', collapsed);
 }
+
+// The bar floats over the screens (styles/top-bar.css), so each screen starts --top-bar-h below the top.
+// The CSS gives that height as a formula; measure the real bar too, so a device whose bar renders taller
+// (safe-area, text size) can never tuck the first line of content (Home's date) underneath it.
+(function syncTopBarHeight() {
+    const bar = document.getElementById('app-top-bar');
+    const stage = document.getElementById('app-main-stage');
+    if (!bar || !stage || typeof ResizeObserver === 'undefined') return;
+    const apply = () => {
+        const h = bar.offsetHeight;                 // layout height: unaffected by the drawer's 3D transform
+        if (h > 0) stage.style.setProperty('--top-bar-h', `${h}px`);
+    };
+    new ResizeObserver(apply).observe(bar);
+    apply();
+})();

@@ -54,6 +54,36 @@ function triggerGlowSurge(isOpening) {
     }
 }
 
+/**
+ * True once a signed-in shift reaches its scheduled end (SITE_SHIFT_END, local time, from
+ * scripts/features/site-card-energy.js). Only the status label changes: the employee stays signed in
+ * until they tap Sign Out themselves.
+ */
+function isSiteShiftCompleted() {
+    if (!isSiteSignedIn || typeof SITE_SHIFT_END === 'undefined') return false;
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes() >= SITE_SHIFT_END;
+}
+
+// Status label above the site name: "Signed In" -> "Shift Completed" at the end of the shift.
+// Called by updateSiteAttendanceUI() and by the card's clock tick (site-card-energy.js), which only
+// rewrites the label when the state actually changes.
+function renderSiteSignedInStatus() {
+    const kicker = document.getElementById('site-status-kicker');
+    const btn = document.getElementById('site-signin-btn');
+    if (!kicker || !btn || !isSiteSignedIn) return;
+
+    const completed = isSiteShiftCompleted();
+    const state = completed ? 'completed' : 'signed-in';
+    if (kicker.dataset.state === state) return;
+    kicker.dataset.state = state;
+
+    const label = completed ? 'Shift Completed' : 'Signed In';
+    kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-brand-lime uppercase whitespace-nowrap";
+    kicker.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-brand-lime shadow-[0_0_6px_rgba(204,255,0,0.8)]"></span></span><span>${label}</span>`;
+    btn.setAttribute('aria-label', `Site attendance: ${label}. Tap to Sign Out.`);
+}
+
 function updateSiteAttendanceUI() {
     const kicker = document.getElementById('site-status-kicker');
     const btn = document.getElementById('site-signin-btn');
@@ -63,14 +93,13 @@ function updateSiteAttendanceUI() {
     if (!btn || !kicker) return;
 
     if (isSiteSignedIn) {
-        // Bolder text above Lugarno: "Signed In"
-        kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-brand-lime uppercase whitespace-nowrap";
-        kicker.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-brand-lime shadow-[0_0_6px_rgba(204,255,0,0.8)]"></span></span><span>Signed In</span>`;
+        // Bolder text above Lugarno: "Signed In", or "Shift Completed" once the shift has ended
+        delete kicker.dataset.state;
+        renderSiteSignedInStatus();
 
         // Apple Control Centre transition: activate signed-in state
         btn.classList.add('is-signed-in');
         btn.title = "Tap to Sign Out";
-        btn.setAttribute('aria-label', "Site attendance: Signed In. Tap to Sign Out.");
 
         // Track fill width / opacity follow the real shift clock (scripts/features/site-card-energy.js)
 
@@ -80,6 +109,7 @@ function updateSiteAttendanceUI() {
         }
     } else {
         // Bolder text above Lugarno: "Not Signed In"
+        kicker.dataset.state = 'signed-out';
         kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-amber-400 uppercase whitespace-nowrap";
         kicker.innerHTML = `
                     <span class="relative flex h-2 w-2">

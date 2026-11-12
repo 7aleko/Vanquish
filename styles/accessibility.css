@@ -57,13 +57,14 @@
 
 /* Higher contrast: solid surfaces with defined edges */
 @media (prefers-contrast: more) {
+    /* Dark theme: near-solid dark surfaces, brighter edges and secondary text */
     .view-section [class*="bg-white/"] {
-        background-color: #ffffff !important;
+        background-color: #18181b !important;
     }
     .view-section [class*="border-white/"], .view-section [class*="border-slate-200/"] {
-        border-color: rgba(15, 23, 42, 0.28) !important;
+        border-color: rgba(255, 255, 255, 0.32) !important;
     }
     .text-slate-400, .text-slate-500 {
-        color: #475569 !important;
+        color: #d4d4d8 !important;
     }
 }

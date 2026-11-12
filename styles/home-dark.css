@@ -23,14 +23,76 @@
     padding-right: 16px;
 }
 
-/* Bell badge ring matches the dark bar */
+/* Bell badge: sits on the bell's top-right shoulder, clear of the bell body, with a ring that
+   matches the dark bar. The bell itself is the line (Bold) glyph, the same stroke as the menu icon. */
+#app-top-bar #notif-badge-count {
+    top: 3px;
+    left: 26px;
+    right: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 11px;
+}
 #app-top-bar.on-dark #notif-badge-count {
     border-color: #08080a;
 }
 
-/* Section label + Edit: quiet slate */
-#view-home .quick-actions-title { color: #8e9299; }
-#view-home .quick-actions-action { color: #8e9299; font-weight: 600; }
+/* ---- Hero header: two columns ----
+   Left: date flush with the top, greeting directly below. Right: the weather widget stretches to the
+   full height of that stack (top = date, bottom = "Alexander"), so the two always line up as the
+   greeting, date or weather text changes. */
+#view-home .hero-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;                       /* 16px rhythm between Home sections */
+    container-type: inline-size;               /* the greeting sizes from this row's width */
+}
+#view-home .hero-header-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+#view-home .hero-date-line { line-height: 14px; }   /* text box = cap height, so it sits flush with the widget top */
+#view-home .hero-greeting {
+    margin: 0;
+    /* 32px wherever the longest salutation ("Good afternoon,", 7.66em wide) fits beside the widget
+       (row width minus the 12px gap and ~96px widget), e.g. iPhone 16 Pro; narrower phones scale it down
+       just enough to stay on one line instead of wrapping to three. */
+    font-size: clamp(23px, calc((100cqi - 108px) / 7.66), 32px);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;                   /* a very long name wraps instead of pushing the widget */
+}
+#view-home .hero-weather {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 92px;
+    padding: 12px 14px 12px 12px;
+    /* The text column alone sets the row height; the widget fills it (height 0 + min-height 100%),
+       so its bottom always meets the bottom of "Alexander", never below it */
+    height: 0;
+    min-height: 100%;
+}
+#view-home #hero-weather-icon { font-size: 26px; line-height: 1; }
+/* Very narrow phones, where the greeting has scaled down: a slightly tighter widget to match */
+@container (max-width: 300px) {
+    #view-home .hero-weather { padding: 9px 12px 9px 10px; gap: 4px; }
+    #view-home #hero-weather-icon { font-size: 22px; }
+}
+
+/* Section label + Edit: lighter for legibility (AA on #08080A: label 7.6:1, Edit 13:1), still
+   quieter than the white tile labels */
+#view-home .quick-actions-title { color: #a1a1aa; }
+#view-home .quick-actions-action { color: #d4d4d8; font-weight: 600; }
 @media (hover: hover) and (pointer: fine) { #view-home .quick-actions-action:hover { color: #ffffff; } }
 
 /* Hero weather glyph: a lit gradient per condition, clipped to the icon, with a matching soft glow.

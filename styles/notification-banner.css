@@ -12,10 +12,11 @@
     display: flex;
     align-items: stretch;
     border-radius: 22px;
-    background: rgba(255, 255, 255, 0.82);
+    background: rgba(28, 28, 32, 0.82);              /* dark theme glass */
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     backdrop-filter: blur(24px) saturate(180%);
-    box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04), 0 12px 32px -10px rgba(2, 6, 23, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.6);
     color: var(--ink-primary, #0f172a);
     touch-action: none; /* the banner owns vertical drags (swipe up to dismiss) */
     transform: translateY(calc(-100% - 24px));

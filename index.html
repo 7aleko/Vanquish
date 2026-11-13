@@ -1015,18 +1015,19 @@
             <!-- Daily progress: net hours against the 8h day -->
             <section id="ts-hero" class="ts-hero" aria-live="polite">
                 <div class="ts-hero-ring">
-                    <svg viewBox="0 0 190 190" aria-hidden="true">
-                        <circle class="ts-hero-track" cx="95" cy="95" r="87"/>
-                        <circle id="ts-hero-fill" class="ts-hero-fill" cx="95" cy="95" r="87" transform="rotate(-90 95 95)"/>
-                        <!-- Overtime: a second lap over the first, led by a shadowed tip (Apple Fitness) -->
-                        <circle id="ts-hero-tip" class="ts-ring-tip" cx="95" cy="8" r="8" opacity="0"/>
-                        <circle id="ts-hero-lap2" class="ts-hero-lap2" cx="95" cy="95" r="87" transform="rotate(-90 95 95)"/>
+                    <!-- Activity ring (Apple Fitness): thick tinted track, first lap, then an overtime lap over it
+                         led by a shadowed tip; the arrow rides the leading end -->
+                    <svg viewBox="0 0 214 214" aria-hidden="true">
+                        <circle class="ts-hero-track" cx="107" cy="107" r="87"/>
+                        <circle id="ts-hero-fill" class="ts-hero-fill" cx="107" cy="107" r="87" transform="rotate(-90 107 107)"/>
+                        <circle id="ts-hero-tip" class="ts-ring-tip" cx="107" cy="20" r="20" opacity="0"/>
+                        <circle id="ts-hero-lap2" class="ts-hero-lap2" cx="107" cy="107" r="87" transform="rotate(-90 107 107)"/>
+                        <path id="ts-hero-arrow" class="ts-hero-arrow" d="M-7 0 H6 M0 -6 L6 0 L0 6" opacity="0"/>
                     </svg>
                     <div class="ts-hero-centre">
                         <span id="ts-hero-hours" class="ts-hero-hours">0.0h</span>
                         <span id="ts-hero-sub" class="ts-hero-sub">of 8.0h</span>
                         <span id="ts-hero-ot" class="ts-ot-pill" hidden></span>
-                        <span id="ts-hero-site" class="ts-hero-site"></span>
                     </div>
                 </div>
             </section>
@@ -1056,70 +1057,73 @@
             </section>
 
             <!-- Inline editor -->
-            <section id="ts-editor" class="ts-card ts-editor" aria-labelledby="ts-editor-title">
+            <section id="ts-editor" class="ts-card ts-editor" data-mode="edit" aria-labelledby="ts-editor-title">
                 <div class="ts-editor-head">
-                    <div class="ts-editor-heading">
-                        <h3 id="ts-editor-title" class="ts-editor-title"></h3>
-                        <p class="ts-editor-address"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span id="ts-editor-address"></span></p>
-                    </div>
+                    <h3 id="ts-editor-title" class="ts-editor-title"></h3>
                     <span id="ts-editor-status" class="ts-status-pill"></span>
                 </div>
-                <p id="ts-draft-note" class="ts-draft-note" hidden><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</p>
 
-                <div id="ts-site-select" class="ts-segmented" role="radiogroup" aria-label="Site">
-                    <button type="button" class="ts-seg" role="radio" data-site="lugarno" onclick="setTimesheetSite('lugarno')">Lugarno</button>
-                    <button type="button" class="ts-seg" role="radio" data-site="yowie-bay" onclick="setTimesheetSite('yowie-bay')">Yowie Bay</button>
-                    <button type="button" class="ts-seg" role="radio" data-site="castlecrag" onclick="setTimesheetSite('castlecrag')">Castlecrag</button>
+                <!-- Site: the day's roster site, preselected; tap to search all sites -->
+                <button type="button" id="ts-site-row" class="ts-site-row" onclick="toggleTimesheetSitePicker()" aria-controls="ts-site-picker" aria-expanded="false">
+                    <i class="fa-solid fa-location-dot ts-site-pin" aria-hidden="true"></i>
+                    <span class="ts-site-text">
+                        <span class="ts-site-line"><span id="ts-site-name" class="ts-site-name"></span><span id="ts-site-badge" class="ts-site-badge" hidden></span></span>
+                        <span id="ts-site-address" class="ts-site-address"></span>
+                    </span>
+                    <i class="ph-bold ph-caret-down ts-site-caret" aria-hidden="true"></i>
+                </button>
+                <p id="ts-site-error" class="ts-inline-error" aria-live="polite"></p>
+                <div id="ts-site-picker" class="ts-drawer ts-site-picker">
+                    <div id="ts-site-picker-inner" class="ts-drawer-inner" inert>
+                        <div class="ts-site-search-wrap">
+                            <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
+                            <input id="ts-site-search" type="search" class="ts-site-search" placeholder="Search sites" aria-label="Search sites" autocomplete="off" enterkeyhint="search">
+                        </div>
+                        <div id="ts-site-list" class="ts-site-list" role="listbox" aria-label="Sites"></div>
+                    </div>
                 </div>
 
                 <!-- Crew reference: the same drawer the bar's Crew button opens -->
                 <button type="button" id="ts-crew-link" class="ts-crew-link" onclick="toggleTimesheetCrew(false)" aria-controls="ts-crew-drawer" aria-expanded="false">
                     <i class="ph-bold ph-users-three" aria-hidden="true"></i>
-                    <span id="ts-crew-link-label">See crew logs for this day</span>
-                    <span id="ts-crew-link-count" class="ts-crew-count"></span>
+                    <span class="ts-crew-link-text"><span id="ts-crew-link-label">See crew logs for this day</span> <span id="ts-crew-link-count" class="ts-crew-count"></span></span>
                     <i class="ph-bold ph-caret-down ts-crew-caret" aria-hidden="true"></i>
                 </button>
-                <div id="ts-crew-drawer" class="ts-crew-drawer" aria-hidden="true">
-                    <div id="ts-crew-drawer-inner" class="ts-crew-drawer-inner" inert>
+                <div id="ts-crew-drawer" class="ts-drawer ts-crew-drawer" aria-hidden="true">
+                    <div id="ts-crew-drawer-inner" class="ts-drawer-inner" inert>
                         <p id="ts-crew-context" class="ts-crew-context"></p>
                         <div id="ts-crew-list" class="ts-crew-list"></div>
                     </div>
                 </div>
 
-                <div class="ts-times">
-                    <label class="ts-field">
-                        <span class="ts-field-label">Start</span>
-                        <input id="ts-start" type="time" class="ts-input" value="07:00" oninput="onTimesheetInput()" onchange="onTimesheetInput()">
-                    </label>
-                    <label class="ts-field">
-                        <span class="ts-field-label">Finish</span>
-                        <input id="ts-finish" type="time" class="ts-input" value="15:30" oninput="onTimesheetInput()" onchange="onTimesheetInput()">
-                    </label>
+                <!-- State A: submitted, read-only cards (one per cost-coded block) -->
+                <div id="ts-submitted" class="ts-submitted" hidden>
+                    <p id="ts-submitted-note" class="ts-submitted-note" role="status" hidden><i class="ph-fill ph-check-circle" aria-hidden="true"></i>Timesheet submitted</p>
+                    <div id="ts-summary-list" class="ts-summary-list"></div>
+                    <div class="ts-summary-total"><span class="ts-eyebrow">Day total</span><span id="ts-summary-total" class="ts-summary-total-value"></span></div>
                 </div>
 
-                <div id="ts-break-select" class="ts-segmented" role="radiogroup" aria-label="Unpaid break">
-                    <button type="button" class="ts-seg" role="radio" data-break="30" onclick="setTimesheetBreak(30)">30m unpaid</button>
-                    <button type="button" class="ts-seg" role="radio" data-break="0" onclick="setTimesheetBreak(0)">No break</button>
-                </div>
+                <!-- State B: editable time blocks -->
+                <div id="ts-edit" class="ts-edit">
+                    <p id="ts-draft-note" class="ts-draft-note" hidden><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</p>
+                    <div id="ts-block-list" class="ts-block-list"></div>
+                    <button type="button" class="ts-add-line" onclick="addTimesheetBlock()"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add Line</button>
 
-                <div class="ts-net-row">
-                    <div>
-                        <span class="ts-field-label">Net hours</span>
-                        <span id="ts-net-message" class="ts-net-message"></span>
+                    <div class="ts-total-box">
+                        <div class="ts-total-row">
+                            <span class="ts-eyebrow">Total net hours</span>
+                            <span id="ts-total" class="ts-total">0.0h</span>
+                        </div>
+                        <span class="ts-total-sub">Combined across all time blocks</span>
                     </div>
-                    <span id="ts-net" class="ts-net">8.0h</span>
+
+                    <button type="button" id="ts-submit" class="ts-save" onclick="submitTimesheet()">
+                        <i id="ts-submit-icon" class="ph-bold ph-paper-plane-tilt" aria-hidden="true"></i>
+                        <span id="ts-submit-label">Submit Timesheet</span>
+                    </button>
+                    <p id="ts-submit-hint" class="ts-save-hint" aria-live="polite"></p>
+                    <button type="button" id="ts-cancel" class="ts-cancel" onclick="cancelTimesheetEdit()" hidden>Cancel editing</button>
                 </div>
-
-                <label class="ts-field">
-                    <span class="ts-field-label">Task notes</span>
-                    <textarea id="ts-notes" class="ts-input ts-notes" rows="3" placeholder="Describe the work completed today..." oninput="onTimesheetInput()"></textarea>
-                </label>
-
-                <button type="button" id="ts-save" class="ts-save" onclick="saveTimesheet()">
-                    <i id="ts-save-icon" class="ph-bold ph-floppy-disk" aria-hidden="true"></i>
-                    <span id="ts-save-label">Save Timesheet</span>
-                </button>
-                <p id="ts-save-hint" class="ts-save-hint" aria-live="polite"></p>
             </section>
         </main>
 

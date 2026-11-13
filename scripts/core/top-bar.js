@@ -63,6 +63,8 @@ function syncTopBarMode() {
         bar.querySelectorAll('#nav-actions .nav-actions-group').forEach(g => {
             g.hidden = g.dataset.view !== view;
         });
+        // Time screen: shorten its date title if it would run into the Crew pill (timesheets.js)
+        if (view === 'time' && typeof tsFitBarTitle === 'function') tsFitBarTitle(tsSelectedDate());
     }
     topBarView = mode === 'nav' ? view : null;
 

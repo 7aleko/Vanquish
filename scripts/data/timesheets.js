@@ -1,22 +1,43 @@
 /**
- * Timesheets sample data (scripts/features/timesheets.js): sites, the pay-run calendar, the signed-in
- * worker's sample records and what the rest of the crew logged.
+ * Timesheets sample data (scripts/features/timesheets.js): sites, roster, cost codes, the signed-in
+ * worker's submitted days and what the rest of the crew logged.
  * Pure data - no logic. Loaded before all feature scripts.
  *
- * Every date is derived from real Date objects: records are written against "workday N of the current pay
- * run", so the scenario follows TIMESHEET_CONFIG.demoToday (or the real date when that is switched off)
- * instead of hard-coding calendar dates.
+ * Every date is derived from real Date objects: records and roster entries are written against "workday N
+ * of the current pay run", so the scenario follows TIMESHEET_CONFIG.demoToday (or the real date when that is
+ * switched off) instead of hard-coding calendar dates. Swap these for API responses to go live.
  */
 
+// The 11 active sites (the site picker lists them in this order)
 const TIMESHEET_SITES = {
-    'lugarno':    { id: 'lugarno',    name: 'Lugarno',    address: '935 Forest Road, Lugarno',     short: '935 Forest Rd' },
-    'yowie-bay':  { id: 'yowie-bay',  name: 'Yowie Bay',  address: '1a Yelambie Street, Yowie Bay', short: '1a Yelambie St' },
-    'castlecrag': { id: 'castlecrag', name: 'Castlecrag', address: '8C The Bulwark, Castlecrag',    short: '8C The Bulwark' }
+    'lugarno':          { id: 'lugarno',          name: 'Lugarno',          short: '935 Forest Rd' },
+    'yowie-bay':        { id: 'yowie-bay',        name: 'Yowie Bay',        short: '1a Yelambie St' },
+    'castlecrag':       { id: 'castlecrag',       name: 'Castlecrag',       short: '8C The Bulwark' },
+    'bondi':            { id: 'bondi',            name: 'Bondi',            short: '350 Bondi Rd' },
+    'coogee':           { id: 'coogee',           name: 'Coogee',           short: '14 Arden St' },
+    'sutherland-depot': { id: 'sutherland-depot', name: 'Sutherland Depot', short: 'Flora St Storage Yard' },
+    'cronulla':         { id: 'cronulla',         name: 'Cronulla',         short: 'Lot 4 Waterfront Esplanade' },
+    'caringbah':        { id: 'caringbah',        name: 'Caringbah',        short: 'Warehouse & Central Depot' },
+    'kirrawee':         { id: 'kirrawee',         name: 'Kirrawee',         short: '22 Bath Rd' },
+    'gymea':            { id: 'gymea',            name: 'Gymea',            short: '5 Gymea Bay Rd' },
+    'oatley':           { id: 'oatley',           name: 'Oatley',           short: '41 Mulga Rd' }
 };
-const TIMESHEET_SITE_ORDER = ['lugarno', 'yowie-bay', 'castlecrag'];
+const TIMESHEET_SITE_ORDER = Object.keys(TIMESHEET_SITES);
+
+// Cost codes a time block can be booked against
+const TIMESHEET_COST_CODES = [
+    { code: '001-2', title: 'Site Apprentice · PS' },
+    { code: '004-1', title: 'Demolition works · PS' },
+    { code: '006-1', title: 'Structural Framing · PS' },
+    { code: '006-4', title: 'Subfloor & Decking · PS' },
+    { code: '008-2', title: 'External Cladding & Eaves · PS' },
+    { code: '009-3', title: 'Internal Fix-Out & Joinery · PS' },
+    { code: '001-9', title: 'Site Prelim, Clean & Lockup · PS' }
+];
 
 const TIMESHEET_CONFIG = {
-    targetHours: 8,                          // a full day; the ring is full at this many net hours
+    userId: 'alexander-floratos',
+    targetHours: 8,                          // a full day; the ring closes at this many net hours
     defaultStart: '07:00',
     defaultFinish: '15:30',
     defaultBreakMins: 30,
@@ -27,72 +48,81 @@ const TIMESHEET_CONFIG = {
     demoToday: new Date(2026, 10, 13)
 };
 
-// The worker's saved shifts, by workday of the current pay run (0 = its first Monday, 9 = its second
-// Friday). Workday 8 (Thursday) is left out on purpose: it is the missed day. Workday 9 is today.
+// The worker's roster: site by workday of the pay run (repeats every pay run). null = not rostered that
+// day (the worker picks the site themselves).
+const TIMESHEET_ROSTER = ['lugarno', 'lugarno', 'yowie-bay', 'yowie-bay', 'castlecrag',
+                          'lugarno', 'lugarno', null, 'lugarno', 'lugarno'];
+
+// Submitted days, by workday of the current pay run (0 = its first Monday, 9 = its second Friday).
+// Workday 8 (Thursday) is the missed day; workday 9 is today, not yet logged. Totals: 65.5h over 8 days,
+// with one overtime day (9.5h).
 const TIMESHEET_SAMPLE_RECORDS = [
-    { workday: 0, site: 'lugarno',    start: '07:00', finish: '15:30', breakMins: 30, notes: 'Stood wall frames to ground floor, plumbed & braced east wall' },
-    { workday: 1, site: 'lugarno',    start: '07:00', finish: '16:00', breakMins: 30, notes: 'Fixed lintels over openings, installed temp bracing to stair void' },
-    { workday: 2, site: 'yowie-bay',  start: '07:00', finish: '15:30', breakMins: 30, notes: 'Set out deck footings, poured & levelled pier brackets' },
-    { workday: 3, site: 'yowie-bay',  start: '06:30', finish: '15:30', breakMins: 30, notes: 'Ran deck bearers & joists, checked falls to waterfront edge' },
-    { workday: 4, site: 'castlecrag', start: '07:00', finish: '15:30', breakMins: 30, notes: 'Stripped formwork, cleaned & stacked ply for reuse' },
-    { workday: 5, site: 'lugarno',    start: '07:00', finish: '15:30', breakMins: 30, notes: 'Pitched roof trusses to rear wing, fixed tie-downs' },
-    { workday: 6, site: 'lugarno',    start: '07:00', finish: '16:00', breakMins: 30, notes: 'Battened roof, fitted fascia & barge boards' },
-    { workday: 7, site: 'castlecrag', start: '07:00', finish: '15:30', breakMins: 30, notes: 'Framed internal partition walls, level 1' }
+    { workday: 0, site: 'lugarno', approval: 'approved', blocks: [
+        { code: '004-1', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Stripped existing subfloor framing, rear wing' },
+        { code: '006-1', start: '09:00', finish: '15:30', breakMins: 30, task: 'Stood & plumbed ground floor wall frames' } ] },
+    { workday: 1, site: 'lugarno', approval: 'approved', blocks: [
+        { code: '006-1', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Fixed lintels & trimmers over window openings' },
+        { code: '006-1', start: '12:00', finish: '16:00', breakMins: 30, task: 'Installed temp bracing to stair void' } ] },
+    { workday: 2, site: 'yowie-bay', approval: 'approved', blocks: [
+        { code: '006-4', start: '07:00', finish: '15:30', breakMins: 30, task: 'Set out deck footings, poured & levelled pier brackets' } ] },
+    { workday: 3, site: 'yowie-bay', approval: 'approved', blocks: [
+        { code: '006-4', start: '06:30', finish: '10:30', breakMins: 0,  task: 'Ran deck bearers to string lines' },
+        { code: '006-4', start: '10:30', finish: '16:30', breakMins: 30, task: 'Laid & fixed deck joists, checked falls to waterfront edge' } ] },
+    { workday: 4, site: 'castlecrag', approval: 'approved', blocks: [
+        { code: '004-1', start: '07:00', finish: '11:00', breakMins: 0,  task: 'Stripped slab edge formwork, level 1' },
+        { code: '001-9', start: '11:00', finish: '15:00', breakMins: 30, task: 'Cleaned & stacked formply, site lockup' } ] },
+    { workday: 5, site: 'lugarno', approval: 'awaiting', blocks: [
+        { code: '001-2', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Supervised apprentice on truss set-out' },
+        { code: '006-1', start: '09:00', finish: '15:30', breakMins: 30, task: 'Pitched rear wing trusses, fixed tie-downs' } ] },
+    { workday: 6, site: 'lugarno', approval: 'awaiting', blocks: [
+        { code: '008-2', start: '07:00', finish: '15:30', breakMins: 30, task: 'Fixed fascia, barge boards & eaves lining' } ] },
+    { workday: 7, site: 'castlecrag', approval: 'awaiting', blocks: [
+        { code: '009-3', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Framed internal partitions, units 3 & 4' },
+        { code: '009-3', start: '12:00', finish: '15:30', breakMins: 30, task: 'Set out door openings, fixed jamb studs' } ] }
 ];
 
-// Where the worker is rostered on each workday of a pay run (the editor's default site for a day with
-// no record). Repeats every pay run.
-const TIMESHEET_PLANNED_SITES = ['lugarno', 'lugarno', 'yowie-bay', 'yowie-bay', 'castlecrag',
-                                 'lugarno', 'lugarno', 'castlecrag', 'lugarno', 'lugarno'];
-
-// Who else logs time at each site, with their usual hours and the work they wrote up. Crew logs appear for
-// days up to and including today. A day's task is picked by its workday number, so it changes day to day.
+// What the rest of the crew submitted at each site. Each person has a few typical days ("plans"); a day's
+// plan is picked by its workday number, so logs change from day to day. Crew logs show for days that have
+// started. Sites missing here have no crew logs.
 const TIMESHEET_SITE_CREW = {
     'lugarno': [
-        { name: 'David Hilt', start: '07:00', finish: '15:30', breakMins: 30, tasks: [
-            'Stood & plumbed ground floor wall frames',
-            'Fixed lintels & trimmers over window openings',
-            'Installed stair void bracing & temp handrail',
-            'Pitched rear wing trusses, fixed tie-down straps',
-            'Set out & bolted perimeter bearers, north elevation'
+        { name: 'David Hilt', plans: [
+            [ { code: '004-1', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Cut out rotten bearers, north elevation' },
+              { code: '006-4', start: '09:00', finish: '15:30', breakMins: 30, task: 'Set out & bolted perimeter bearers, north elevation' } ],
+            [ { code: '006-1', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Stood & plumbed wall frames, ground floor' },
+              { code: '006-1', start: '12:00', finish: '15:30', breakMins: 30, task: 'Braced & tied off east wall' } ]
         ] },
-        { name: 'Curtis Bell', start: '07:00', finish: '16:00', breakMins: 30, tasks: [
-            'Sheeted ground floor with 19mm yellow tongue',
-            'Battened roof & set out valley boards',
-            'Fitted fascia, barge & gutter brackets',
-            'Framed bathroom nibs & installed noggings',
-            'Cut & fixed floor joists & blocking'
+        { name: 'Curtis Bell', plans: [
+            [ { code: '006-4', start: '07:00', finish: '10:00', breakMins: 0,  task: 'Cut & fixed floor joists & blocking' },
+              { code: '006-4', start: '10:00', finish: '16:00', breakMins: 30, task: 'Sheeted subfloor with 19mm yellow tongue' } ],
+            [ { code: '006-1', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Fixed lintels & trimmers over openings' },
+              { code: '008-2', start: '12:00', finish: '16:00', breakMins: 30, task: 'Fitted fascia & gutter brackets' } ]
         ] },
-        { name: 'James Begg', start: '06:30', finish: '15:00', breakMins: 30, tasks: [
-            'Cleared & stacked timber deliveries, site tidy',
-            'Cut packers & set bearer heights with laser',
-            'Fixed ceiling battens to garage',
-            'Installed window flashings, rear elevation'
+        { name: 'James Begg', plans: [
+            [ { code: '001-9', start: '06:30', finish: '08:30', breakMins: 0,  task: 'Site set-up, unloaded timber delivery' },
+              { code: '001-2', start: '08:30', finish: '15:00', breakMins: 30, task: 'Assisted bearer set-out, cut packers' } ],
+            [ { code: '006-1', start: '06:30', finish: '15:00', breakMins: 30, task: 'Fixed ceiling battens to garage' } ]
         ] }
     ],
     'yowie-bay': [
-        { name: 'Shaun Terry', start: '07:00', finish: '15:30', breakMins: 30, tasks: [
-            'Dug & poured deck pier footings',
-            'Set deck bearers to string lines',
-            'Laid spotted gum decking, first 20 boards',
-            'Built stair stringers to waterfront landing'
+        { name: 'Shaun Terry', plans: [
+            [ { code: '006-4', start: '07:00', finish: '15:30', breakMins: 30, task: 'Dug & poured deck pier footings' } ],
+            [ { code: '006-4', start: '07:00', finish: '11:00', breakMins: 0,  task: 'Set deck bearers to string lines' },
+              { code: '006-4', start: '11:00', finish: '15:30', breakMins: 30, task: 'Laid spotted gum decking, first 20 boards' } ]
         ] },
-        { name: 'Labour Hire 1', start: '07:00', finish: '15:00', breakMins: 30, tasks: [
-            'Barrowed concrete & cleaned tools',
-            'Moved decking packs down to the lower level',
-            'Site clean & skip loading'
+        { name: 'Labour Hire 1', plans: [
+            [ { code: '001-9', start: '07:00', finish: '15:00', breakMins: 30, task: 'Site clean & skip loading' } ]
         ] }
     ],
     'castlecrag': [
-        { name: 'Trent Jamieson', start: '07:00', finish: '15:30', breakMins: 30, tasks: [
-            'Stripped slab edge formwork, level 1',
-            'Framed internal partitions, units 3 & 4',
-            'Set out door openings & fixed jamb studs'
+        { name: 'Trent Jamieson', plans: [
+            [ { code: '009-3', start: '07:00', finish: '15:30', breakMins: 30, task: 'Framed internal partitions, level 1' } ],
+            [ { code: '004-1', start: '07:00', finish: '10:00', breakMins: 0,  task: 'Stripped slab edge formwork' },
+              { code: '009-3', start: '10:00', finish: '15:30', breakMins: 30, task: 'Set out door openings & fixed jamb studs' } ]
         ] },
-        { name: 'Lachlan Swatosch', start: '06:30', finish: '15:00', breakMins: 0, tasks: [
-            'Cleaned & stacked formply for reuse',
-            'Loaded out & sorted steel offcuts',
-            'Fixed noggings & blocking for cabinetry'
+        { name: 'Lachlan Swatosch', plans: [
+            [ { code: '001-9', start: '06:30', finish: '10:30', breakMins: 0,  task: 'Cleaned & stacked formply for reuse' },
+              { code: '009-3', start: '10:30', finish: '15:00', breakMins: 30, task: 'Fixed noggings & blocking for cabinetry' } ]
         ] }
     ]
 };

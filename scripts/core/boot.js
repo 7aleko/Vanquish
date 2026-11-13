@@ -45,6 +45,20 @@ function hydrateAppViews() {
     } catch (err) { console.warn('weather hydrate notice:', err); }
 }
 
+// Safari (WebKit) + the Tailwind Play CDN: classes in markup that JS renders during startup (the roster
+// cards, team list, tools, chats...) are marked as seen but never generated, so e.g. the roster's
+// w-[68px] / h-[72px] date tiles and card headers collapse on iPhone (Chrome is unaffected). Re-assigning
+// tailwind.config is the Play CDN's own trigger for a full rescan of the page; once after startup
+// rendering is enough (markup added later is picked up normally).
+let tailwindRescanned = false;
+function rescanTailwindClasses() {
+    if (tailwindRescanned) return;
+    tailwindRescanned = true;
+    try {
+        if (window.tailwind && window.tailwind.config) window.tailwind.config = Object.assign({}, window.tailwind.config);
+    } catch (err) { console.warn('Tailwind rescan notice:', err); }
+}
+
 function waitForTailwindAndLayout() {
     return new Promise((resolve) => {
         const start = performance.now();
@@ -115,6 +129,7 @@ function dismissPreloaderWhenReady() {
 
     allChecksPromise.then(() => {
         clearTimeout(safetyTimeout);
+        rescanTailwindClasses();               // before the splash fades, so every screen is styled
         forceDismissPreloader();
     });
 }
@@ -125,4 +140,4 @@ if (document.readyState === 'loading') {
 } else {
     dismissPreloaderWhenReady();
 }
-window.addEventListener('load', forceDismissPreloader);
+window.addEventListener('load', () => { rescanTailwindClasses(); forceDismissPreloader(); });

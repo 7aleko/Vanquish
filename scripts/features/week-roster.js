@@ -66,6 +66,16 @@ function shiftRosterWeek(direction) {
     applyRosterWeek(nextMonday);
 }
 
+// Opening Roster afresh (scripts/core/navigation.js): this week, every card collapsed and back on its
+// normal site (any rain-site switch is undone)
+function resetRosterView() {
+    ROSTER_DAY_IDS.forEach(id => { expandedRosterCards[id] = false; delete rosterCardStates[id]; });
+    const spacer = document.getElementById('roster-scroll-spacer');   // extra room left by a card scroll
+    if (spacer) spacer.style.height = '0px';
+    const today = (typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date();
+    applyRosterWeek(getMondayForDate(today));
+}
+
 function handleRosterDatePick(isoValue) {
     if (!isoValue) return;
     const parts = isoValue.split('-').map(Number);

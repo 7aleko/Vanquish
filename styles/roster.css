@@ -2,8 +2,9 @@
 
 /* Ultra-Authentic Apple Liquid Glass Roster Materials (Tuned for 120Hz Mobile Safari) */
 .glass-tile-apple {
-    /* Dark theme: Home's smoked glass */
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.04) 100%);
+    /* Dark theme: Home's smoked glass, over a solid page-colour base: the week's connector line runs
+       behind the tiles, and Safari's backdrop blur doesn't soften it, so a see-through tile showed it */
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.04) 100%), #08080a;
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
     border: 1px solid rgba(255, 255, 255, 0.08);

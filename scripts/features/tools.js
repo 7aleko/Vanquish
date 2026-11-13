@@ -33,6 +33,15 @@ function filterToolsDirectory() {
     renderToolsDirectory(filtered);
 }
 
+// Opening Tools afresh (scripts/core/navigation.js): no search, "All" category
+function resetToolsView() {
+    const input = document.getElementById('tools-search-input');
+    if (input) input.value = '';
+    currentToolCategory = 'all';
+    setActiveFilterPill(document.getElementById('tool-cat-all'));
+    filterToolsDirectory();
+}
+
 function clearToolsSearch() {
     const input = document.getElementById('tools-search-input');
     if (input) {

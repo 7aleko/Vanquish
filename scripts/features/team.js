@@ -191,6 +191,15 @@ function filterTeamCategory(category) {
     filterTeamDirectory();
 }
 
+// Opening Team afresh (scripts/core/navigation.js): no search, "All" category
+function resetTeamView() {
+    const input = document.getElementById('team-search-input');
+    if (input) input.value = '';
+    currentTeamCategory = 'all';
+    setActiveFilterPill(document.getElementById('team-cat-all'));
+    filterTeamDirectory();
+}
+
 function filterTeamDirectory() {
     const input = document.getElementById('team-search-input');
     const clearBtn = document.getElementById('team-clear-btn');

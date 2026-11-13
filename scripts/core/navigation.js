@@ -60,6 +60,28 @@ function navigateSubpageBack(fallbackTab = 'home') {
     switchTab(targetTab, { forceMode: 'pop' });
 }
 
+// Per-screen resets for a fresh open (each defined beside that screen's own state)
+const VIEW_FRESH_RESETTERS = {
+    week: () => typeof resetRosterView === 'function' && resetRosterView(),
+    team: () => typeof resetTeamView === 'function' && resetTeamView(),
+    tools: () => typeof resetToolsView === 'function' && resetToolsView()
+};
+
+function resetViewForFreshOpen(viewName, view) {
+    if (!view) return;
+    try {
+        const reset = VIEW_FRESH_RESETTERS[viewName];
+        if (reset) reset();
+    } catch (err) { console.warn('View reset notice:', err); }
+}
+
+// Scroll positions can only be set once the screen is displayed (a hidden element ignores scrollTop)
+function resetViewScroll(view) {
+    if (!view) return;
+    view.scrollTop = 0;
+    view.querySelectorAll('.filter-bar').forEach(bar => { bar.scrollLeft = 0; });
+}
+
 function switchTab(tabName, options = {}) {
     closeSideDrawer();
     if (!options.silentHaptic) {
@@ -111,6 +133,11 @@ function switchTab(tabName, options = {}) {
     }
 
     currentActiveViewName = toViewName;
+
+    // Opening a screen (push / tab) starts it fresh, like opening the page again; going back to it (pop)
+    // keeps it as it was, as on iOS
+    const isFreshOpen = fromViewName !== toViewName && transitionMode !== 'pop';
+    if (isFreshOpen) resetViewForFreshOpen(toViewName, incomingView);
 
     if (fromViewName !== toViewName && outgoingView && (transitionMode === 'push' || transitionMode === 'pop')) {
         const stage = document.getElementById('app-main-stage');
@@ -195,6 +222,9 @@ function switchTab(tabName, options = {}) {
             }
         });
     }
+
+    // Both branches above have displayed the incoming screen by now
+    if (isFreshOpen) resetViewScroll(incomingView);
 
     requestAnimationFrame(syncDynamicStatusBar);
 

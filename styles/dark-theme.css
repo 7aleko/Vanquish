@@ -79,52 +79,70 @@ html body .bg-white.rounded-full.shadow-sm,
 html body .bg-white.rounded-full.shadow-md { background-color: #ffffff; }
 
 /* Interaction states */
-html .hover\:bg-white:hover,
-html .hover\:bg-white\/40:hover,
-html .hover\:bg-white\/50:hover,
-html .hover\:bg-white\/60:hover,
-html .hover\:bg-white\/70:hover,
-html .hover\:bg-white\/75:hover,
-html .hover\:bg-white\/80:hover,
-html .hover\:bg-white\/85:hover,
-html .hover\:bg-white\/90:hover,
-html .hover\:bg-white\/95:hover,
-html .hover\:bg-slate-50:hover,
-html .hover\:bg-slate-50\/80:hover,
-html .hover\:bg-slate-100:hover,
-html .hover\:bg-slate-100\/80:hover,
-html .hover\:bg-gray-100:hover { background-color: rgba(255, 255, 255, 0.08); }
-html .hover\:bg-slate-200:hover,
-html .hover\:bg-slate-200\/90:hover,
-html .hover\:bg-slate-200\/80:hover,
-html .hover\:bg-gray-200:hover { background-color: rgba(255, 255, 255, 0.12); }
-html .hover\:bg-black:hover,
-html .hover\:bg-slate-900:hover,
-html .hover\:bg-slate-800:hover { background-color: #2a2a2f; }
-html .group:hover .group-hover\:bg-black,
-html .group:hover .group-hover\:bg-slate-900 { background-color: #2a2a2f; }
-html .group:hover .group-hover\:bg-white,
-html .group:hover .group-hover\:bg-slate-50,
-html .group:hover .group-hover\:bg-slate-100 { background-color: rgba(255, 255, 255, 0.08); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-white:hover,
+    html .hover\:bg-white\/40:hover,
+    html .hover\:bg-white\/50:hover,
+    html .hover\:bg-white\/60:hover,
+    html .hover\:bg-white\/70:hover,
+    html .hover\:bg-white\/75:hover,
+    html .hover\:bg-white\/80:hover,
+    html .hover\:bg-white\/85:hover,
+    html .hover\:bg-white\/90:hover,
+    html .hover\:bg-white\/95:hover,
+    html .hover\:bg-slate-50:hover,
+    html .hover\:bg-slate-50\/80:hover,
+    html .hover\:bg-slate-100:hover,
+    html .hover\:bg-slate-100\/80:hover,
+    html .hover\:bg-gray-100:hover { background-color: rgba(255, 255, 255, 0.08); }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-slate-200:hover,
+    html .hover\:bg-slate-200\/90:hover,
+    html .hover\:bg-slate-200\/80:hover,
+    html .hover\:bg-gray-200:hover { background-color: rgba(255, 255, 255, 0.12); }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-black:hover,
+    html .hover\:bg-slate-900:hover,
+    html .hover\:bg-slate-800:hover { background-color: #2a2a2f; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:bg-black,
+    html .group:hover .group-hover\:bg-slate-900 { background-color: #2a2a2f; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:bg-white,
+    html .group:hover .group-hover\:bg-slate-50,
+    html .group:hover .group-hover\:bg-slate-100 { background-color: rgba(255, 255, 255, 0.08); }
+}
 html .active\:bg-slate-50:active,
 html .active\:bg-slate-100:active,
 html .active\:bg-slate-100\/80:active,
 html .active\:bg-slate-50\/80:active,
 html .active\:bg-slate-200:active { background-color: rgba(255, 255, 255, 0.1); }
 html .focus\:bg-white:focus { background-color: rgba(255, 255, 255, 0.07); }
-html .hover\:text-slate-900:hover,
-html .hover\:text-slate-800:hover,
-html .hover\:text-slate-700:hover,
-html .hover\:text-black:hover,
-html .hover\:text-gray-900:hover { color: #ffffff; }
-html .group:hover .group-hover\:text-slate-900,
-html .group:hover .group-hover\:text-slate-800,
-html .group:hover .group-hover\:text-black { color: #ffffff; }
-html .hover\:border-slate-200:hover,
-html .hover\:border-slate-300:hover,
-html .hover\:border-slate-400:hover { border-color: rgba(255, 255, 255, 0.16); }
-html .hover\:border-slate-900:hover,
-html .hover\:border-black:hover { border-color: rgba(255, 255, 255, 0.5); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-slate-900:hover,
+    html .hover\:text-slate-800:hover,
+    html .hover\:text-slate-700:hover,
+    html .hover\:text-black:hover,
+    html .hover\:text-gray-900:hover { color: #ffffff; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-slate-900,
+    html .group:hover .group-hover\:text-slate-800,
+    html .group:hover .group-hover\:text-black { color: #ffffff; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:border-slate-200:hover,
+    html .hover\:border-slate-300:hover,
+    html .hover\:border-slate-400:hover { border-color: rgba(255, 255, 255, 0.16); }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:border-slate-900:hover,
+    html .hover\:border-black:hover { border-color: rgba(255, 255, 255, 0.5); }
+}
 
 /* Ink: dark text -> Home white / zinc */
 html .text-slate-950,
@@ -270,11 +288,17 @@ html [class*=" border-emerald-200/"],
 html .border-emerald-300,
 html [class^="border-emerald-300/"],
 html [class*=" border-emerald-300/"] { border-color: rgba(16, 185, 129, 0.3); }
-html .hover\:text-emerald-700:hover,
-html .hover\:text-emerald-800:hover { color: #6ee7b7; }
-html .group:hover .group-hover\:text-emerald-700 { color: #6ee7b7; }
-html .hover\:bg-emerald-50:hover,
-html .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-emerald-700:hover,
+    html .hover\:text-emerald-800:hover { color: #6ee7b7; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-emerald-700 { color: #6ee7b7; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-emerald-50:hover,
+    html .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.2); }
+}
 html .bg-green-50,
 html [class^="bg-green-50/"],
 html [class*=" bg-green-50/"] { background-color: rgba(34, 197, 94, 0.10); }
@@ -308,11 +332,17 @@ html [class*=" border-green-200/"],
 html .border-green-300,
 html [class^="border-green-300/"],
 html [class*=" border-green-300/"] { border-color: rgba(34, 197, 94, 0.3); }
-html .hover\:text-green-700:hover,
-html .hover\:text-green-800:hover { color: #86efac; }
-html .group:hover .group-hover\:text-green-700 { color: #86efac; }
-html .hover\:bg-green-50:hover,
-html .hover\:bg-green-100:hover { background-color: rgba(34, 197, 94, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-green-700:hover,
+    html .hover\:text-green-800:hover { color: #86efac; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-green-700 { color: #86efac; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-green-50:hover,
+    html .hover\:bg-green-100:hover { background-color: rgba(34, 197, 94, 0.2); }
+}
 html .bg-teal-50,
 html [class^="bg-teal-50/"],
 html [class*=" bg-teal-50/"] { background-color: rgba(20, 184, 166, 0.10); }
@@ -346,11 +376,17 @@ html [class*=" border-teal-200/"],
 html .border-teal-300,
 html [class^="border-teal-300/"],
 html [class*=" border-teal-300/"] { border-color: rgba(20, 184, 166, 0.3); }
-html .hover\:text-teal-700:hover,
-html .hover\:text-teal-800:hover { color: #5eead4; }
-html .group:hover .group-hover\:text-teal-700 { color: #5eead4; }
-html .hover\:bg-teal-50:hover,
-html .hover\:bg-teal-100:hover { background-color: rgba(20, 184, 166, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-teal-700:hover,
+    html .hover\:text-teal-800:hover { color: #5eead4; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-teal-700 { color: #5eead4; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-teal-50:hover,
+    html .hover\:bg-teal-100:hover { background-color: rgba(20, 184, 166, 0.2); }
+}
 html .bg-cyan-50,
 html [class^="bg-cyan-50/"],
 html [class*=" bg-cyan-50/"] { background-color: rgba(6, 182, 212, 0.10); }
@@ -384,11 +420,17 @@ html [class*=" border-cyan-200/"],
 html .border-cyan-300,
 html [class^="border-cyan-300/"],
 html [class*=" border-cyan-300/"] { border-color: rgba(6, 182, 212, 0.3); }
-html .hover\:text-cyan-700:hover,
-html .hover\:text-cyan-800:hover { color: #67e8f9; }
-html .group:hover .group-hover\:text-cyan-700 { color: #67e8f9; }
-html .hover\:bg-cyan-50:hover,
-html .hover\:bg-cyan-100:hover { background-color: rgba(6, 182, 212, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-cyan-700:hover,
+    html .hover\:text-cyan-800:hover { color: #67e8f9; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-cyan-700 { color: #67e8f9; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-cyan-50:hover,
+    html .hover\:bg-cyan-100:hover { background-color: rgba(6, 182, 212, 0.2); }
+}
 html .bg-sky-50,
 html [class^="bg-sky-50/"],
 html [class*=" bg-sky-50/"] { background-color: rgba(14, 165, 233, 0.10); }
@@ -422,11 +464,17 @@ html [class*=" border-sky-200/"],
 html .border-sky-300,
 html [class^="border-sky-300/"],
 html [class*=" border-sky-300/"] { border-color: rgba(14, 165, 233, 0.3); }
-html .hover\:text-sky-700:hover,
-html .hover\:text-sky-800:hover { color: #7dd3fc; }
-html .group:hover .group-hover\:text-sky-700 { color: #7dd3fc; }
-html .hover\:bg-sky-50:hover,
-html .hover\:bg-sky-100:hover { background-color: rgba(14, 165, 233, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-sky-700:hover,
+    html .hover\:text-sky-800:hover { color: #7dd3fc; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-sky-700 { color: #7dd3fc; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-sky-50:hover,
+    html .hover\:bg-sky-100:hover { background-color: rgba(14, 165, 233, 0.2); }
+}
 html .bg-blue-50,
 html [class^="bg-blue-50/"],
 html [class*=" bg-blue-50/"] { background-color: rgba(59, 130, 246, 0.10); }
@@ -460,11 +508,17 @@ html [class*=" border-blue-200/"],
 html .border-blue-300,
 html [class^="border-blue-300/"],
 html [class*=" border-blue-300/"] { border-color: rgba(59, 130, 246, 0.3); }
-html .hover\:text-blue-700:hover,
-html .hover\:text-blue-800:hover { color: #93c5fd; }
-html .group:hover .group-hover\:text-blue-700 { color: #93c5fd; }
-html .hover\:bg-blue-50:hover,
-html .hover\:bg-blue-100:hover { background-color: rgba(59, 130, 246, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-blue-700:hover,
+    html .hover\:text-blue-800:hover { color: #93c5fd; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-blue-700 { color: #93c5fd; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-blue-50:hover,
+    html .hover\:bg-blue-100:hover { background-color: rgba(59, 130, 246, 0.2); }
+}
 html .bg-indigo-50,
 html [class^="bg-indigo-50/"],
 html [class*=" bg-indigo-50/"] { background-color: rgba(99, 102, 241, 0.10); }
@@ -498,11 +552,17 @@ html [class*=" border-indigo-200/"],
 html .border-indigo-300,
 html [class^="border-indigo-300/"],
 html [class*=" border-indigo-300/"] { border-color: rgba(99, 102, 241, 0.3); }
-html .hover\:text-indigo-700:hover,
-html .hover\:text-indigo-800:hover { color: #a5b4fc; }
-html .group:hover .group-hover\:text-indigo-700 { color: #a5b4fc; }
-html .hover\:bg-indigo-50:hover,
-html .hover\:bg-indigo-100:hover { background-color: rgba(99, 102, 241, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-indigo-700:hover,
+    html .hover\:text-indigo-800:hover { color: #a5b4fc; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-indigo-700 { color: #a5b4fc; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-indigo-50:hover,
+    html .hover\:bg-indigo-100:hover { background-color: rgba(99, 102, 241, 0.2); }
+}
 html .bg-violet-50,
 html [class^="bg-violet-50/"],
 html [class*=" bg-violet-50/"] { background-color: rgba(139, 92, 246, 0.10); }
@@ -536,11 +596,17 @@ html [class*=" border-violet-200/"],
 html .border-violet-300,
 html [class^="border-violet-300/"],
 html [class*=" border-violet-300/"] { border-color: rgba(139, 92, 246, 0.3); }
-html .hover\:text-violet-700:hover,
-html .hover\:text-violet-800:hover { color: #c4b5fd; }
-html .group:hover .group-hover\:text-violet-700 { color: #c4b5fd; }
-html .hover\:bg-violet-50:hover,
-html .hover\:bg-violet-100:hover { background-color: rgba(139, 92, 246, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-violet-700:hover,
+    html .hover\:text-violet-800:hover { color: #c4b5fd; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-violet-700 { color: #c4b5fd; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-violet-50:hover,
+    html .hover\:bg-violet-100:hover { background-color: rgba(139, 92, 246, 0.2); }
+}
 html .bg-purple-50,
 html [class^="bg-purple-50/"],
 html [class*=" bg-purple-50/"] { background-color: rgba(168, 85, 247, 0.10); }
@@ -574,11 +640,17 @@ html [class*=" border-purple-200/"],
 html .border-purple-300,
 html [class^="border-purple-300/"],
 html [class*=" border-purple-300/"] { border-color: rgba(168, 85, 247, 0.3); }
-html .hover\:text-purple-700:hover,
-html .hover\:text-purple-800:hover { color: #d8b4fe; }
-html .group:hover .group-hover\:text-purple-700 { color: #d8b4fe; }
-html .hover\:bg-purple-50:hover,
-html .hover\:bg-purple-100:hover { background-color: rgba(168, 85, 247, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-purple-700:hover,
+    html .hover\:text-purple-800:hover { color: #d8b4fe; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-purple-700 { color: #d8b4fe; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-purple-50:hover,
+    html .hover\:bg-purple-100:hover { background-color: rgba(168, 85, 247, 0.2); }
+}
 html .bg-rose-50,
 html [class^="bg-rose-50/"],
 html [class*=" bg-rose-50/"] { background-color: rgba(244, 63, 94, 0.10); }
@@ -612,11 +684,17 @@ html [class*=" border-rose-200/"],
 html .border-rose-300,
 html [class^="border-rose-300/"],
 html [class*=" border-rose-300/"] { border-color: rgba(244, 63, 94, 0.3); }
-html .hover\:text-rose-700:hover,
-html .hover\:text-rose-800:hover { color: #fda4af; }
-html .group:hover .group-hover\:text-rose-700 { color: #fda4af; }
-html .hover\:bg-rose-50:hover,
-html .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-rose-700:hover,
+    html .hover\:text-rose-800:hover { color: #fda4af; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-rose-700 { color: #fda4af; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-rose-50:hover,
+    html .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.2); }
+}
 html .bg-red-50,
 html [class^="bg-red-50/"],
 html [class*=" bg-red-50/"] { background-color: rgba(239, 68, 68, 0.10); }
@@ -650,11 +728,17 @@ html [class*=" border-red-200/"],
 html .border-red-300,
 html [class^="border-red-300/"],
 html [class*=" border-red-300/"] { border-color: rgba(239, 68, 68, 0.3); }
-html .hover\:text-red-700:hover,
-html .hover\:text-red-800:hover { color: #fca5a5; }
-html .group:hover .group-hover\:text-red-700 { color: #fca5a5; }
-html .hover\:bg-red-50:hover,
-html .hover\:bg-red-100:hover { background-color: rgba(239, 68, 68, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-red-700:hover,
+    html .hover\:text-red-800:hover { color: #fca5a5; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-red-700 { color: #fca5a5; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-red-50:hover,
+    html .hover\:bg-red-100:hover { background-color: rgba(239, 68, 68, 0.2); }
+}
 html .bg-orange-50,
 html [class^="bg-orange-50/"],
 html [class*=" bg-orange-50/"] { background-color: rgba(249, 115, 22, 0.10); }
@@ -688,11 +772,17 @@ html [class*=" border-orange-200/"],
 html .border-orange-300,
 html [class^="border-orange-300/"],
 html [class*=" border-orange-300/"] { border-color: rgba(249, 115, 22, 0.3); }
-html .hover\:text-orange-700:hover,
-html .hover\:text-orange-800:hover { color: #fdba74; }
-html .group:hover .group-hover\:text-orange-700 { color: #fdba74; }
-html .hover\:bg-orange-50:hover,
-html .hover\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-orange-700:hover,
+    html .hover\:text-orange-800:hover { color: #fdba74; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-orange-700 { color: #fdba74; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-orange-50:hover,
+    html .hover\:bg-orange-100:hover { background-color: rgba(249, 115, 22, 0.2); }
+}
 html .bg-amber-50,
 html [class^="bg-amber-50/"],
 html [class*=" bg-amber-50/"] { background-color: rgba(245, 158, 11, 0.10); }
@@ -726,11 +816,17 @@ html [class*=" border-amber-200/"],
 html .border-amber-300,
 html [class^="border-amber-300/"],
 html [class*=" border-amber-300/"] { border-color: rgba(245, 158, 11, 0.3); }
-html .hover\:text-amber-700:hover,
-html .hover\:text-amber-800:hover { color: #fcd34d; }
-html .group:hover .group-hover\:text-amber-700 { color: #fcd34d; }
-html .hover\:bg-amber-50:hover,
-html .hover\:bg-amber-100:hover { background-color: rgba(245, 158, 11, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-amber-700:hover,
+    html .hover\:text-amber-800:hover { color: #fcd34d; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-amber-700 { color: #fcd34d; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-amber-50:hover,
+    html .hover\:bg-amber-100:hover { background-color: rgba(245, 158, 11, 0.2); }
+}
 html .bg-yellow-50,
 html [class^="bg-yellow-50/"],
 html [class*=" bg-yellow-50/"] { background-color: rgba(234, 179, 8, 0.10); }
@@ -764,11 +860,17 @@ html [class*=" border-yellow-200/"],
 html .border-yellow-300,
 html [class^="border-yellow-300/"],
 html [class*=" border-yellow-300/"] { border-color: rgba(234, 179, 8, 0.3); }
-html .hover\:text-yellow-700:hover,
-html .hover\:text-yellow-800:hover { color: #fde047; }
-html .group:hover .group-hover\:text-yellow-700 { color: #fde047; }
-html .hover\:bg-yellow-50:hover,
-html .hover\:bg-yellow-100:hover { background-color: rgba(234, 179, 8, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-yellow-700:hover,
+    html .hover\:text-yellow-800:hover { color: #fde047; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-yellow-700 { color: #fde047; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-yellow-50:hover,
+    html .hover\:bg-yellow-100:hover { background-color: rgba(234, 179, 8, 0.2); }
+}
 html .bg-lime-50,
 html [class^="bg-lime-50/"],
 html [class*=" bg-lime-50/"] { background-color: rgba(132, 204, 22, 0.10); }
@@ -802,11 +904,17 @@ html [class*=" border-lime-200/"],
 html .border-lime-300,
 html [class^="border-lime-300/"],
 html [class*=" border-lime-300/"] { border-color: rgba(132, 204, 22, 0.3); }
-html .hover\:text-lime-700:hover,
-html .hover\:text-lime-800:hover { color: #bef264; }
-html .group:hover .group-hover\:text-lime-700 { color: #bef264; }
-html .hover\:bg-lime-50:hover,
-html .hover\:bg-lime-100:hover { background-color: rgba(132, 204, 22, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:text-lime-700:hover,
+    html .hover\:text-lime-800:hover { color: #bef264; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .group:hover .group-hover\:text-lime-700 { color: #bef264; }
+}
+@media (hover: hover) and (pointer: fine) {
+    html .hover\:bg-lime-50:hover,
+    html .hover\:bg-lime-100:hover { background-color: rgba(132, 204, 22, 0.2); }
+}
 
 /* Light gradient stops -> transparent glass stops (same direction and positions) */
 html .from-white { --tw-gradient-from: rgba(255, 255, 255, 0.06) var(--tw-gradient-from-position); --tw-gradient-to: rgba(255, 255, 255, 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }

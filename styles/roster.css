@@ -1,4 +1,4 @@
-/* My Week roster cards: liquid-glass materials, accordion drawer, rain-mode motion and protocol pill. */
+/* My Week roster cards: liquid-glass materials, accordion drawer, rain-mode storm and shift line. */
 
 /* Ultra-Authentic Apple Liquid Glass Roster Materials (Tuned for 120Hz Mobile Safari) */
 .glass-tile-apple {
@@ -12,16 +12,17 @@
         0 10px 24px -8px rgba(0, 0, 0, 0.5);
 }
 
-/* Today's date tile: the app's interactive accent (the same lime + glow as the nav pill and the
-   Home "Sign In" control) so it reads as "you are here" at a glance. Dark ink on lime for contrast. */
+/* Today's date tile: the same deep emerald surface and iridescent rim as today's card beside it
+   (.glass-card-today), so the tile and card read as one "today" pair. White / emerald ink. */
 .glass-tile-today {
-    background: linear-gradient(160deg, #d9ff33 0%, #ccff00 55%, #b8e600 100%);
-    border: 1px solid rgba(204, 255, 0, 0.9);
+    position: relative;
+    background: linear-gradient(135deg, #022c22 0%, #061e14 50%, #020617 100%);
+    border: 1px solid rgba(16, 185, 129, 0.3);
     box-shadow:
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.55),
-        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.06),
-        0 0 20px rgba(204, 255, 0, 0.35),
-        0 10px 22px -6px rgba(15, 23, 42, 0.25);
+        inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.25),
+        inset 0 0 14px rgba(163, 230, 53, 0.1),
+        0 18px 40px -8px rgba(0, 0, 0, 0.55),
+        0 0 28px -4px rgba(16, 185, 129, 0.3);
 }
 
 .glass-card-apple {
@@ -46,7 +47,8 @@
         0 18px 40px -8px rgba(0, 0, 0, 0.55),
         0 0 28px -4px rgba(16, 185, 129, 0.3);
 }
-.glass-card-today::before {
+.glass-card-today::before,
+.glass-tile-today::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -166,34 +168,32 @@
     will-change: transform, background-color, border-color, box-shadow;
 }
 .roster-rain-btn:active {
-    transform: scale(0.90) !important;
+    transform: scale(0.92) !important;        /* pressed feedback */
+    transition-duration: 60ms;
 }
 
+/* Frosted glass, in the same family as the collapse button next to it: neutral glass with a blue icon
+   while the normal site is active, blue-tinted glass with a white icon once the rain site is on */
 .roster-rain-btn.is-inactive {
-    background-color: #0f172a;
     color: #60a5fa;
-    border: 1px solid rgba(96, 165, 250, 0.5);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 @media (hover: hover) and (pointer: fine) {
-    .roster-rain-btn.is-inactive:hover {
-        background-color: #1e293b;
-        border-color: rgba(96, 165, 250, 0.7);
-    }
+    .roster-rain-btn.is-inactive:hover { background-color: rgba(255, 255, 255, 0.1); }
 }
-
 .roster-rain-btn.is-active {
-    background-color: #3b82f6;
-    color: #ffffff;
-    border: 1px solid #93c5fd;
-    box-shadow: 0 0 18px rgba(59, 130, 246, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+    color: #f0f9ff;
+    background-color: rgba(59, 130, 246, 0.22);
+    border: 1px solid rgba(191, 219, 254, 0.42);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
 }
 @media (hover: hover) and (pointer: fine) {
-    .roster-rain-btn.is-active:hover {
-        background-color: #2563eb;
-    }
+    .roster-rain-btn.is-active:hover { background-color: rgba(59, 130, 246, 0.3); }
 }
-
 @keyframes appleToggleSpring {
     0% { transform: scale(1); }
     30% { transform: scale(0.76); }
@@ -204,54 +204,13 @@
 
 .roster-rain-icon {
     display: inline-block;
+    font-size: 20px;
+    line-height: 1;
     transition: transform 200ms var(--ease-out);
 }
 
 .roster-rain-icon.spring-pop {
     animation: appleToggleSpring 420ms var(--ease-spring);
-}
-
-.roster-rain-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 18px;
-    height: 18px;
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-    transition: background-color 350ms var(--ease-out),
-                color 350ms var(--ease-out),
-                border-color 350ms var(--ease-out);
-}
-
-.roster-rain-badge.is-inactive {
-    background-color: #3b82f6;
-    color: #ffffff;
-    border: 1.5px solid #ffffff;
-}
-
-.roster-rain-badge.is-active {
-    background-color: #ffffff;
-    color: #2563eb;
-    border: 1.5px solid #bfdbfe;
-}
-
-.roster-rain-badge-icon {
-    font-size: 9px;
-    line-height: 1;
-    display: inline-block;
-    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.roster-rain-btn.is-active .roster-rain-badge-icon {
-    transform: rotate(180deg);
-}
-
-.roster-rain-btn.is-inactive .roster-rain-badge-icon {
-    transform: rotate(0deg);
 }
 
 /* Chevron Container transitions */
@@ -310,59 +269,63 @@
                 border-color 350ms var(--ease-out);
 }
 
-/* Rain Protocol Pill Slot — Apple Dynamic Island style emergence & graceful collapse */
-.rain-protocol-pill-slot {
+/* Rain mode shift line: "7:00 AM – 3:30 PM" + the rain site's arrangement (Undercover / Backup).
+   Opens under the address when the card switches to its rain site and closes when it switches back. */
+.roster-shift-slot {
     display: grid;
     grid-template-rows: 0fr;
-    margin-top: 0px;
+    margin-top: 0;
     opacity: 0;
-    pointer-events: none;
     transition: grid-template-rows 360ms cubic-bezier(0.23, 1, 0.32, 1),
                 margin-top 360ms cubic-bezier(0.23, 1, 0.32, 1),
                 opacity 280ms var(--ease-out);
-    will-change: grid-template-rows, margin-top, opacity;
 }
-
-.rain-protocol-pill-slot.is-active {
+.roster-shift-slot.is-active {
     grid-template-rows: 1fr;
     margin-top: 10px;
     opacity: 1;
-    pointer-events: auto;
+}
+.roster-shift-inner { overflow: hidden; min-height: 0; }
+.roster-shift-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.roster-shift-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.roster-shift-status {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #bae6fd;
+    background: rgba(125, 211, 252, 0.12);
+    border: 1px solid rgba(125, 211, 252, 0.26);
 }
 
-.rain-protocol-pill-inner {
-    overflow: hidden;
-    min-height: 0;
+/* Rain mode crew pills: translucent dark glass, so the storm stays faintly visible behind them */
+.roster-card-surface.is-rain-mode .roster-team-chip {
+    background-color: rgba(15, 23, 42, 0.45);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
 }
-
-.rain-protocol-pill-content {
-    transform: scale(0.92) translateY(-8px);
-    opacity: 0;
-    transition: transform 380ms cubic-bezier(0.175, 0.885, 0.32, 1.2),
-                opacity 300ms var(--ease-out);
-    will-change: transform, opacity;
+@media (prefers-reduced-transparency: reduce) {
+    .roster-card-surface.is-rain-mode .roster-team-chip { background-color: rgba(15, 23, 42, 0.85); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .roster-rain-btn.is-active { background-color: rgba(37, 99, 235, 0.55); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
-
-.rain-protocol-pill-slot.is-active .rain-protocol-pill-content {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-}
-
-.rain-protocol-pill-slot:not(.is-active) .rain-protocol-pill-content {
-    transform: scale(0.94) translateY(-6px);
-    opacity: 0;
-    transition: transform 240ms var(--ease-out),
-                opacity 200ms var(--ease-out);
-}
-
-.rain-pill-umbrella-icon {
-    display: inline-block;
-    transition: transform 380ms cubic-bezier(0.175, 0.885, 0.32, 1.25);
-}
-.rain-protocol-pill-slot.is-active .rain-pill-umbrella-icon {
-    transform: scale(1.15) rotate(-6deg);
-}
-
 
 #preloader {
     position: fixed;
@@ -385,18 +348,71 @@
     pointer-events: none;
 }
 
-.rain-drop {
+/* ---- Rain mode storm (inside .roster-rain-backdrop; streaks are added by week-roster.js) ----
+   A drifting cloud, slanted rain streaks and an occasional lightning flash over a slate-blue sky.
+   Everything is transform / opacity only, and it only runs while the card is in rain mode and no sheet
+   covers the page: any running animation makes the browser re-composite the page every frame. */
+.storm {
+    --storm-drift-dur: 16s;
+    --storm-drift-distance: 18px;
+    --storm-rain-dur: 800ms;
+    --storm-flash-dur: 7s;
     position: absolute;
-    width: 1.5px;
-    height: 18px;
-    background: linear-gradient(transparent, rgba(147, 197, 253, 0.75));
-    animation: fall linear infinite;
+    inset: 0;
+    overflow: hidden;
     pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(180deg, #323b47 0%, #56616e 100%);
 }
-@keyframes fall {
-    0% { transform: translateY(-20px); opacity: 0; }
-    30% { opacity: 0.8; }
-    100% { transform: translateY(220px); opacity: 0; }
+.storm-cloud {
+    position: absolute;
+    width: 300px;
+    height: 200px;
+    right: -100px;
+    top: 40px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(140, 160, 190, 0.2), rgba(140, 160, 190, 0) 68%);
+    animation: storm-drift var(--storm-drift-dur) ease-in-out infinite alternate;
+}
+@keyframes storm-drift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(var(--storm-drift-distance), calc(var(--storm-drift-distance) * -0.6)) scale(1.08); }
+}
+.storm-rain { position: absolute; inset: 0; }
+.storm-rain > span {
+    position: absolute;
+    top: -24px;
+    left: var(--x);
+    width: 1.5px;
+    height: var(--len, 16px);
+    border-radius: 1px;
+    background: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42));
+    animation: storm-fall var(--storm-rain-dur) linear infinite;
+    animation-delay: calc(var(--storm-rain-dur) * var(--d) * -1);
+}
+@keyframes storm-fall {
+    from { transform: translate(0, 0) rotate(8deg); }
+    to { transform: translate(-50px, 380px) rotate(8deg); }
+}
+.storm-flash {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(ellipse at 70% 0%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 70%);
+    animation: storm-flash var(--storm-flash-dur) ease-out infinite;
+}
+@keyframes storm-flash {
+    0%, 86%, 100% { opacity: 0; }
+    88% { opacity: 0.4; }
+    89% { opacity: 0.08; }
+    91% { opacity: 0.3; }
+}
+/* Not in rain mode (backdrop hidden), or hidden behind a sheet: hold still */
+.roster-card-surface:not(.is-rain-mode) .storm *,
+html.sheet-covers-page .storm * { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+    .storm-cloud { animation: none; }
+    .storm-rain, .storm-flash { display: none; }
 }
 
 @keyframes subtlePulse {

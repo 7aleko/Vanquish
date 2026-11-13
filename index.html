@@ -48,6 +48,8 @@
     <link rel="stylesheet" href="styles/home-dark.css">
     <link rel="stylesheet" href="styles/site-card.css">
     <link rel="stylesheet" href="styles/icons.css">
+    <link rel="stylesheet" href="styles/filter-bar.css">
+    <link rel="stylesheet" href="styles/role-avatar.css">
     <link rel="stylesheet" href="styles/dark-theme.css">
 </head>
 <body class="bg-slate-950 sm:bg-slate-950 text-gray-900 sm:h-full sm:flex sm:justify-center sm:items-center font-sans antialiased selection:bg-brand-lime selection:text-black">
@@ -506,6 +508,12 @@
                         </p>
                     </div>
 
+                    <!-- Crew on this site today: role avatars + count; opens today's roster card (scripts/features/home-crew.js) -->
+                    <button type="button" id="home-crew-preview" class="home-crew" data-site="Lugarno" onclick="openTodayRosterForSite(event)" hidden>
+                        <span id="home-crew-stack" class="home-crew-stack"></span>
+                        <span class="home-crew-label"><span id="home-crew-count"></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+                    </button>
+
                     <!-- Shift Timeline: 3px track filled to the real shift progress (scripts/features/site-card-energy.js) -->
                     <div class="sc-timeline">
                         <div class="sc-track" aria-hidden="true">
@@ -536,29 +544,29 @@
             <button type="button" onclick="showToast('Quick Actions', 'Action order is customized for your shift');" class="quick-actions-action">Edit</button>
         </div>
         <div class="quick-actions-grid">
-            <button type="button" class="qa-tile" onclick="switchTab('week')" aria-label="Roster">
-                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-calendar-days"></i></span>
+            <button type="button" class="qa-tile" data-squircle="24" onclick="switchTab('week')" aria-label="Roster">
+                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-calendar" data-icon-weight="bold"></i></span>
                 <span class="qa-label">Roster</span>
             </button>
-            <button type="button" class="qa-tile" onclick="triggerHaptic('light'); openTimesheetsModal()" aria-label="Timesheets">
-                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-clock"></i></span>
-                <span class="qa-label">Timesheets</span>
+            <button type="button" class="qa-tile" data-squircle="24" onclick="triggerHaptic('light'); openTimesheetsModal()" aria-label="Time">
+                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-clock" data-icon-weight="bold"></i></span>
+                <span class="qa-label">Time</span>
             </button>
-            <button type="button" class="qa-tile" onclick="switchTab('chat')" aria-label="Chat">
-                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-message"></i></span>
+            <button type="button" class="qa-tile" data-squircle="24" onclick="switchTab('chat')" aria-label="Chat">
+                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-message" data-icon-weight="bold"></i></span>
                 <span class="qa-label">Chat</span>
                 <!-- Unread count (kept in sync by updateLifestyleBadges in scripts/features/chat.js) -->
                 <span id="chat-badge-count" class="qa-badge">3</span>
             </button>
-            <button type="button" class="qa-tile" onclick="switchTab('sitehub')" aria-label="Site">
-                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-helmet-safety"></i></span>
+            <button type="button" class="qa-tile" data-squircle="24" onclick="switchTab('sitehub')" aria-label="Site">
+                <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-compass" data-icon-weight="bold"></i></span>
                 <span class="qa-label">Site</span>
             </button>
         </div>
     </section>
 
     <!-- HOME LIST: one smoked-glass group - Poppy, Team, Tools (styles/quick-actions.css).
-         Right-hand values are live, from existing data, via renderHomeNavList() in scripts/features/home-nav.js -->
+         Right-hand values (Poppy, Tools) are live, from existing data, via renderHomeNavList() in scripts/features/home-nav.js -->
     <nav class="home-nav" aria-label="More">
         <ul class="home-nav-list">
             <li>
@@ -573,10 +581,9 @@
                 </button>
             </li>
             <li>
-                <button type="button" class="home-nav-row" onclick="triggerHaptic('light'); switchTab('team')" aria-describedby="home-nav-team-value">
+                <button type="button" class="home-nav-row" onclick="triggerHaptic('light'); switchTab('team')">
                     <span class="home-nav-icon" aria-hidden="true"><i class="fa-solid fa-user-group"></i></span>
                     <span class="home-nav-label">Team</span>
-                    <span id="home-nav-team-value" class="home-nav-value"></span>
                     <i class="fa-solid fa-chevron-right home-nav-chevron" aria-hidden="true"></i>
                 </button>
             </li>
@@ -922,13 +929,13 @@
             </button>
         </div>
 
-        <!-- Scrollable Category Filter Bar (Original Squircle Glass Style) -->
-        <div class="relative z-10 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 select-none">
-            <button onclick="filterTeamCategory('all')" id="team-cat-all" class="team-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-black bg-slate-900 text-brand-lime shadow-sm transition-all cursor-pointer flex items-center justify-center">All</button>
-            <button onclick="filterTeamCategory('carpenter')" id="team-cat-carpenter" class="team-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Carpenter</button>
-            <button onclick="filterTeamCategory('site supervisor')" id="team-cat-site-supervisor" class="team-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Site Manager</button>
-            <button onclick="filterTeamCategory('project manager')" id="team-cat-project-manager" class="team-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Project Manager</button>
-            <button onclick="filterTeamCategory('apprentice')" id="team-cat-apprentice" class="team-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Apprentice</button>
+        <!-- Category filters: shared pill bar, scrolls edge to edge (styles/filter-bar.css) -->
+        <div class="filter-bar relative z-10" role="toolbar" aria-label="Filter team by role">
+            <button type="button" onclick="filterTeamCategory('all')" id="team-cat-all" class="filter-pill is-active" aria-pressed="true">All</button>
+            <button type="button" onclick="filterTeamCategory('carpenter')" id="team-cat-carpenter" class="filter-pill" aria-pressed="false">Carpenter</button>
+            <button type="button" onclick="filterTeamCategory('site supervisor')" id="team-cat-site-supervisor" class="filter-pill" aria-pressed="false">Site Manager</button>
+            <button type="button" onclick="filterTeamCategory('project manager')" id="team-cat-project-manager" class="filter-pill" aria-pressed="false">Project Manager</button>
+            <button type="button" onclick="filterTeamCategory('apprentice')" id="team-cat-apprentice" class="filter-pill" aria-pressed="false">Apprentice</button>
         </div>
 
         <!-- Grouped Contacts List Container -->
@@ -957,18 +964,18 @@
                 </button>
             </div>
 
-            <!-- Scrollable Category Tag Filter Bar (Original Squircle Glass Style) -->
-            <div class="relative z-10 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 select-none">
-                <button onclick="filterToolsCategory('all')" id="tool-cat-all" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-black bg-slate-900 text-brand-lime shadow-sm transition-all cursor-pointer flex items-center justify-center">All</button>
-                <button onclick="filterToolsCategory('power tools')" id="tool-cat-power-tools" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Power Tools</button>
-                <button onclick="filterToolsCategory('access')" id="tool-cat-access" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Access</button>
-                <button onclick="filterToolsCategory('concrete')" id="tool-cat-concrete" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Concrete</button>
-                <button onclick="filterToolsCategory('setout')" id="tool-cat-setout" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Setout</button>
-                <button onclick="filterToolsCategory('site')" id="tool-cat-site" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Site</button>
-                <button onclick="filterToolsCategory('safety')" id="tool-cat-safety" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Safety</button>
-                <button onclick="filterToolsCategory('trailers')" id="tool-cat-trailers" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Trailers</button>
-                <button onclick="filterToolsCategory('scaffolds')" id="tool-cat-scaffolds" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Scaffolds</button>
-                <button onclick="filterToolsCategory('bobcat')" id="tool-cat-bobcat" class="tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center">Bobcat</button>
+            <!-- Category filters: shared pill bar, scrolls edge to edge (styles/filter-bar.css) -->
+            <div class="filter-bar relative z-10" role="toolbar" aria-label="Filter equipment by category">
+                <button type="button" onclick="filterToolsCategory('all')" id="tool-cat-all" class="filter-pill is-active" aria-pressed="true">All</button>
+                <button type="button" onclick="filterToolsCategory('power tools')" id="tool-cat-power-tools" class="filter-pill" aria-pressed="false">Power Tools</button>
+                <button type="button" onclick="filterToolsCategory('access')" id="tool-cat-access" class="filter-pill" aria-pressed="false">Access</button>
+                <button type="button" onclick="filterToolsCategory('concrete')" id="tool-cat-concrete" class="filter-pill" aria-pressed="false">Concrete</button>
+                <button type="button" onclick="filterToolsCategory('setout')" id="tool-cat-setout" class="filter-pill" aria-pressed="false">Setout</button>
+                <button type="button" onclick="filterToolsCategory('site')" id="tool-cat-site" class="filter-pill" aria-pressed="false">Site</button>
+                <button type="button" onclick="filterToolsCategory('safety')" id="tool-cat-safety" class="filter-pill" aria-pressed="false">Safety</button>
+                <button type="button" onclick="filterToolsCategory('trailers')" id="tool-cat-trailers" class="filter-pill" aria-pressed="false">Trailers</button>
+                <button type="button" onclick="filterToolsCategory('scaffolds')" id="tool-cat-scaffolds" class="filter-pill" aria-pressed="false">Scaffolds</button>
+                <button type="button" onclick="filterToolsCategory('bobcat')" id="tool-cat-bobcat" class="filter-pill" aria-pressed="false">Bobcat</button>
             </div>
 
             <!-- Summary Quick Stats Banner -->
@@ -1337,6 +1344,9 @@
          Classic (non-module) scripts so the app keeps working when opened directly via file://.
          They share one global scope; inline onclick="..." handlers call these globals. -->
     <script src="scripts/components/icons.js"></script>
+    <script src="scripts/components/squircle.js"></script>
+    <script src="scripts/components/filter-bar.js"></script>
+    <script src="scripts/components/role-avatar.js"></script>
     <script src="scripts/utils/feedback.js"></script>
     <script src="scripts/utils/clipboard.js"></script>
     <script src="scripts/utils/dates.js"></script>
@@ -1374,6 +1384,7 @@
     <script src="scripts/features/notifications.js"></script>
     <script src="scripts/features/today-summary.js"></script>
     <script src="scripts/features/home-nav.js"></script>
+    <script src="scripts/features/home-crew.js"></script>
     <script src="scripts/features/weather.js"></script>
     <script src="scripts/core/a11y.js"></script>
     <script src="scripts/main.js"></script>

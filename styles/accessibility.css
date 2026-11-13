@@ -9,7 +9,7 @@
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
     }
-    .rain-drop, .ai-star-glow, .animate-pulse, .spring-pop, .poppy-orb-halo, .poppy-orb-aurora, .poppy-orb-bloom { animation: none !important; }
+    .ai-star-glow, .animate-pulse, .spring-pop, .poppy-orb-halo, .poppy-orb-aurora, .poppy-orb-bloom { animation: none !important; }
     #modal-content, #tool-transfer-sheet {
         transition-duration: 0.01ms !important;
     }

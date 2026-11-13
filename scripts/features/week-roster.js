@@ -81,11 +81,12 @@ function getExpectedRosterDrawerHeight(cardId, drawer) {
     if (!inner) return drawer.getBoundingClientRect().height;
 
     let height = inner.scrollHeight;
-    const pillSlot = inner.querySelector('.rain-protocol-pill-slot');
+    // The rain mode shift line may be mid open / close: measure it at its end state
+    const pillSlot = inner.querySelector('.roster-shift-slot');
     if (pillSlot) {
         const currentPillH = pillSlot.getBoundingClientRect().height;
         if (pillSlot.classList.contains('is-active')) {
-            const pillContent = pillSlot.querySelector('.rain-protocol-pill-content');
+            const pillContent = pillSlot.querySelector('.roster-shift-row');
             const targetPillH = (pillContent ? pillContent.offsetHeight : 0) + 10;
             height += Math.max(0, targetPillH - currentPillH);
         } else {
@@ -363,13 +364,6 @@ function setCardWeatherMode(cardId, mode) {
             void icon.offsetWidth; // restart keyframe animation
             icon.classList.add('spring-pop');
         }
-
-        // Corner badge toggle
-        const badge = toggleBtn.querySelector('.roster-rain-badge');
-        if (badge) {
-            badge.classList.toggle('is-active', isRain);
-            badge.classList.toggle('is-inactive', !isRain);
-        }
     }
 
     // 3. Update chevron container dark/light style
@@ -410,7 +404,7 @@ function setCardWeatherMode(cardId, mode) {
         if (addressLink) {
             addressLink.href = `https://maps.apple.com/?q=${encodeURIComponent(targetSite.address)}`;
             if (!isToday) {
-                addressLink.className = `site-address inline-flex items-center gap-1.5 text-[13px] font-semibold transition-colors duration-300 ${isRain ? 'text-blue-300 hover:text-white' : 'text-emerald-600 hover:text-emerald-800'}`;
+                addressLink.className = `site-address inline-flex items-center gap-1.5 text-[13px] font-semibold transition-colors duration-300 ${isRain ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800'}`;
             }
         }
         if (addressText) {
@@ -421,15 +415,9 @@ function setCardWeatherMode(cardId, mode) {
         card._titleCrossfadeTimer = null;
     }, 90);
 
-    // 5. Apple Rain Protocol Pill appearance/disappearance animation
-    const pillSlot = surfaceEl.querySelector('.rain-protocol-pill-slot');
-    if (pillSlot) {
-        pillSlot.classList.toggle('is-active', isRain);
-        const pillTitle = pillSlot.querySelector('.rain-protocol-title-text');
-        if (pillTitle) {
-            pillTitle.textContent = `Rain Protocol • Under cover at ${config.rainSite.title}`;
-        }
-    }
+    // 5. Rain mode shift line (times + arrangement) opens / closes under the address
+    const shiftSlot = surfaceEl.querySelector('.roster-shift-slot');
+    if (shiftSlot) shiftSlot.classList.toggle('is-active', isRain);
 
     // 6. Smooth team chips & divider update
     if (!isToday) {
@@ -529,6 +517,26 @@ function openMapsForAddress(address) {
     }
 }
 
+// "7:00 AM – 3:30 PM" from the site shift window (SITE_SHIFT_START / SITE_SHIFT_END, site-card-energy.js)
+function formatRosterShiftTimes() {
+    const fmt = (mins) => {
+        const h = Math.floor(mins / 60), m = mins % 60;
+        return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+    };
+    const start = (typeof SITE_SHIFT_START !== 'undefined') ? SITE_SHIFT_START : 7 * 60;
+    const end = (typeof SITE_SHIFT_END !== 'undefined') ? SITE_SHIFT_END : 15 * 60 + 30;
+    return `${fmt(start)} – ${fmt(end)}`;
+}
+
+// The rain site's arrangement for that day, from the jobs data (JOBS_DATA[].days[day].isRainSafe):
+// rain-safe means the crew works undercover; otherwise it is only the backup site
+function getRainSiteArrangement(config) {
+    const dayKey = String(config.day || '').toLowerCase();
+    const job = (typeof JOBS_DATA !== 'undefined') ? JOBS_DATA.find(j => j.name === config.rainSite.title) : null;
+    const day = job && job.days ? job.days[dayKey] : null;
+    return (day && day.isRainSafe) ? 'Undercover' : 'Backup';
+}
+
 function renderRosterCards() {
     const cardIds = Object.keys(ROSTER_CONFIG);
     cardIds.forEach((cardId) => {
@@ -556,26 +564,25 @@ function renderRosterCards() {
                                 aria-label="${isRainActive ? 'Rain site active. Tap to switch back to normal site' : 'Rain risk forecasted. Tap to switch to rain site'}"
                                 title="${isRainActive ? 'Rain site active — tap to switch to normal site' : 'Rain risk — tap to switch to wet weather site'}"
                                 class="roster-rain-btn ${isRainActive ? 'is-active' : 'is-inactive'}">
-                            <i class="fa-solid fa-cloud-showers-heavy text-base leading-none roster-rain-icon"></i>
-                            <span class="roster-rain-badge ${isRainActive ? 'is-active' : 'is-inactive'}">
-                                <i class="ph-bold ph-arrows-left-right roster-rain-badge-icon"></i>
-                            </span>
+                            <i class="ph-bold ph-cloud-rain roster-rain-icon" aria-hidden="true"></i>
                         </button>`;
 
             rainBackdropHtml = `
                         <div class="roster-rain-backdrop">
-                            <div class="rain-particles absolute inset-0 overflow-hidden pointer-events-none"></div>
+                            <div class="storm" aria-hidden="true">
+                                <span class="storm-cloud"></span>
+                                <span class="storm-rain" data-count="20"></span>
+                                <span class="storm-flash"></span>
+                            </div>
                         </div>`;
 
+            // Rain mode: the shift line (times + the rain site's arrangement) replaces the old banner
             rainPillHtml = `
-                        <div class="rain-protocol-pill-slot ${isRainActive ? 'is-active' : ''}" id="rain-pill-${cardId}">
-                            <div class="rain-protocol-pill-inner">
-                                <div class="rain-protocol-pill-content py-2 px-3 rounded-xl bg-blue-950/90 border border-blue-400/30 flex items-center justify-between gap-2 text-white shadow-[0_4px_16px_rgba(30,58,138,0.35)] backdrop-blur-md">
-                                    <span class="flex items-center gap-1.5 text-xs font-black text-blue-200 truncate">
-                                        <i class="fa-solid fa-umbrella text-blue-400 text-xs rain-pill-umbrella-icon"></i>
-                                        <span class="rain-protocol-title-text truncate">Rain Protocol • Under cover at ${config.rainSite.title}</span>
-                                    </span>
-                                    <span class="text-[11px] text-blue-200 bg-blue-500/25 px-2 py-0.5 rounded-full border border-blue-400/25 font-bold uppercase tracking-wider shrink-0 shadow-xs">Backup</span>
+                        <div class="roster-shift-slot ${isRainActive ? 'is-active' : ''}" id="rain-shift-${cardId}">
+                            <div class="roster-shift-inner">
+                                <div class="roster-shift-row">
+                                    <span class="roster-shift-time">${formatRosterShiftTimes()}</span>
+                                    <span class="roster-shift-status">${getRainSiteArrangement(config)}</span>
                                 </div>
                             </div>
                         </div>`;
@@ -589,10 +596,10 @@ function renderRosterCards() {
                     <div class="relative flex items-start gap-3.5">
                         <!-- Left: Fixed-Size Apple Liquid Glass Date Tile (Never shrinks or shifts) -->
                         <div class="roster-date-tile w-[68px] min-w-[68px] h-[72px] shrink-0 rounded-inset flex flex-col items-center justify-center select-none z-10 ${isToday ? 'glass-tile-today' : 'glass-tile-apple'}">
-                            <span class="text-[11px] font-black uppercase tracking-widest leading-none ${isToday ? 'text-slate-950/70' : 'text-slate-400'}">
+                            <span class="text-[11px] font-black uppercase tracking-widest leading-none ${isToday ? 'text-emerald-300/90' : 'text-slate-400'}">
                                 ${config.day}
                             </span>
-                            <span class="text-2xl font-black tracking-tight leading-none ${isToday ? 'text-slate-950' : 'text-slate-800'} mt-1.5">
+                            <span class="text-2xl font-black tracking-tight leading-none ${isToday ? 'text-white' : 'text-slate-800'} mt-1.5">
                                 ${config.dateNum}
                             </span>
                         </div>
@@ -624,7 +631,7 @@ function renderRosterCards() {
                                     <div class="roster-drawer-inner">
                                         <div class="px-[18px] pb-4 pt-0.5">
                                             <div>
-                                                <a href="https://maps.apple.com/?q=${encodeURIComponent(activeSite.address)}" target="_blank" onclick="event.stopPropagation()" class="site-address inline-flex items-center gap-1.5 text-[13px] font-semibold ${isToday ? 'text-emerald-200/90 hover:text-white' : (isRainActive ? 'text-blue-300 hover:text-white' : 'text-emerald-600 hover:text-emerald-800')} transition-colors">
+                                                <a href="https://maps.apple.com/?q=${encodeURIComponent(activeSite.address)}" target="_blank" onclick="event.stopPropagation()" class="site-address inline-flex items-center gap-1.5 text-[13px] font-semibold ${isToday ? 'text-emerald-200/90 hover:text-white' : (isRainActive ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800')} transition-colors">
                                                     <span class="site-address-text">${activeSite.address}</span>
                                                     <i class="ph-bold ph-arrow-up-right text-xs"></i>
                                                 </a>
@@ -635,8 +642,8 @@ function renderRosterCards() {
                                             <div class="roster-team-divider pt-3 mt-3 border-t ${isToday ? 'border-emerald-500/20' : (isRainActive ? 'border-slate-800' : 'border-slate-100')}">
                                                 <span class="roster-with-label text-[11px] font-black uppercase tracking-wider ${isToday ? 'text-emerald-300/90' : (isRainActive ? 'text-slate-300' : 'text-slate-500')} block mb-2">With:</span>
                                                 <div class="flex flex-wrap gap-1.5">
-                                                    ${config.team.map(member => `
-                                                        <span class="roster-team-chip px-3 py-1 rounded-full ${isToday ? 'bg-emerald-950/60 text-emerald-100 border border-emerald-500/30 font-bold text-xs shadow-inner' : (isRainActive ? 'bg-slate-800 text-white border border-slate-700 font-bold text-xs' : 'bg-slate-100 text-slate-800 border border-slate-200/50 font-bold text-xs')}">${member}</span>
+                                                    ${sortCrewBySeniority(config.team).map(member => `
+                                                        <span class="roster-team-chip inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full ${isToday ? 'bg-emerald-950/60 text-emerald-100 border border-emerald-500/30 font-bold text-xs shadow-inner' : (isRainActive ? 'bg-slate-800 text-white border border-slate-700 font-bold text-xs' : 'bg-slate-100 text-slate-800 border border-slate-200/50 font-bold text-xs')}">${renderRoleAvatar(member, 'sm')}<span>${member}</span></span>
                                                     `).join('')}
                                                 </div>
                                             </div>
@@ -649,16 +656,17 @@ function renderRosterCards() {
                 `;
 
         if (config.isRainRisk) {
-            const particleContainer = card.querySelector('.rain-particles');
-            if (particleContainer && particleContainer.children.length === 0) {
-                for (let i = 0; i < 16; i++) {
-                    const drop = document.createElement('div');
-                    drop.className = 'rain-drop';
-                    drop.style.left = `${Math.random() * 100}%`;
-                    drop.style.top = `${-20 - Math.random() * 30}px`;
-                    drop.style.animationDuration = `${0.5 + Math.random() * 0.6}s`;
-                    drop.style.animationDelay = `${Math.random() * 2}s`;
-                    particleContainer.appendChild(drop);
+            // Storm rain streaks (styles/roster.css): a fixed, evenly spread pattern, so the card looks the
+            // same on every render
+            const rain = card.querySelector('.storm-rain');
+            if (rain && rain.children.length === 0) {
+                const n = parseInt(rain.dataset.count, 10) || 20;
+                for (let i = 0; i < n; i++) {
+                    const s = document.createElement('span');
+                    s.style.setProperty('--x', Math.min(((i * 37) % 100) + (i % 3) * 2, 112) + '%');
+                    s.style.setProperty('--d', ((i * 0.618) % 1).toFixed(3));
+                    s.style.setProperty('--len', (12 + (i * 7) % 10) + 'px');
+                    rain.appendChild(s);
                 }
             }
         }

@@ -21,7 +21,7 @@ const ROSTER_CONFIG = {
         subtitle: 'Block A • Steel & Rebar',
         normalSite: { title: 'Lugarno', address: '935 Forest Road, Lugarno' },
         rainSite:   { title: 'Lugarno Indoor Hub', address: '935 Forest Road (Shed B), Lugarno' },
-        team: ['James Beggs', 'David Hilt'],
+        team: ['James Begg', 'David Hilt'],
         isRainRisk: false
     },
     'card-wed': {
@@ -31,7 +31,7 @@ const ROSTER_CONFIG = {
         subtitle: 'Block A • Concrete Pour',
         normalSite: { title: 'Lugarno', address: '935 Forest Road, Lugarno' },
         rainSite:   { title: 'Lugarno Indoor Hub', address: '935 Forest Road (Shed B), Lugarno' },
-        team: ['James Beggs', 'David Hilt'],
+        team: ['James Begg', 'David Hilt'],
         isRainRisk: false
     },
     'card-thu': {
@@ -41,7 +41,7 @@ const ROSTER_CONFIG = {
         subtitle: 'Block A • Curing & Checks',
         normalSite: { title: 'Lugarno', address: '935 Forest Road, Lugarno' },
         rainSite:   { title: 'Lugarno Indoor Hub', address: '935 Forest Road (Shed B), Lugarno' },
-        team: ['James Beggs', 'David Hilt'],
+        team: ['James Begg', 'David Hilt'],
         isRainRisk: false
     },
     'card-fri': {

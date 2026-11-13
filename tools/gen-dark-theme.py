@@ -56,7 +56,13 @@ def state_rule(classes, decl, state):
             sels.append(f'.group:hover .{esc("group-hover:"+c)}')
         else:
             sels.append(f'.{esc(state+":"+c)}:{state}')
-    rule(sels, decl)
+    if state in ('hover', 'group-hover'):
+        # Same gate as Tailwind's hoverOnlyWhenSupported (scripts/config/tailwind.config.js): on touch screens
+        # the finger that starts a scroll counts as a hover in iOS Safari and leaves the row lit after it moves on
+        rule(sels, decl, prefix='    html ')
+        out[-1] = '@media (hover: hover) and (pointer: fine) {\n' + out[-1] + '\n}'
+    else:
+        rule(sels, decl)
 state_rule(['bg-white'] + ['bg-white/'+o for o in light_white] + ['bg-slate-50','bg-slate-50/80','bg-slate-100','bg-slate-100/80','bg-gray-100'], f'background-color: {W(0.08)};', 'hover')
 state_rule(['bg-slate-200','bg-slate-200/90','bg-slate-200/80','bg-gray-200'], f'background-color: {W(0.12)};', 'hover')
 state_rule(['bg-black','bg-slate-900','bg-slate-800'], 'background-color: #2a2a2f;', 'hover')

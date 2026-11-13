@@ -31,6 +31,17 @@ function scheduleDynamicStatusBarSync() {
     });
 }
 
+// iOS scroll-edge effect: once content scrolls under a pushed screen's bar, the bar fades from the surface
+// colour at the top (behind the status bar) to clear at its bottom edge. No solid band, border or shadow,
+// so content dissolves into the top instead of meeting a hard edge.
+function applyTopBarEdgeFade(topBar, rgb) {
+    // no-repeat: a repeating gradient wraps at the bar's last device-pixel row, drawing its dark top
+    // colour there as a 1px line
+    topBar.style.background = `linear-gradient(180deg, rgb(${rgb}) 0%, rgba(${rgb}, 0.88) 45%, rgba(${rgb}, 0.5) 72%, rgba(${rgb}, 0) 100%) no-repeat`;
+    topBar.style.borderColor = 'transparent';
+    topBar.style.boxShadow = 'none';
+}
+
 function applyTopBarSurface(surface) {
     const topBar = document.getElementById('app-top-bar');
     const titleEl = document.getElementById('app-top-bar-title');
@@ -47,34 +58,24 @@ function applyTopBarSurface(surface) {
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#08080a', true);
     } else if (surface === 'emerald') {
-        topBar.style.background = 'linear-gradient(135deg, rgba(2, 44, 34, 0.94) 0%, rgba(6, 30, 20, 0.94) 60%, rgba(2, 6, 23, 0.94) 100%)';
-        topBar.style.borderColor = 'rgba(16, 185, 129, 0.25)';
-        topBar.style.boxShadow = '0 10px 24px -8px rgba(0, 0, 0, 0.35)';
+        applyTopBarEdgeFade(topBar, '2, 44, 34');      // today's card under the bar: emerald fade
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#022c22', true);
     } else if (surface === 'rain') {
-        topBar.style.background = 'linear-gradient(135deg, rgba(11, 26, 56, 0.95) 0%, rgba(12, 22, 45, 0.95) 100%)';
-        topBar.style.borderColor = 'rgba(96, 165, 250, 0.3)';
-        topBar.style.boxShadow = '0 10px 24px -8px rgba(0, 0, 0, 0.38)';
+        applyTopBarEdgeFade(topBar, '11, 26, 56');
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#0b1a38', true);
     } else if (surface === 'slate') {
-        topBar.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(12, 22, 45, 0.94) 100%)';
-        topBar.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-        topBar.style.boxShadow = '0 10px 24px -8px rgba(0, 0, 0, 0.35)';
+        applyTopBarEdgeFade(topBar, '15, 23, 42');
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#0f172a', true);
     } else if (surface === 'blue') {
-        topBar.style.background = 'linear-gradient(135deg, rgba(37, 99, 235, 0.94) 0%, rgba(67, 56, 202, 0.94) 100%)';
-        topBar.style.borderColor = 'rgba(147, 197, 253, 0.3)';
-        topBar.style.boxShadow = '0 10px 24px -8px rgba(37, 99, 235, 0.3)';
+        applyTopBarEdgeFade(topBar, '37, 99, 235');
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#2563eb', true);
     } else if (surface === 'light-scrolled') {
-        // Content scrolled under the bar: solid page colour with a faint hairline (dark theme)
-        topBar.style.background = '#08080a';
-        topBar.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-        topBar.style.boxShadow = 'none';
+        // Content scrolled under the bar: a soft fade from the page colour, no solid band or hairline
+        applyTopBarEdgeFade(topBar, '8, 8, 10');
         if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
         setStatusBarThemeColor('#08080a', true);
     } else {

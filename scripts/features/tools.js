@@ -8,18 +8,8 @@ function filterToolsCategory(category) {
     triggerHaptic('light');
     currentToolCategory = category;
 
-    const categories = ['all', 'power tools', 'access', 'concrete', 'setout', 'site', 'safety', 'trailers', 'scaffolds', 'bobcat'];
-    categories.forEach(cat => {
-        const btnId = 'tool-cat-' + cat.replace(/\s+/g, '-');
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            if (cat === category) {
-                btn.className = "tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-black bg-slate-900 text-brand-lime shadow-sm transition-all cursor-pointer flex items-center justify-center";
-            } else {
-                btn.className = "tool-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center";
-            }
-        }
-    });
+    // Shared filter pills (scripts/components/filter-bar.js)
+    setActiveFilterPill(document.getElementById('tool-cat-' + category.replace(/\s+/g, '-')));
 
     filterToolsDirectory();
 }

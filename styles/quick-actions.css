@@ -47,8 +47,8 @@
     padding: 0 8px;
     transition: color 150ms ease;
 }
-.quick-actions-action:hover {
-    color: #ffffff;
+@media (hover: hover) and (pointer: fine) {
+    .quick-actions-action:hover { color: #ffffff; }
 }
 
 /* Four equal tiles in one row; 2x2 when the row is too narrow for "Timesheets" at full size */
@@ -69,16 +69,40 @@
     justify-content: center;
     gap: 6px;
     padding: 12px 8px;                         /* 2px less than before, so the 24px icon keeps the tile height */
-    border-radius: 16px;                       /* rounded-2xl */
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;                       /* rounded-2xl; the fallback shape without JS */
+    --qa-fill: rgba(255, 255, 255, 0.04);
+    --qa-edge: rgba(255, 255, 255, 0.06);
+    background: var(--qa-fill);
+    border: 1px solid var(--qa-edge);
     color: #fff;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: transform 120ms var(--ease-out), background-color 160ms ease;
 }
-@supports (corner-shape: squircle) {
-    .qa-tile { border-radius: 20px; corner-shape: squircle; }
+/* True squircle (scripts/components/squircle.js): the fill and 1px edge move onto an SVG path with
+   superellipse corners behind the content, so Safari gets continuous corners too */
+.qa-tile.has-squircle {
+    isolation: isolate;
+    background: transparent;
+    border-color: transparent;
+    border-radius: 24px;                       /* focus ring follows roughly the same outline */
+    transition: transform 120ms var(--ease-out);
+}
+.squircle-shape {
+    position: absolute;
+    inset: -1px;                               /* cover the transparent border box */
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    z-index: -1;
+    overflow: visible;
+    pointer-events: none;
+}
+.squircle-shape path {
+    fill: var(--qa-fill);
+    stroke: var(--qa-edge);
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+    transition: fill 160ms ease;
 }
 
 .qa-icon {
@@ -130,11 +154,12 @@
 /* Press: instant, quiet response */
 .qa-tile:active {
     transform: scale(0.96);
-    background-color: rgba(255, 255, 255, 0.08);
+    --qa-fill: rgba(255, 255, 255, 0.08);
     transition-duration: 60ms;
 }
+.qa-tile:active .squircle-shape path { transition-duration: 60ms; }
 @media (hover: hover) and (pointer: fine) {
-    .qa-tile:hover { background-color: rgba(255, 255, 255, 0.065); }
+    .qa-tile:hover { --qa-fill: rgba(255, 255, 255, 0.065); }
 }
 .qa-tile:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.7);
@@ -186,7 +211,16 @@
 .home-nav-row:active {
     background-color: rgba(255, 255, 255, 0.06);
     transition-duration: 0ms;
+    scale: none;                               /* the highlight stays full-width (overrides system.css's press scale) */
 }
+/* Press: only the row's content (orb / icon, label, value, chevron) shrinks, each toward its own edge so
+   nothing drifts sideways */
+.home-nav-row > * {
+    transition: scale var(--dur-press) var(--ease-out);
+}
+.home-nav-row:active > * { scale: var(--press-scale); }
+.home-nav-row > .home-nav-label { transform-origin: left center; }
+.home-nav-row > .home-nav-value { transform-origin: right center; }
 @media (hover: hover) and (pointer: fine) {
     .home-nav-row:hover { background-color: rgba(255, 255, 255, 0.035); }
 }

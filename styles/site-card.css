@@ -154,6 +154,57 @@
 
 /* Timeline: 22px under the address, 12px between track and times */
 #site-hero-card .hero-site-content > .sc-timeline { margin-top: 22px; }
+
+/* Crew preview (scripts/features/home-crew.js): 12px under the address and 12px above the timeline.
+   6px of each gap is the button's own padding, so the whole row is a comfortable tap target. */
+#site-hero-card .home-crew {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: fit-content;
+    margin-top: 6px;
+    padding: 6px 8px 6px 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+#site-hero-card .home-crew[hidden] { display: none; }
+#site-hero-card .hero-site-content > .home-crew:not([hidden]) + .sc-timeline { margin-top: 6px; }
+#site-hero-card .home-crew-stack { display: flex; align-items: center; }
+#site-hero-card .home-crew-stack > * + * {
+    margin-left: -6px;                         /* -space-x-1.5 */
+    /* No rings over the animated shader: each later avatar sits on top and casts a soft shadow onto the
+       one before it */
+    box-shadow: -2px 0 6px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.24);
+}
+#site-hero-card .home-crew-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #161618 25%, #2a2f33 100%);
+    color: #e5e7eb;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+#site-hero-card .home-crew-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #9CA3AF;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(1, 14, 12, 0.6);
+}
+#site-hero-card .home-crew-label i { font-size: 10px; color: currentColor; }
 #site-hero-card .sc-track {
     position: relative;
     height: 3px;

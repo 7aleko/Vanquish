@@ -194,13 +194,10 @@ function renderSiteSites() {
                             </div>
 
                             <div class="flex flex-wrap gap-2">
-                                ${dayData.crew.map(member => {
-                            const initials = member.split(' ').map(n => n[0]).join('').slice(0, 2);
+                                ${sortCrewBySeniority(dayData.crew).map(member => {
                             return `
                                         <div onclick="openDirectMessage('${member}')" class="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 shadow-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer active:scale-95 group/crew min-h-[38px]">
-                                            <div class="w-7 h-7 rounded-full bg-slate-900 text-brand-lime font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover/crew:scale-105 transition-transform">
-                                                ${initials}
-                                            </div>
+                                            ${renderRoleAvatar(member, 'md')}
                                             <span class="text-sm font-bold text-slate-900">${member}</span>
                                         </div>
                                     `;

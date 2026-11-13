@@ -44,12 +44,12 @@
         projectType: 'NEW BUILD',
         badgeText: '5 Days this week',
         days: {
-            mon: { date: '12 Oct', temp: '21° / 15°', rain: '0% rain',  isRainSafe: false, crew: ['James Beggs', 'David Hilt'] },
-            tue: { date: '13 Oct', temp: '22° / 16°', rain: '0% rain',  isRainSafe: false, crew: ['James Beggs', 'David Hilt'] },
-            wed: { date: '14 Oct', temp: '17° / 13°', rain: '100% rain',isRainSafe: true,  crew: ['James Beggs', 'David Hilt'] },
-            thu: { date: '15 Oct', temp: '20° / 15°', rain: '10% rain', isRainSafe: false, crew: ['James Beggs', 'David Hilt'] },
-            fri: { date: '16 Oct', temp: '19° / 13°', rain: '70% rain', isRainSafe: false, crew: ['James Beggs', 'David Hilt'] },
-            sat: { date: '17 Oct', temp: '23° / 16°', rain: '0% rain',  isRainSafe: false, crew: ['James Beggs'] }
+            mon: { date: '12 Oct', temp: '21° / 15°', rain: '0% rain',  isRainSafe: false, crew: ['James Begg', 'David Hilt'] },
+            tue: { date: '13 Oct', temp: '22° / 16°', rain: '0% rain',  isRainSafe: false, crew: ['James Begg', 'David Hilt'] },
+            wed: { date: '14 Oct', temp: '17° / 13°', rain: '100% rain',isRainSafe: true,  crew: ['James Begg', 'David Hilt'] },
+            thu: { date: '15 Oct', temp: '20° / 15°', rain: '10% rain', isRainSafe: false, crew: ['James Begg', 'David Hilt'] },
+            fri: { date: '16 Oct', temp: '19° / 13°', rain: '70% rain', isRainSafe: false, crew: ['James Begg', 'David Hilt'] },
+            sat: { date: '17 Oct', temp: '23° / 16°', rain: '0% rain',  isRainSafe: false, crew: ['James Begg'] }
         }
     }
 ];

@@ -32,7 +32,7 @@ const LIFESTYLE_CHATS = [
         avatarType: 'company',
         messages: [
             { sender: 'David Hilt', text: 'Indoor backup site confirmed for tomorrow at Lugarno Shed B. All gear is checked.', time: '10:35 AM', isIncoming: true },
-            { sender: 'James Beggs', text: 'Beauty, thanks Dave. See everyone at 7 AM sharp.', time: '10:40 AM', isIncoming: true },
+            { sender: 'James Begg', text: 'Beauty, thanks Dave. See everyone at 7 AM sharp.', time: '10:40 AM', isIncoming: true },
             { sender: 'You', text: 'Sounds good! I\'ll bring the extra tarp setup just in case.', time: '10:42 AM', isIncoming: false }
         ]
     },
@@ -55,7 +55,7 @@ const LIFESTYLE_CHATS = [
     },
     {
         id: 'chat-james',
-        name: 'James Beggs',
+        name: 'James Begg',
         role: 'Project Architect',
         category: 'direct',
         isGroup: false,
@@ -66,9 +66,9 @@ const LIFESTYLE_CHATS = [
         avatarType: 'team',
         avatarFallback: 'JB',
         messages: [
-            { sender: 'James Beggs', text: 'Morning Alexander, hope the setout went well today.', time: '8:55 AM', isIncoming: true },
+            { sender: 'James Begg', text: 'Morning Alexander, hope the setout went well today.', time: '8:55 AM', isIncoming: true },
             { sender: 'You', text: 'Morning James, setout is complete and pinned.', time: '9:00 AM', isIncoming: false },
-            { sender: 'James Beggs', text: 'Can you send over the updated roof details for Bondi?', time: '9:15 AM', isIncoming: true }
+            { sender: 'James Begg', text: 'Can you send over the updated roof details for Bondi?', time: '9:15 AM', isIncoming: true }
         ]
     },
     {

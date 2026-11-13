@@ -60,11 +60,11 @@
 #view-home .hero-date-line { line-height: 14px; }   /* text box = cap height, so it sits flush with the widget top */
 #view-home .hero-greeting {
     margin: 0;
-    /* 32px wherever the longest salutation ("Good afternoon,", 7.66em wide) fits beside the widget
-       (row width minus the 12px gap and ~96px widget), e.g. iPhone 16 Pro; narrower phones scale it down
-       just enough to stay on one line instead of wrapping to three. */
-    font-size: clamp(23px, calc((100cqi - 108px) / 7.66), 32px);
-    font-weight: 700;
+    /* Weight and tracking match the site card's "Lugarno" (800 / -0.02em). 32px wherever the longest
+       salutation ("Good afternoon,", ~7.9em wide at 800) fits beside the widget (row width minus the 12px
+       gap and ~96px widget), e.g. iPhone 16 Pro; narrower phones scale it down just enough to stay on one line. */
+    font-size: clamp(22px, calc((100cqi - 108px) / 7.9), 32px);
+    font-weight: 800;
     line-height: 1.12;
     letter-spacing: -0.02em;
     overflow-wrap: anywhere;                   /* a very long name wraps instead of pushing the widget */

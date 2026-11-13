@@ -28,9 +28,9 @@ i.ph-icon::before { content: none !important; }
 /* Standard (top bar): 24px */
 .top-bar-icon i.ph-icon { width: 24px; height: 24px; }
 .top-bar-icon i.ph-icon > span { font-size: 24px; }
-/* Home navigation, monochrome zinc-400: Quick Action tiles 24px, Home list 20px */
-.qa-icon i.ph-icon { width: 24px; height: 24px; }
-.qa-icon i.ph-icon > span { font-size: 24px; }
+/* Home navigation, monochrome zinc-400: Quick Action tiles 28px, Home list 20px */
+.qa-icon i.ph-icon { width: 28px; height: 28px; }
+.qa-icon i.ph-icon > span { font-size: 28px; }
 .home-nav-icon i.ph-icon { width: 20px; height: 20px; }
 .home-nav-icon i.ph-icon > span { font-size: 20px; }
 /* Secondary (back / screen actions in round buttons): 20px */

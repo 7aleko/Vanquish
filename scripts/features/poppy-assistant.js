@@ -116,10 +116,9 @@ function openPoppyBotChat() {
             creaseSharpness: 0.90,
             scale: 1.15,
             whiteIntensity: 0.35,
-            // A soft 190px sphere: 2x density without MSAA looks the same and is about half the GPU
-            // work of 3x + antialias, which was enough to crash iPhones on top of Home's shaders
-            maxDpr: 2,
-            antialias: false
+            // A soft 190px sphere: a 128px backing store upscales invisibly and is ~9x fewer pixels
+            // than 2x density, keeping the GPU light under the sheet's blur (iOS Safari crashed here)
+            maxBuffer: 128
         });
     }
 }

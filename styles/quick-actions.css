@@ -85,7 +85,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 24px;
+    height: 28px;
     color: var(--home-icon, #a1a1aa);
     line-height: 1;
 }

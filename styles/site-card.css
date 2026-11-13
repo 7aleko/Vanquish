@@ -175,7 +175,7 @@
 #site-hero-card .hero-site-content > .home-crew:not([hidden]) + .sc-timeline { margin-top: 6px; }
 #site-hero-card .home-crew-stack { display: flex; align-items: center; }
 #site-hero-card .home-crew-stack > * + * {
-    margin-left: -6px;                         /* -space-x-1.5 */
+    margin-left: -8px;                         /* -space-x-2 */
     /* No rings over the animated shader: each later avatar sits on top and casts a soft shadow onto the
        one before it */
     box-shadow: -2px 0 6px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.24);
@@ -184,8 +184,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 24px;
+    min-width: 30px;
+    height: 30px;
     padding: 0 6px;
     border-radius: 9999px;
     background: linear-gradient(180deg, #161618 25%, #2a2f33 100%);

@@ -50,6 +50,7 @@
     <link rel="stylesheet" href="styles/icons.css">
     <link rel="stylesheet" href="styles/filter-bar.css">
     <link rel="stylesheet" href="styles/role-avatar.css">
+    <link rel="stylesheet" href="styles/timesheets.css">
     <link rel="stylesheet" href="styles/dark-theme.css">
 </head>
 <body class="bg-slate-950 sm:bg-slate-950 text-gray-900 sm:h-full sm:flex sm:justify-center sm:items-center font-sans antialiased selection:bg-brand-lime selection:text-black">
@@ -224,6 +225,9 @@
                     </div>
                     <div class="nav-actions-group" data-view="team" hidden>
                         <button aria-label="Refresh Team" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Team', 'Syncing team...')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i> </button>
+                    </div>
+                    <div class="nav-actions-group" data-view="time" hidden>
+                        <button type="button" id="ts-nav-crew" class="top-bar-icon nav-action nav-action-pill" onclick="toggleTimesheetCrew(true)" aria-controls="ts-crew-drawer" aria-expanded="false"> <i class="ph-bold ph-users-three" aria-hidden="true"></i><span>Crew</span> </button>
                     </div>
                     <div class="nav-actions-group" data-view="tools" hidden>
                         <button aria-label="Refresh Tools & Gear" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Tools & Gear', 'Asset sync complete')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i> </button>
@@ -548,7 +552,7 @@
                 <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-calendar" data-icon-weight="bold"></i></span>
                 <span class="qa-label">Roster</span>
             </button>
-            <button type="button" class="qa-tile" data-squircle="24" onclick="triggerHaptic('light'); openTimesheetsModal()" aria-label="Time">
+            <button type="button" class="qa-tile" data-squircle="24" onclick="openTimeView()" aria-label="Time">
                 <span class="qa-icon" aria-hidden="true"><i class="fa-solid fa-clock" data-icon-weight="bold"></i></span>
                 <span class="qa-label">Time</span>
             </button>
@@ -1001,6 +1005,124 @@
             </div>
         </main>
 
+        <!-- ================= VIEW: TIME (TIMESHEETS) - scripts/features/timesheets.js, styles/timesheets.css ================= -->
+        <!-- No large title: the selected date is the bar's title (data-bar-title, top-bar.js) -->
+        <main id="view-time" data-bar-title="" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full">
+
+            <!-- 7-day strip: the week of the selected day -->
+            <div id="ts-week-strip" class="ts-week-strip" role="group" aria-label="Choose a day this week"></div>
+
+            <!-- Daily progress: net hours against the 8h day -->
+            <section id="ts-hero" class="ts-hero" aria-live="polite">
+                <div class="ts-hero-ring">
+                    <svg viewBox="0 0 190 190" aria-hidden="true">
+                        <circle class="ts-hero-track" cx="95" cy="95" r="87"/>
+                        <circle id="ts-hero-fill" class="ts-hero-fill" cx="95" cy="95" r="87" transform="rotate(-90 95 95)"/>
+                        <!-- Overtime: a second lap over the first, led by a shadowed tip (Apple Fitness) -->
+                        <circle id="ts-hero-tip" class="ts-ring-tip" cx="95" cy="8" r="8" opacity="0"/>
+                        <circle id="ts-hero-lap2" class="ts-hero-lap2" cx="95" cy="95" r="87" transform="rotate(-90 95 95)"/>
+                    </svg>
+                    <div class="ts-hero-centre">
+                        <span id="ts-hero-hours" class="ts-hero-hours">0.0h</span>
+                        <span id="ts-hero-sub" class="ts-hero-sub">of 8.0h</span>
+                        <span id="ts-hero-ot" class="ts-ot-pill" hidden></span>
+                        <span id="ts-hero-site" class="ts-hero-site"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pay run -->
+            <section class="ts-card ts-stats" aria-label="Pay run">
+                <div class="ts-stat">
+                    <span class="ts-eyebrow">Current pay run</span>
+                    <span class="ts-stat-value is-lime"><span id="ts-payrun-done">0/10</span><small>DONE</small></span>
+                </div>
+                <div class="ts-stat">
+                    <span class="ts-eyebrow">Fortnight total</span>
+                    <span class="ts-stat-value"><span id="ts-fortnight-hours">0.0</span><small>HRS</small></span>
+                </div>
+            </section>
+
+            <!-- Monthly overview: gaps stand out in amber -->
+            <section class="ts-card ts-month" aria-labelledby="ts-month-heading">
+                <div class="ts-month-head">
+                    <div>
+                        <h3 id="ts-month-heading" class="ts-eyebrow">Monthly overview</h3>
+                        <span id="ts-chart-month" class="ts-month-name"></span>
+                    </div>
+                    <span id="ts-gap" class="ts-gap" hidden><i class="ph-bold ph-warning" aria-hidden="true"></i><span id="ts-gap-label"></span></span>
+                </div>
+                <div id="ts-chart" class="ts-chart"></div>
+            </section>
+
+            <!-- Inline editor -->
+            <section id="ts-editor" class="ts-card ts-editor" aria-labelledby="ts-editor-title">
+                <div class="ts-editor-head">
+                    <div class="ts-editor-heading">
+                        <h3 id="ts-editor-title" class="ts-editor-title"></h3>
+                        <p class="ts-editor-address"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span id="ts-editor-address"></span></p>
+                    </div>
+                    <span id="ts-editor-status" class="ts-status-pill"></span>
+                </div>
+                <p id="ts-draft-note" class="ts-draft-note" hidden><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</p>
+
+                <div id="ts-site-select" class="ts-segmented" role="radiogroup" aria-label="Site">
+                    <button type="button" class="ts-seg" role="radio" data-site="lugarno" onclick="setTimesheetSite('lugarno')">Lugarno</button>
+                    <button type="button" class="ts-seg" role="radio" data-site="yowie-bay" onclick="setTimesheetSite('yowie-bay')">Yowie Bay</button>
+                    <button type="button" class="ts-seg" role="radio" data-site="castlecrag" onclick="setTimesheetSite('castlecrag')">Castlecrag</button>
+                </div>
+
+                <!-- Crew reference: the same drawer the bar's Crew button opens -->
+                <button type="button" id="ts-crew-link" class="ts-crew-link" onclick="toggleTimesheetCrew(false)" aria-controls="ts-crew-drawer" aria-expanded="false">
+                    <i class="ph-bold ph-users-three" aria-hidden="true"></i>
+                    <span id="ts-crew-link-label">See crew logs for this day</span>
+                    <span id="ts-crew-link-count" class="ts-crew-count"></span>
+                    <i class="ph-bold ph-caret-down ts-crew-caret" aria-hidden="true"></i>
+                </button>
+                <div id="ts-crew-drawer" class="ts-crew-drawer" aria-hidden="true">
+                    <div id="ts-crew-drawer-inner" class="ts-crew-drawer-inner" inert>
+                        <p id="ts-crew-context" class="ts-crew-context"></p>
+                        <div id="ts-crew-list" class="ts-crew-list"></div>
+                    </div>
+                </div>
+
+                <div class="ts-times">
+                    <label class="ts-field">
+                        <span class="ts-field-label">Start</span>
+                        <input id="ts-start" type="time" class="ts-input" value="07:00" oninput="onTimesheetInput()" onchange="onTimesheetInput()">
+                    </label>
+                    <label class="ts-field">
+                        <span class="ts-field-label">Finish</span>
+                        <input id="ts-finish" type="time" class="ts-input" value="15:30" oninput="onTimesheetInput()" onchange="onTimesheetInput()">
+                    </label>
+                </div>
+
+                <div id="ts-break-select" class="ts-segmented" role="radiogroup" aria-label="Unpaid break">
+                    <button type="button" class="ts-seg" role="radio" data-break="30" onclick="setTimesheetBreak(30)">30m unpaid</button>
+                    <button type="button" class="ts-seg" role="radio" data-break="0" onclick="setTimesheetBreak(0)">No break</button>
+                </div>
+
+                <div class="ts-net-row">
+                    <div>
+                        <span class="ts-field-label">Net hours</span>
+                        <span id="ts-net-message" class="ts-net-message"></span>
+                    </div>
+                    <span id="ts-net" class="ts-net">8.0h</span>
+                </div>
+
+                <label class="ts-field">
+                    <span class="ts-field-label">Task notes</span>
+                    <textarea id="ts-notes" class="ts-input ts-notes" rows="3" placeholder="Describe the work completed today..." oninput="onTimesheetInput()"></textarea>
+                </label>
+
+                <button type="button" id="ts-save" class="ts-save" onclick="saveTimesheet()">
+                    <i id="ts-save-icon" class="ph-bold ph-floppy-disk" aria-hidden="true"></i>
+                    <span id="ts-save-label">Save Timesheet</span>
+                </button>
+                <p id="ts-save-hint" class="ts-save-hint" aria-live="polite"></p>
+            </section>
+        </main>
+
         <!-- ================= VIEW 10: NOTIFICATIONS & ACTIVITY (APPLE STYLE) ================= -->
         <main id="view-notifications" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-4 sm:px-5 py-4 space-y-4 pb-8 relative max-w-full">
             
@@ -1360,6 +1482,7 @@
     <script src="scripts/data/sites.js"></script>
     <script src="scripts/data/notifications.js"></script>
     <script src="scripts/data/account.js"></script>
+    <script src="scripts/data/timesheets.js"></script>
     <script src="scripts/core/boot.js"></script>
     <script src="scripts/features/attendance.js"></script>
     <script src="scripts/features/site-card-energy.js"></script>
@@ -1385,6 +1508,7 @@
     <script src="scripts/features/today-summary.js"></script>
     <script src="scripts/features/home-nav.js"></script>
     <script src="scripts/features/home-crew.js"></script>
+    <script src="scripts/features/timesheets.js"></script>
     <script src="scripts/features/weather.js"></script>
     <script src="scripts/core/a11y.js"></script>
     <script src="scripts/main.js"></script>

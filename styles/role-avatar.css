@@ -25,6 +25,6 @@
 /* Team directory */
 .role-avatar--lg { width: 44px; height: 44px; font-size: 14px; }
 /* Home site card crew stack */
-.role-avatar--md { width: 24px; height: 24px; font-size: 9px; letter-spacing: -0.02em; }
+.role-avatar--md { width: 30px; height: 30px; font-size: 11px; letter-spacing: -0.02em; }
 /* Roster crew pills */
-.role-avatar--sm { width: 20px; height: 20px; font-size: 9.5px; letter-spacing: 0; }
+.role-avatar--sm { width: 24px; height: 24px; font-size: 10.5px; letter-spacing: 0; }

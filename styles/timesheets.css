@@ -1,0 +1,475 @@
+/* Time (Timesheets) screen - scripts/features/timesheets.js.
+   Same materials as Home: #08080a page with a soft emerald light at the top, smoked-glass cards
+   (white 5% + 8% hairline, 28px radius), lime only for logged progress and the primary action,
+   amber only for a missed workday. All figures use tabular numbers. */
+
+#view-time {
+    --ts-lime: var(--brand-lime, #CCFF00);
+    --ts-amber: #FBBF24;
+    --ts-track: rgba(255, 255, 255, 0.08);
+    --ts-glass: rgba(255, 255, 255, 0.05);
+    --ts-edge: rgba(255, 255, 255, 0.08);
+    --ts-muted: var(--ink-tertiary, #8e9299);
+    --ts-ring: #A3E635;              /* rings: first lap (the 8h day) */
+    --ts-ring-ot: #BEF264;           /* rings: the overtime lap over it */
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: calc(32px + var(--safe-bottom, 0px));
+    background-color: #08080a;
+    background-image:
+        radial-gradient(90% 22% at 50% 14%, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0.07) 55%, transparent 80%);
+    background-repeat: no-repeat;
+    background-attachment: local;      /* the glow scrolls away with the content */
+    color-scheme: dark;
+    font-variant-numeric: tabular-nums;
+}
+#view-time > * + * { margin-top: 16px; }
+
+/* Bar: the date is the title; the Crew pill sits where other screens put their round action */
+#app-top-bar .nav-action-pill {
+    width: auto;
+    height: 36px;
+    padding: 0 14px 0 12px;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bar-icon);
+}
+#app-top-bar .nav-action-pill i { font-size: 17px; }
+#app-top-bar .nav-action-pill.is-active {
+    background: rgba(204, 255, 0, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(204, 255, 0, 0.45);
+    color: var(--brand-lime, #CCFF00);
+}
+#app-top-bar[data-mode="nav"] .nav-inline-title { font-variant-numeric: tabular-nums; }
+
+/* ---------- Week strip ---------- */
+.ts-week-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+}
+.ts-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+    min-height: 44px;
+    background: none;
+    border: 0;
+    color: #fff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press) var(--ease-out);
+}
+.ts-day:active { scale: 0.92; }
+.ts-day:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 0; border-radius: 12px; }
+.ts-day-ring {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+}
+.ts-day-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ts-day-track { fill: none; stroke: var(--ts-track); stroke-width: 3.5; }
+.ts-day-fill {
+    fill: none;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke: transparent;
+    transition: stroke-dashoffset 500ms var(--ease-out), stroke 200ms ease;
+}
+.ts-day.is-logged .ts-day-fill { stroke: var(--ts-ring); }
+.ts-day.is-missing .ts-day-fill { stroke: var(--ts-amber); }
+.ts-day-initial {
+    position: relative;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+}
+.ts-day.is-upcoming .ts-day-initial,
+.ts-day.is-weekend .ts-day-initial,
+.ts-day.is-none .ts-day-initial { color: var(--ts-muted); }
+.ts-day-num { font-size: 11px; font-weight: 600; color: var(--ts-muted); line-height: 1; }
+/* Selected: a white badge with a black initial (the ring's colour still shows as a thin outer rim) */
+.ts-day.is-selected .ts-day-ring::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 9999px;
+    background: #fff;
+}
+.ts-day.is-selected .ts-day-initial { color: #000; }
+.ts-day.is-selected .ts-day-num { color: #fff; }
+
+/* ---------- Daily ring ---------- */
+.ts-hero { display: flex; justify-content: center; padding: 4px 0 0; }
+.ts-hero-ring { position: relative; width: 190px; height: 190px; }
+.ts-hero-ring svg { width: 100%; height: 100%; overflow: visible; }
+.ts-hero-track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 16; }
+.ts-hero-fill {
+    fill: none;
+    stroke: var(--ts-ring);
+    stroke-width: 16;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 10px rgba(163, 230, 53, 0.35));
+}
+.ts-hero-centre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+.ts-hero-hours {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: #fff;
+}
+.ts-hero-sub { font-size: 14px; font-weight: 600; color: var(--ts-muted); }
+.ts-hero-site { margin-top: 6px; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, 0.85); min-height: 1em; }
+.ts-hero[data-status="missing"] .ts-hero-sub { color: var(--ts-amber); }
+.ts-hero[data-status="upcoming"] .ts-hero-hours,
+.ts-hero[data-status="weekend"] .ts-hero-hours,
+.ts-hero[data-status="none"] .ts-hero-hours { color: rgba(255, 255, 255, 0.35); }
+
+/* Overtime lap: brighter arc over the first lap. The tip sits under the arc's round end cap with a dark
+   blur, so the shadow shows only ahead of the tip, where it overlaps the first lap. */
+.ts-hero-lap2 { fill: none; stroke: var(--ts-ring-ot); stroke-width: 16; stroke-linecap: round; }
+.ts-ring-tip { fill: var(--ts-ring-ot); filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9)); }
+.ts-day-lap2 { fill: none; stroke: var(--ts-ring-ot); stroke-width: 3.5; stroke-linecap: round; }
+.ts-ring-tip--mini { filter: drop-shadow(0 0 1.2px rgba(0, 0, 0, 0.95)); }
+
+.ts-ot-pill {
+    margin-top: 6px;
+    height: 22px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: rgba(190, 242, 100, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(190, 242, 100, 0.4);
+    color: var(--ts-ring-ot);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+}
+.ts-ot-pill[hidden] { display: none; }
+
+/* ---------- Cards ---------- */
+.ts-card {
+    border-radius: var(--radius-card, 28px);
+    background: var(--ts-glass);
+    border: 1px solid var(--ts-edge);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+}
+.ts-eyebrow {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ts-muted);
+}
+
+/* Pay run: two columns split by a hairline */
+.ts-stats { display: grid; grid-template-columns: 1fr 1fr; }
+.ts-stat { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; min-width: 0; }
+.ts-stat + .ts-stat { border-left: 1px solid var(--hairline, rgba(255, 255, 255, 0.06)); }
+.ts-stat-value {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #f4f4f5;
+}
+.ts-stat-value.is-lime { color: var(--ts-lime); }
+.ts-stat-value small { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; color: inherit; opacity: 0.8; }
+
+/* ---------- Monthly chart ---------- */
+.ts-month { padding: 16px 16px 12px; }
+.ts-month-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.ts-month-name { display: block; margin-top: 4px; font-size: 15px; font-weight: 700; color: #fff; }
+.ts-gap {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 9999px;
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--ts-amber);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.ts-gap[hidden] { display: none; }
+.ts-gap i { font-size: 13px; }
+.ts-chart { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ts-chart-week { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; }
+.ts-chart-bars { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; height: 92px; }
+.ts-chart-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--ts-muted); text-align: center; }
+/* Each bar is a full-height button, so the whole column is the tap target */
+.ts-bar {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, scale var(--dur-press) var(--ease-out);
+}
+.ts-bar:active { scale: 0.92; }
+.ts-bar:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 1px; }
+.ts-bar-fill {
+    width: 100%;
+    height: calc(var(--h, 0) * 100%);
+    border-radius: 6px;
+    background: var(--ts-lime);
+    transition: height 500ms var(--ease-out);
+}
+.ts-bar.is-logged .ts-bar-fill { background: linear-gradient(180deg, #D8FF3D 0%, #A8D600 100%); }
+/* Missed: a dashed amber baseline block that can't be mistaken for a short logged day */
+.ts-bar.is-missing .ts-bar-fill {
+    height: 22%;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1.5px dashed var(--ts-amber);
+}
+.ts-bar.is-upcoming, .ts-bar.is-none, .ts-bar.is-weekend, .ts-bar.is-today { background: rgba(255, 255, 255, 0.035); }
+.ts-bar.is-other-month { opacity: 0.4; }
+.ts-bar.is-selected { box-shadow: 0 0 0 1.5px #fff; background-color: rgba(255, 255, 255, 0.1); }
+
+/* ---------- Editor ---------- */
+.ts-editor { padding: 18px 16px 16px; scroll-margin-top: calc(var(--top-bar-h, 70px) + 8px); }
+.ts-editor > * + * { margin-top: 14px; }
+.ts-editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ts-editor-heading { min-width: 0; }
+.ts-editor-title { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.ts-editor-address { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ts-muted); }
+.ts-editor-address i { font-size: 11px; }
+.ts-status-pill {
+    flex-shrink: 0;
+    height: 24px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+.ts-status-pill.is-logged { background: rgba(204, 255, 0, 0.14); color: var(--ts-lime); }
+.ts-status-pill.is-missing { background: rgba(251, 191, 36, 0.14); color: var(--ts-amber); }
+.ts-status-pill.is-today { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.ts-draft-note { display: flex; align-items: center; gap: 6px; margin-top: 8px !important; font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
+.ts-draft-note[hidden] { display: none; }
+.ts-draft-note i { font-size: 7px; color: var(--ts-amber); }
+
+/* Segmented controls (site, break): dark track, the chosen option lifts to a lighter glass */
+.ts-segmented {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ts-seg {
+    min-height: 38px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, color 160ms ease, scale var(--dur-press) var(--ease-out);
+}
+.ts-seg:active { scale: 0.96; }
+.ts-seg.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.ts-seg:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; }
+
+/* Crew link + drawer */
+.ts-crew-link {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease;
+}
+.ts-crew-link:active { background: rgba(255, 255, 255, 0.08); }
+.ts-crew-link > i:first-child { font-size: 17px; color: rgba(255, 255, 255, 0.75); }
+.ts-crew-link > span:nth-child(2) { flex: 1; }
+.ts-crew-count {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    font-weight: 800;
+}
+.ts-crew-count:empty { display: none; }
+.ts-crew-caret { font-size: 13px; color: var(--ts-muted); transition: rotate 240ms var(--ease-out); }
+.ts-crew-link[aria-expanded="true"] .ts-crew-caret { rotate: 180deg; }
+
+.ts-crew-drawer {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 320ms var(--ease-drawer), opacity 220ms ease, margin-top 320ms var(--ease-drawer);
+}
+.ts-editor > .ts-crew-drawer:not(.is-open) { margin-top: 0; }
+.ts-crew-drawer.is-open { grid-template-rows: 1fr; opacity: 1; }
+.ts-crew-drawer-inner { min-height: 0; overflow: hidden; }
+.ts-crew-context { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ts-muted); }
+.ts-crew-list {
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ts-crew-row { display: flex; gap: 10px; padding: 12px; }
+.ts-crew-row + .ts-crew-row { border-top: 1px solid var(--hairline, rgba(255, 255, 255, 0.06)); }
+.ts-crew-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ts-crew-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ts-crew-name { font-size: 14px; font-weight: 700; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-crew-times { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.75); }
+.ts-crew-task { margin: 2px 0 0; font-size: 13px; line-height: 1.35; color: var(--ts-muted); }
+.ts-crew-empty { margin: 0; padding: 14px; font-size: 13px; color: var(--ts-muted); text-align: center; }
+.ts-copy-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, color 160ms ease, scale var(--dur-press) var(--ease-out);
+}
+.ts-copy-btn::before { content: ""; position: absolute; inset: -8px 0; }   /* 44px tap height */
+.ts-copy-btn { position: relative; }
+.ts-copy-btn:active { scale: 0.95; }
+.ts-copy-btn.is-copied { background: rgba(204, 255, 0, 0.14); color: var(--ts-lime); }
+
+/* Times */
+.ts-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ts-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ts-field-label { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.7); }
+.ts-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font: inherit;
+    font-size: 16px;                    /* 16px: iOS doesn't zoom the page on focus */
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color-scheme: dark;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+.ts-input:focus { outline: none; border-color: rgba(204, 255, 0, 0.55); background: rgba(0, 0, 0, 0.5); }
+.ts-input::-webkit-date-and-time-value { text-align: left; }
+.ts-notes { padding: 12px 14px; min-height: 92px; line-height: 1.4; font-weight: 500; resize: vertical; }
+.ts-notes::placeholder { color: rgba(255, 255, 255, 0.35); }
+
+.ts-net-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px 0; }
+.ts-net-row > div { display: flex; flex-direction: column; gap: 2px; }
+.ts-net-message { font-size: 12px; font-weight: 600; color: var(--ts-muted); min-height: 0; }
+.ts-net-message:empty { display: none; }
+.ts-net-message.is-invalid { color: var(--ts-amber); }
+.ts-net { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.ts-net.is-invalid { color: rgba(255, 255, 255, 0.35); }
+
+/* Save: the app's lime primary (same pill and glow as Home's Sign In) */
+.ts-save {
+    width: 100%;
+    height: 52px;
+    margin-top: 18px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 9999px;
+    background: var(--ts-lime);
+    color: #0c0f05;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: 0 6px 22px -6px rgba(204, 255, 0, 0.55);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press) var(--ease-out), opacity 160ms ease, background-color 200ms ease;
+}
+.ts-save i { font-size: 18px; }
+.ts-save:active:not(:disabled) { scale: var(--press-scale, 0.97); }
+.ts-save:disabled { opacity: 0.35; box-shadow: none; cursor: default; }
+.ts-save.is-saved { background: #e9ffb3; }
+.ts-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.ts-save-hint { margin: 8px 0 0 !important; font-size: 12px; text-align: center; color: var(--ts-muted); }
+.ts-save-hint:empty { display: none; }
+
+.ts-editor.is-locked .ts-segmented,
+.ts-editor.is-locked .ts-times,
+.ts-editor.is-locked .ts-field { opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ts-hero-fill, .ts-day-fill, .ts-bar-fill, .ts-crew-drawer { transition-duration: 0.01ms; }
+}
+@media (prefers-reduced-transparency: reduce) {
+    .ts-card { background: #141416; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

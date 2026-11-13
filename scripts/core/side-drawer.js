@@ -146,7 +146,7 @@ function drawerNavigate(target) {
         } else if (target === 'guide') {
             openAppGuideModal();
         } else if (target === 'timesheets') {
-            openTimesheetsModal();
+            openTimeView();               // the Time screen (scripts/features/timesheets.js) replaces the old sheet
         } else if (target === 'logout') {
             showToast('Account', 'Alexander Floratos signed out (Demo)');
         } else {

@@ -354,6 +354,7 @@
     let edgePopOutgoing = null;
     let edgePopIncoming = null;
     let edgePopTargetName = null;
+    let edgePopFollow = null;
 
     function onSubpageEdgeTouchStart(e) {
         if (e.touches.length !== 1 || !stage || !container) return;
@@ -424,6 +425,12 @@
 
                 edgePopIncoming.classList.remove('hidden');
                 edgePopIncoming.style.zIndex = '15';
+
+                // The bar moves with the page being swiped away; the one underneath shows its own bar
+                if (typeof startTopBarFollow === 'function') {
+                    edgePopFollow = startTopBarFollow(edgePopOutgoing, edgePopIncoming, true);
+                    showTopBarFor(edgePopTargetName);
+                }
             }
         }
 
@@ -465,6 +472,8 @@
         const outEl = edgePopOutgoing;
         const inEl = edgePopIncoming;
         const targetTab = edgePopTargetName;
+        const follow = edgePopFollow;
+        edgePopFollow = null;
         edgePopOutgoing = null;
         edgePopIncoming = null;
         edgePopTargetName = null;
@@ -492,6 +501,7 @@
                 if (currentActiveViewName === targetTab) {
                     outEl.classList.add('hidden');
                     inEl.classList.remove('hidden');
+                    if (typeof stopTopBarFollow === 'function' && follow) stopTopBarFollow(follow);
                 }
             }, 330);
         } else {
@@ -504,6 +514,8 @@
                 clearViewTransitionStyles(inEl);
                 outEl.classList.remove('hidden');
                 inEl.classList.add('hidden');
+                if (typeof stopTopBarFollow === 'function' && follow) stopTopBarFollow(follow);
+                syncDynamicStatusBar();
             }, 330);
         }
     }

@@ -3,7 +3,7 @@
  * (Quick Actions, the side drawer, cards) and pops back with its back button.
  */
 
-const ALL_APP_VIEWS = ['home', 'week', 'sitehub', 'chat', 'team', 'tools', 'schedule', 'notifications'];
+const ALL_APP_VIEWS = ['home', 'week', 'sitehub', 'chat', 'team', 'tools', 'time', 'schedule', 'notifications'];
 const VIEW_HIERARCHY_DEPTH = {
     'home': 0,
     'week': 1,
@@ -11,6 +11,7 @@ const VIEW_HIERARCHY_DEPTH = {
     'team': 1,
     'sitehub': 1,
     'tools': 1,
+    'time': 1,
     'notifications': 1,
     'schedule': 2
 };
@@ -32,6 +33,7 @@ const subpageParentMap = {
     'sitehub': 'home',
     'schedule': 'sitehub',
     'tools': 'home',
+    'time': 'home',
     'notifications': 'home'
 };
 
@@ -64,7 +66,8 @@ function navigateSubpageBack(fallbackTab = 'home') {
 const VIEW_FRESH_RESETTERS = {
     week: () => typeof resetRosterView === 'function' && resetRosterView(),
     team: () => typeof resetTeamView === 'function' && resetTeamView(),
-    tools: () => typeof resetToolsView === 'function' && resetToolsView()
+    tools: () => typeof resetToolsView === 'function' && resetToolsView(),
+    time: () => typeof resetTimeView === 'function' && resetTimeView()
 };
 
 function resetViewForFreshOpen(viewName, view) {
@@ -184,6 +187,13 @@ function switchTab(tabName, options = {}) {
             durationMs = 440;
         }
 
+        // The top bar travels with its screen: brand, bell and menu leave with Home; the back arrow arrives
+        // and leaves with its page (top-bar.js)
+        if (typeof startTopBarFollow === 'function') {
+            startTopBarFollow(outgoingView, incomingView, transitionMode === 'pop');
+            syncDynamicStatusBar();
+        }
+
         let transitionTimer = null;
         const cleanup = () => {
             if (transitionTimer) {
@@ -201,6 +211,7 @@ function switchTab(tabName, options = {}) {
                 }
             });
             activeViewTransitionCleanup = null;
+            if (typeof stopTopBarFollow === 'function') stopTopBarFollow();
         };
 
         activeViewTransitionCleanup = cleanup;

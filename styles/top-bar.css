@@ -138,3 +138,9 @@
 /* Screens start under the bar; pushed screens keep just 4px above the large title (was 16px) */
 #app-main-stage > .view-section { padding-top: calc(var(--top-bar-h) + 4px); }
 #app-main-stage > #view-home { padding-top: calc(var(--top-bar-h) + 8px); }   /* Home: 8px under the solid bar so the date never touches it */
+
+/* While the bar rides with a sliding screen (top-bar.js, startTopBarFollow) its groups switch at once:
+   each one is already on its own screen, so a cross-fade on top of the slide would only blur it */
+#app-top-bar.is-following .top-bar-group,
+#app-top-bar.top-bar-ghost .top-bar-group,
+#app-top-bar.is-following .nav-inline-title { transition: none !important; }

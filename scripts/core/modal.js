@@ -6,10 +6,12 @@ function openLiveChat() {
     switchTab('chat');
 }
 
-// While a sheet covers the page, Home's live shaders (site card energy, Poppy orb) pause: they are
-// hidden behind the sheet, and the sheet's backdrop blur would otherwise be recomputed every frame
-// they animate. That stacked GPU load (plus Poppy's own orb) crashed iOS Safari.
+// While a sheet covers the page, Home's live effects (site card energy, Poppy orb, the opal beam's spin)
+// pause: they are hidden behind the sheet, and any one of them still animating makes the browser
+// re-composite the page, including the sheet's backdrop blur, every frame. That stacked GPU load (plus
+// Poppy's own orb) crashed iOS Safari.
 function setBackgroundShadersPaused(paused) {
+    document.documentElement.classList.toggle('sheet-covers-page', !!paused);   // styles/attendance.css
     if (typeof dockOrbInstance !== 'undefined' && dockOrbInstance && dockOrbInstance.setPaused) dockOrbInstance.setPaused(paused);
     if (typeof setSiteCardEnergyPaused === 'function') setSiteCardEnergyPaused(paused);
 }
@@ -68,10 +70,8 @@ function closeModal(fromDrag = false, startYOffset = 0, releaseVelocity = 0) {
     if (content.classList.contains('poppy-dark-modal')) {
         setTimeout(() => { content.classList.remove('poppy-dark-modal'); }, 300);
     }
-    if (typeof modalOrbInstance !== 'undefined' && modalOrbInstance) {
-        try { modalOrbInstance.destroy(); } catch (_) {}
-        modalOrbInstance = null;
-    }
+    // Poppy's sheet orb is kept for the next open (mountPoppySheetOrb), just stopped
+    if (typeof modalOrbInstance !== 'undefined' && modalOrbInstance) modalOrbInstance.setPaused(true);
     if (typeof _poppyOrbState !== 'undefined' && _poppyOrbState !== 'idle') {
         if (typeof setPoppyOrbState === 'function') setPoppyOrbState('idle');
     }

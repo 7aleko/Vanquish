@@ -132,6 +132,8 @@
     animation: opal-border-spin 3.4s linear infinite;
     will-change: transform;
 }
+/* Hidden behind an open sheet: stop spinning (scripts/core/modal.js, setBackgroundShadersPaused) */
+html.sheet-covers-page .site-glow-spinner { animation-play-state: paused; }
 
 @keyframes opal-border-spin {
     from {

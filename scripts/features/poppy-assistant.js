@@ -20,7 +20,7 @@ function openPoppyBotChat() {
                         <!-- Big 3D WebGL Assistant Orb (Lush Lime-Green & Emerald-Cyan) -->
                         <div class="relative w-52 h-52 flex items-center justify-center mb-1 overflow-visible">
                             <div class="siri-caustic-floor"></div>
-                            <canvas id="modal-poppy-orb-canvas" width="540" height="540" class="w-[190px] h-[190px] pointer-events-none relative z-10 block rounded-full"></canvas>
+                            <canvas id="modal-poppy-orb-canvas" width="256" height="256" class="w-[177px] h-[177px] pointer-events-none relative z-10 block rounded-full"></canvas>
                         </div>
 
                         <!-- Apple SF Pro Typography & Identity -->
@@ -103,24 +103,8 @@ function openPoppyBotChat() {
     const content = document.getElementById('modal-content');
     if (content) content.classList.add('poppy-dark-modal');
 
-    // Initialize the Big WebGL Orb in Modal Hero
-    const modalCanvas = document.getElementById('modal-poppy-orb-canvas');
-    if (modalCanvas) {
-        if (modalOrbInstance) {
-            try { modalOrbInstance.destroy(); } catch (_) {}
-            modalOrbInstance = null;
-        }
-        modalOrbInstance = createAssistantOrb(modalCanvas, {
-            state: 'listening',
-            speed: 0.85,
-            creaseSharpness: 0.90,
-            scale: 1.15,
-            whiteIntensity: 0.35,
-            // A soft 190px sphere: a 128px backing store upscales invisibly and is ~9x fewer pixels
-            // than 2x density, keeping the GPU light under the sheet's blur (iOS Safari crashed here)
-            maxBuffer: 128
-        });
-    }
+    // The big orb in the sheet's hero: the same orb as Home's, kept between opens (scripts/components/siri-orb.js)
+    mountPoppySheetOrb(document.getElementById('modal-poppy-orb-canvas'));
 }
 
 function openPoppyBotChatWithQuery(query) {

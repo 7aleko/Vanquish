@@ -41,6 +41,15 @@ function createOrbNoiseTexture(gl) {
 }
 
 /**
+ * One simulation clock for every Poppy orb. The Home orb and the sheet's big orb read the same phase, so
+ * the sheet shows the very same clouds, just larger, and the Home orb carries on where the sheet left off.
+ * Whichever orb is drawing advances it (only one draws at a time: the Home orb pauses under a sheet).
+ */
+const POPPY_ORB_CLOCK = { phase: 0, last: 0 };
+// Shared look, so both orbs are the same orb at two sizes
+const POPPY_ORB_LOOK = { speed: 0.85, creaseSharpness: 0.90, scale: 1.15, whiteIntensity: 0.35 };
+
+/**
  * Mobile-optimised orb. Per pixel, 3D value noise is one bilinear texture fetch instead of hashing 8 cube
  * corners (10 fetches and ~150 ALU ops instead of ~1,000), values that are the same for every pixel are
  * computed on the CPU, and there is no `discard`. Per frame, the backing store is capped
@@ -74,6 +83,12 @@ function createAssistantOrb(canvas, options = {}) {
     };
     // Backing-store cap in device pixels: the orb is soft, so upscaling isn't visible
     const maxBuffer = options.maxBuffer ?? 160;
+    const clock = options.clock || { phase: 0, last: 0 };     // pass POPPY_ORB_CLOCK to share the simulation
+    // crispEdge: the sphere fills the canvas and the canvas's own CSS border-radius (rounded-full) cuts the
+    // outline at full screen resolution, so the rim stays sharp however small the backing store is. The
+    // canvas must be sized to the sphere (93% of the old box) and be border-radius: 50%. Plain
+    // border-radius, not clip-path: a clip-path on a WebGL canvas was costly on iOS under the sheet's blur.
+    const crispEdge = !!options.crispEdge;
     const FPS = options.fps ?? 30;
     const STATE_SPEED = { idle: 1.0, listening: 1.5, thinking: 2.1 };
 
@@ -87,6 +102,8 @@ function createAssistantOrb(canvas, options = {}) {
 
             uniform sampler2D u_noise;
             uniform vec2  u_resolution;
+            uniform float u_radius;       // sphere radius (1 = touches the canvas edge)
+            uniform float u_edgePad;      // 0 = shader anti-aliases the rim; 2 = the canvas's CSS border-radius cuts it
             uniform float u_t;            // accumulated phase (time x speed x state speed)
             uniform float u_state;        // 0 idle, 1 listening, 2 thinking
             uniform float u_freq;         // 0.92 / max(scale, 0.5)
@@ -101,7 +118,6 @@ function createAssistantOrb(canvas, options = {}) {
             uniform vec3  u_creaseColor;  // mix(color2, color3, clamp(whiteAmount, 0, 1))
             uniform vec3  u_rimColor;     // mix(color2, color3, 0.65)
 
-            const float RADIUS = 0.93;
             const vec3  LIGHT  = vec3(-0.35, 0.48, 0.80) / 0.9964437;
 
             // Value noise, one bilinear fetch: R = lattice at slice z, G = slice z+1. The quintic fade is
@@ -125,8 +141,10 @@ function createAssistantOrb(canvas, options = {}) {
                 float r2 = dot(p, p);
                 float r  = sqrt(r2);
 
+                float RADIUS = u_radius;
                 float pd = 2.0 / minRes;
-                float alpha = smoothstep(RADIUS, RADIUS - pd * 1.75, r);
+                float edge = RADIUS + pd * u_edgePad;
+                float alpha = smoothstep(edge, edge - pd, r);       // ~1 buffer px edge
                 if (alpha <= 0.0) { gl_FragColor = vec4(0.0); return; }
 
                 float z = sqrt(max(0.0, RADIUS * RADIUS - r2));
@@ -209,6 +227,8 @@ function createAssistantOrb(canvas, options = {}) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, noiseTex);
     gl.uniform1i(U('u_noise'), 0);
+    gl.uniform1f(U('u_radius'), crispEdge ? 1.0 : 0.93);
+    gl.uniform1f(U('u_edgePad'), crispEdge ? 2.0 : 0.0);
 
     // Uniforms that only change when the look changes: uploaded on change, not per frame
     const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
@@ -246,7 +266,6 @@ function createAssistantOrb(canvas, options = {}) {
     let isPaused = false;                      // setPaused(): stop drawing while hidden behind a sheet
     let onScreen = true;
     let last = 0;
-    let phase = 0;                             // accumulated, so state / speed changes never jump
     const frameMs = 1000 / FPS;
     const WRAP = 25600;                        // the noise repeats every 256 units, so this wrap is seamless
 
@@ -258,7 +277,7 @@ function createAssistantOrb(canvas, options = {}) {
 
     function draw() {
         sizeCanvas();
-        gl.uniform1f(u.t, phase);
+        gl.uniform1f(u.t, clock.phase);
         gl.uniform1f(u.state, config.state === 'thinking' ? 2.0 : (config.state === 'listening' ? 1.0 : 0.0));
         gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
@@ -271,13 +290,18 @@ function createAssistantOrb(canvas, options = {}) {
         const dt = now - last;
         if (dt < frameMs - 2) return;          // 30 fps cap
         last = now;
-        phase += Math.min(dt, 100) / 1000 * config.speed * (STATE_SPEED[config.state] || 1) * 0.45;
-        if (phase > WRAP) phase -= WRAP;
+        // Advance the (possibly shared) clock by real time since it last moved, capped so a resume
+        // after a pause continues smoothly instead of jumping ahead
+        const step = Math.min(Math.max(now - clock.last, 0), 100);
+        clock.last = now;
+        clock.phase += step / 1000 * config.speed * (STATE_SPEED[config.state] || 1) * 0.45;   // phase is accumulated, so state / speed changes never jump
+        if (clock.phase > WRAP) clock.phase -= WRAP;
         draw();
     }
     function resume() {
         if (rafId || !canRun()) return;
         last = performance.now();
+        clock.last = last;
         if (shouldHoldStill()) { draw(); return; }
         rafId = requestAnimationFrame(frame);
     }
@@ -291,10 +315,18 @@ function createAssistantOrb(canvas, options = {}) {
     document.addEventListener('visibilitychange', onVisibility);
     if (reduceMotion && reduceMotion.addEventListener) reduceMotion.addEventListener('change', resume);
 
+    // iOS can drop a GPU context (e.g. while the app is in the background): mark this orb dead so its
+    // owner builds a fresh one next time
+    let isLost = false;
+    const onLost = () => { isLost = true; isDestroyed = true; halt(); };
+    canvas.addEventListener('webglcontextlost', onLost);
+
     draw();                                    // first frame straight away, before the loop starts
     resume();
 
     return {
+        canvas,
+        isLost: () => isLost,
         setState: (newState) => { config.state = newState; resume(); },
         setSpeed: (val) => { config.speed = val; },
         setScale: (val) => { config.scale = val; uploadStyle(); },
@@ -309,6 +341,7 @@ function createAssistantOrb(canvas, options = {}) {
             halt();
             if (io) io.disconnect();
             document.removeEventListener('visibilitychange', onVisibility);
+            canvas.removeEventListener('webglcontextlost', onLost);
             if (reduceMotion && reduceMotion.removeEventListener) reduceMotion.removeEventListener('change', resume);
             try {
                 gl.deleteTexture(noiseTex);
@@ -355,13 +388,42 @@ function initPoppySiriOrb() {
     const dockCanvas = document.getElementById('home-poppy-orb-canvas');
     if (dockCanvas && !dockOrbInstance) {
         dockOrbInstance = createAssistantOrb(dockCanvas, {
+            ...POPPY_ORB_LOOK,
             state: _poppyOrbState,
-            speed: 0.8,
-            creaseSharpness: 0.90,
-            scale: 1.4,
-            whiteIntensity: 0.35
+            clock: POPPY_ORB_CLOCK
         });
     }
+}
+
+/**
+ * The sheet's big orb is built once and kept: each later open moves the same canvas (and its live GPU
+ * context, shader and noise texture) into the new sheet instead of creating a new context every time.
+ * closeModal() pauses it (scripts/core/modal.js).
+ */
+function mountPoppySheetOrb(placeholder) {
+    if (!placeholder) return;
+    if (modalOrbInstance && modalOrbInstance.isLost()) {
+        try { modalOrbInstance.destroy(); } catch (_) {}
+        modalOrbInstance = null;
+    }
+    if (modalOrbInstance) {
+        const canvas = modalOrbInstance.canvas;
+        canvas.className = placeholder.className;
+        canvas.id = placeholder.id;
+        placeholder.replaceWith(canvas);
+        modalOrbInstance.setState(_poppyOrbState);
+        modalOrbInstance.setPaused(false);
+        return;
+    }
+    modalOrbInstance = createAssistantOrb(placeholder, {
+        ...POPPY_ORB_LOOK,
+        state: _poppyOrbState,
+        clock: POPPY_ORB_CLOCK,
+        // A 190px sphere drawn from a 256px buffer: crisp at the rim, still about half the pixels of 2x
+        // density, and the texture-noise shader keeps the GPU light under the sheet's blur
+        maxBuffer: 256,
+        crispEdge: true                        // the canvas's rounded-full draws the rim (see createAssistantOrb)
+    });
 }
 
 function handlePoppyOrbClick(e) {

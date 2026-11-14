@@ -109,11 +109,21 @@
     font-size: 18px;
 }
 .nav-back i { font-size: 20px; margin-left: -2px; } /* optical centre for a chevron */
+/* On dark screens: a translucent glass circle with a crisp edge, so it reads over the header glow
+   (tokens: --nav-circle-*, styles/tokens.css) */
 #app-top-bar.on-dark .nav-back,
 #app-top-bar.on-dark .nav-action {
-    background: rgba(28, 28, 30, 0.85);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    background: var(--nav-circle-bg);
+    box-shadow: inset 0 0 0 1px var(--nav-circle-border);
+    color: #fff;
+    transition: background-color 160ms ease, transform 160ms var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
+    #app-top-bar.on-dark .nav-back:hover,
+    #app-top-bar.on-dark .nav-action:hover { background: var(--nav-circle-bg-hover); }
+}
+.nav-back:active,
+.nav-action:active { opacity: 1; transform: scale(0.96); }
 /* Circles sit on the page gutter, so no negative offset like the bare icons */
 .nav-back { margin-left: 0; }
 .nav-actions-group .top-bar-icon:last-child { margin-right: 0; }
@@ -143,3 +153,7 @@
 #app-top-bar.is-following .top-bar-group,
 #app-top-bar.top-bar-ghost .top-bar-group,
 #app-top-bar.is-following .nav-inline-title { transition: none !important; }
+
+/* A large title with a compact action beside it (Tools & Gear "+ Add") */
+.large-title-row.has-action { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.large-title-row.has-action .page-title { min-width: 0; }

@@ -41,6 +41,7 @@
  * equipment
  *   list()                                  -> Tool[]
  *   getById(id)                             -> Tool | null
+ *   create(tool)                            -> Tool    (status defaults to Available)
  *   update(id, changes)                     -> Tool
  * leave
  *   listRequests({ employeeId, status })    -> LeaveRequest[]
@@ -65,7 +66,7 @@ const REPOSITORY_CONTRACTS = Object.freeze({
     timesheets: ['list', 'getById', 'getForEmployeeOnDate', 'create', 'update'],
     crewLogs: ['list'],
     costCodes: ['list'],
-    equipment: ['list', 'getById', 'update'],
+    equipment: ['list', 'getById', 'create', 'update'],
     leave: ['listRequests', 'getRequest', 'createRequest', 'updateRequest', 'getBalance', 'updateBalance'],
     audit: ['record', 'list']
 });

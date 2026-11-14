@@ -222,18 +222,7 @@ function setLifestyleChatFilter(filter) {
     triggerHaptic('light');
     currentLifestyleChatFilter = filter;
 
-    const chips = ['all', 'unread', 'channel', 'direct', 'ai'];
-    chips.forEach(c => {
-        const chip = document.getElementById(`filter-chip-${c}`);
-        if (chip) {
-            const extraGap = (c === 'unread' || c === 'ai') ? ' gap-1.5' : '';
-            if (c === filter) {
-                chip.className = "lifestyle-chat-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-black bg-slate-900 text-brand-lime shadow-sm transition-all cursor-pointer flex items-center justify-center" + extraGap;
-            } else {
-                chip.className = "lifestyle-chat-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center" + extraGap;
-            }
-        }
-    });
+    setActiveFilterPill(document.getElementById(`filter-chip-${filter}`));
 
     renderLifestyleChats(filter, currentLifestyleChatSearchQuery);
 }

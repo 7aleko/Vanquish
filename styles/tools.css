@@ -1,0 +1,36 @@
+/* Tools: equipment cards (scripts/features/tools.js renderToolsDirectory).
+   A clean, uniform dark surface with a crisp hairline and a top-edge specular highlight. Status is carried
+   by the status label and the card's action (an emerald glass Transfer for Available equipment). */
+
+.tool-card {
+    background: #141417;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Status tiles (Available / In Use / Service): status filters. Same surface as the cards; the active tile
+   takes its status colour as a border and inner tint, and the other two step back. */
+.tool-stat {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border-radius: 16px;
+    text-align: center;
+    background: #141417;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 200ms ease, border-color 200ms ease, opacity 200ms ease, transform 160ms var(--ease-out);
+}
+.tool-stat:active { transform: scale(0.98); transition-duration: 60ms; }
+.tool-stat:focus-visible { outline: 2px solid var(--control-focus); outline-offset: 2px; }
+.tool-stat[data-tone="available"].is-active { border-color: rgba(52, 211, 153, 0.55); background: rgba(16, 185, 129, 0.12); }
+.tool-stat[data-tone="in-use"].is-active    { border-color: rgba(96, 165, 250, 0.55); background: rgba(59, 130, 246, 0.12); }
+.tool-stat[data-tone="service"].is-active   { border-color: rgba(251, 191, 36, 0.55); background: rgba(245, 158, 11, 0.12); }
+#tools-status-tiles.has-active .tool-stat:not(.is-active) { opacity: 0.65; }
+@media (hover: hover) and (pointer: fine) {
+    .tool-stat:not(.is-active):hover { border-color: rgba(255, 255, 255, 0.14); }
+}
+@media (prefers-reduced-motion: reduce) { .tool-stat:active { transform: none; } }

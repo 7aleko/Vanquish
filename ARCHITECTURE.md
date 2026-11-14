@@ -59,7 +59,7 @@ objects, which are copies of the stored data.
 | `timesheets` | `list({employeeId, from, to, status})`, `getById`, `getForEmployeeOnDate`, `create` (unique per employee and day), `update` |
 | `crewLogs` | `list({date, siteId, from, to})` |
 | `costCodes` | `list` |
-| `equipment` | `list`, `getById`, `update` |
+| `equipment` | `list`, `getById`, `create`, `update` |
 | `leave` | `listRequests`, `getRequest`, `createRequest`, `updateRequest`, `getBalance`, `updateBalance` |
 | `audit` | `record`, `list` |
 | provider | `transaction(async repos => ...)`, `name` |
@@ -97,7 +97,7 @@ The rules every model follows:
 | `rosterService` | `assign`, `moveEmployee`, `unassign`. Needs a supervisor or above. |
 | `timesheetService` | `submit`: validates, works out ROSTERED / TRANSFERRED / MANUAL from the roster, upserts and audits. `approve` and `reject`: needs a supervisor or above, and never on your own timesheet. |
 | `crewLogService` | `forSiteOnDate`: matched on date and site id. `copyBlocks`: returns fresh draft blocks and never submits. |
-| `equipmentService` | `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. |
+| `equipmentService` | `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. `register`: validates name, category (`ToolCategories`), active site and quantity, refuses a duplicate name at the same site, and adds the tool as Available with an audit entry. |
 | `leaveService` | `request`: checks working days, the balance and overlaps. `approve` and `reject`: the balance is deducted in the same transaction. |
 
 ## Errors
@@ -158,6 +158,22 @@ Database-side requirements:
 - The integration flows (several screens showing one change, Timesheets following roster changes, loading
   and error states) are browser tests driven by puppeteer. They are not in the repo yet; see the remaining
   work below.
+
+## Shared UI components
+
+Repeated page elements are one component each, styled from the tokens in `styles/tokens.css`. Use the
+class; don't copy utility strings onto a new element.
+
+| Component | Stylesheet | Used by |
+|---|---|---|
+| Search field (`.search-field`, `--sheet` variant) | `styles/search-field.css` | Messages, Team, Tools & Gear, Procore projects |
+| Filter pills (`.filter-bar`, `.filter-pill`, `--inset` variant) | `styles/filter-bar.css`, `setActiveFilterPill()` | Messages, Notifications, Team, Tools & Gear, Trade Schedule (trades and weeks) |
+| Buttons (`.btn` + `--primary`, `--secondary`, `--card` pill with glass tones `--glass` / `--glass-emerald` / `--glass-blue` / `--glass-amber` and `--compact`, `--cta` with `--cta-emerald` / `--cta-blue`, `--destructive`, `--icon`, `--round`, `--block`) | `styles/buttons.css` | Tools (cards, + Add, the add sheet, the transfer sheet); use for every new button |
+| Header round buttons (`.nav-back`, `.nav-action`) | `styles/top-bar.css`, `--nav-circle-*` tokens | Every pushed screen |
+| Account sheet parts (`.account-control`, `.account-tile`, `--acct-*` tokens) | `styles/account-sheet.css` | The account sheet and its pages |
+
+A view whose side padding isn't 20px sets `--page-gutter` (see `filter-bar.css`) so pill rows still bleed
+to the screen edge.
 
 ## Rules for new work
 

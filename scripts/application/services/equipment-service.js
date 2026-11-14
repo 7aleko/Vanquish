@@ -1,6 +1,7 @@
 /**
  * Application service: equipment. Transferring a tool to another site: an available tool moves now, a tool
  * in use gets a move request, a tool in service can't move (EquipmentRules.transferOutcome).
+ * Registering new equipment: it starts Available at the chosen site.
  */
 
 function createEquipmentService(kit) {
@@ -41,5 +42,43 @@ function createEquipmentService(kit) {
         store.upsert('equipment', saved);
         return { outcome, tool: saved };
     }
-    return Object.freeze({ transfer });
+    /**
+     * Register new equipment.
+     * @param {{ name: string, category: string, siteId: string, quantity?: number, unit?: string }} input
+     * @returns {Promise<Tool>}
+     */
+    async function register(input) {
+        const who = kit.actor();
+        Permissions.assert(who, 'equipment.register');
+        const name = String((input && input.name) || '').trim().replace(/\s+/g, ' ');
+        const category = input && input.category;
+        const siteId = input && input.siteId;
+        const quantity = input && input.quantity !== undefined && input.quantity !== '' ? Number(input.quantity) : 1;
+        const unit = String((input && input.unit) || '').trim();
+
+        const problems = [];
+        if (name.length < 2) problems.push({ field: 'name', message: 'Enter the equipment name' });
+        else if (name.length > 80) problems.push({ field: 'name', message: 'Keep the name under 80 characters' });
+        if (!ToolCategories.some(c => c.id === category)) problems.push({ field: 'category', message: 'Choose a category' });
+        const site = store.get('sites').find(s => s.id === siteId);
+        if (!site || !site.active) problems.push({ field: 'siteId', message: 'Choose an active site' });
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) problems.push({ field: 'quantity', message: 'Quantity is a whole number from 1' });
+        if (problems.length) throw appErrors.validation('Equipment is invalid', problems, problems[0].message + '.');
+        const key = name.toLowerCase();
+        if (store.get('equipment').some(t => t.name.toLowerCase() === key && t.siteId === siteId)) {
+            throw appErrors.conflict(`${name} already at ${siteId}`, `${name} is already registered at ${site.shortName}.`);
+        }
+
+        const record = { name, category, siteId, status: ToolStatus.AVAILABLE, lastLogged: logLine(who) };
+        if (quantity > 1) { record.quantity = quantity; record.unit = unit || 'Units'; }
+        const saved = await provider.transaction(async repos => {
+            const created = await repos.equipment.create(record);
+            await kit.audit(repos, 'equipment', created.id, AuditAction.CREATE, who.id, { siteId, category });
+            return created;
+        });
+        store.upsert('equipment', saved);
+        return saved;
+    }
+
+    return Object.freeze({ transfer, register });
 }

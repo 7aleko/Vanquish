@@ -7,3 +7,61 @@
     --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);     /* iOS sheet / pill glide */
     --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* small overshoot, momentum moments only */
 }
+
+/* ================= CONTROL TOKENS =================
+   Shared by the page-level controls: search fields (styles/search-field.css) and filter pills
+   (styles/filter-bar.css). Change a value here and every screen's search and filters follow. */
+:root {
+    --control-surface: rgba(255, 255, 255, 0.08);     /* filter pills: translucent, reads on any dark surface */
+    --control-surface-hover: rgba(255, 255, 255, 0.13);
+    --field-surface: rgba(255, 255, 255, 0.05);       /* search fields (glass over the page) */
+    --field-surface-focus: rgba(255, 255, 255, 0.08);
+    --control-border: rgba(255, 255, 255, 0.08);
+    --pill-border: rgba(255, 255, 255, 0.14);         /* crisper edge for pills on dark cards and pages */
+    --control-text: #D4D4D8;                          /* inactive pill labels: restrained but readable */
+    --control-placeholder: #71717a;
+    --control-icon: #AEB6C2;                          /* muted icons, as across the app */
+    --control-accent: #C6F832;                        /* active pill fill, primary buttons */
+    --control-focus: #ccff00;                         /* focus ring */
+    --control-alert: #EF4444;                         /* unread counts */
+    --control-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5), 0 4px 12px -4px rgba(0, 0, 0, 0.3);
+    --field-height: 50px;
+    --field-radius: 16px;
+    --pill-height: 38px;
+    --page-gutter: 20px;                              /* a view's side padding; filter bars bleed past it */
+}
+
+/* ================= BUTTON TOKENS =================
+   Shared by styles/buttons.css (.btn and its variants). */
+:root {
+    --btn-primary-bg: var(--control-accent);           /* the app's neon lime */
+    --btn-primary-text: #0A0A0C;                       /* dark ink: white on lime is unreadable */
+    --btn-primary-highlight: rgba(255, 255, 255, 0.35);
+    --btn-primary-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --btn-secondary-bg: rgba(255, 255, 255, 0.12);
+    --btn-secondary-bg-hover: rgba(255, 255, 255, 0.16);
+    --btn-pressed-bg: rgba(255, 255, 255, 0.20);
+    --btn-secondary-border: rgba(255, 255, 255, 0.18);
+    --btn-text: #F5F5F7;
+    --btn-destructive: #FF453A;
+    --btn-height: 44px;                                /* primary CTAs */
+    --btn-height-card: 36px;                           /* actions inside a card */
+    --btn-radius: 14px;
+    --btn-radius-card: 9999px;                         /* card actions are pills */
+    /* Glass tones for compact pill buttons (.btn--glass, .btn--glass-emerald, .btn--glass-blue, .btn--glass-amber) */
+    --btn-glass-bg: rgba(255, 255, 255, 0.14);
+    --btn-glass-border: rgba(255, 255, 255, 0.24);
+    --btn-glass-emerald-bg: rgba(16, 185, 129, 0.16);
+    --btn-glass-emerald-border: rgba(52, 211, 153, 0.38);
+    --btn-glass-emerald-text: #6EE7B7;
+    --btn-glass-blue-bg: rgba(59, 130, 246, 0.16);
+    --btn-glass-blue-border: rgba(96, 165, 250, 0.38);
+    --btn-glass-blue-text: #93C5FD;
+    --btn-glass-amber-bg: rgba(245, 158, 11, 0.16);
+    --btn-glass-amber-border: rgba(251, 191, 36, 0.38);
+    --btn-glass-amber-text: #FCD34D;
+    /* Round header buttons (back, screen actions) on dark screens */
+    --nav-circle-bg: rgba(255, 255, 255, 0.12);
+    --nav-circle-bg-hover: rgba(255, 255, 255, 0.17);
+    --nav-circle-border: rgba(255, 255, 255, 0.18);
+}

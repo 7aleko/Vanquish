@@ -11,8 +11,8 @@ function openProfileModal() {
                 <div class="space-y-4 py-1 text-slate-800">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-100">
                         <div class="relative shrink-0">
-                            <div data-account-avatar class="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-brand-lime font-black text-xl flex items-center justify-center shadow-md border border-slate-700/80" aria-hidden="true">${accountAvatarInner()}</div>
-                            <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400" title="Active on Duty" aria-hidden="true"></span>
+                            <span data-account-avatar="page" class="account-identity-avatar" aria-hidden="true">${accountRoleAvatar('page')}</span>
+                            <span class="account-presence-dot" title="Active on Duty" aria-hidden="true"></span>
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
@@ -86,12 +86,11 @@ function openProfileModal() {
                             color: var(--ink-primary);
                         }
                     </style>
-                    <div class="relative flex items-center">
-                        <i class="fa-solid fa-magnifying-glass absolute left-4 text-slate-400 text-sm pointer-events-none"></i>
-                        <input type="text" id="procore-search-input" onkeyup="filterProcoreProjects()" placeholder="Search project name, suburb or ID..." 
-                            class="w-full pl-10 pr-9 py-3.5 rounded-2xl bg-slate-100/90 border border-slate-200/80 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-lime focus:bg-white transition-all shadow-inner">
-                        <button onclick="clearProcoreSearch()" id="procore-clear-btn" class="hidden absolute right-3 text-slate-400 hover:text-slate-700 p-1">
-                            <i class="ph-bold ph-x-circle text-base"></i>
+                    <div class="search-field search-field--sheet">
+                        <i class="ph-bold ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                        <input type="search" id="procore-search-input" oninput="filterProcoreProjects()" placeholder="Search project name, suburb or ID..." aria-label="Search Procore projects" autocomplete="off" enterkeyhint="search" class="search-field-input">
+                        <button type="button" onclick="clearProcoreSearch()" id="procore-clear-btn" aria-label="Clear search" class="search-field-clear hidden">
+                            <i class="ph-fill ph-x-circle" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="flex items-center justify-between text-xs text-slate-400 px-1 font-medium">

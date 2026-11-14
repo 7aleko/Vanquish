@@ -164,6 +164,14 @@ function createMockDataProvider(options = {}) {
     const equipment = {
         list: () => op('equipment.list', () => db.equipment),
         getById: id => op('equipment.getById', () => find('equipment', 'id', id)),
+        create: input => write('equipment.create', () => {
+            const row = { id: input.id || newId('tool'), status: ToolStatus.AVAILABLE, moveRequestedToSiteId: null, ...input };
+            if (find('equipment', 'id', row.id)) throw appErrors.conflict(`Tool ${row.id} exists`, 'That equipment is already registered.');
+            requireFk('sites', row.siteId, 'site');
+            assertValidEntity('tool', row);
+            db.equipment.push(row);
+            return row;
+        }),
         update: (id, changes) => write('equipment.update', () => {
             const row = requireRow('equipment', 'id', id, 'Tool');
             const { id: _i, ...rest } = changes || {};

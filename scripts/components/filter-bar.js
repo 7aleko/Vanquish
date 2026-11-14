@@ -1,6 +1,6 @@
 /**
  * Horizontal category filter bar (styles/filter-bar.css): one active pill at a time.
- * Used by Tools & Gear (scripts/features/tools.js) and Team (scripts/features/team.js).
+ * Used by Messages, Notifications, Team, Tools & Gear and the Trade Schedule (trade filters and week pills).
  */
 function setActiveFilterPill(activePill) {
     if (!activePill) return;

@@ -1,0 +1,282 @@
+/* Tool transfer sheet (scripts/features/tool-transfer.js): the tool, a From -> To route, the destination
+   list, quantity and note, and the action. Flat dark surfaces with one hairline each, nothing nested in a
+   second bordered box. The route takes its colour from the action: blue for a move request (In Use),
+   emerald for a transfer (Available), amber for a service hold (data-tone on #transfer-route). */
+
+.tt-body > * + * { margin-top: 12px; }
+
+/* ---- 1. Tool ---- */
+.tt-tool {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: #1C1C20;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tt-tool-badge {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2A2A30;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #AEB6C2;
+    font-size: 18px;
+}
+.tt-tool-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tt-tool-meta {
+    margin: 2px 0 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: #A1A1AA;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---- Service hold notice ---- */
+.tt-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px solid rgba(251, 191, 36, 0.28);
+}
+.tt-notice[hidden] { display: none; }
+.tt-notice-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(245, 158, 11, 0.18);
+    color: #FCD34D;
+    font-size: 16px;
+}
+.tt-notice-title { margin: 0; font-size: 13px; font-weight: 700; color: #FCD34D; }
+.tt-notice-desc { margin: 2px 0 0; font-size: 13px; line-height: 1.4; color: #D4D4D8; }
+
+/* ---- 2. Route ---- */
+.tt-route {
+    --tone-border: rgba(52, 211, 153, 0.4);
+    --tone-ink: #6EE7B7;
+    --tone-fill: rgba(16, 185, 129, 0.16);
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+}
+.tt-route[data-tone="in-use"] { --tone-border: rgba(96, 165, 250, 0.4); --tone-ink: #93C5FD; --tone-fill: rgba(59, 130, 246, 0.16); }
+.tt-route[data-tone="service"] { --tone-border: rgba(251, 191, 36, 0.3); --tone-ink: #FCD34D; --tone-fill: rgba(245, 158, 11, 0.14); }
+
+.tt-site {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    padding: 16px 12px;
+    border-radius: 16px;
+    text-align: center;
+    font: inherit;
+    color: #fff;
+}
+.tt-site--from { background: #18181B; border: 1px solid rgba(255, 255, 255, 0.08); }
+.tt-site--to {
+    background: #1F1F24;
+    border: 1px solid var(--tone-border);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 160ms ease, transform 160ms var(--ease-out);
+}
+.tt-site--to:active { transform: scale(0.98); background: #26262C; transition-duration: 60ms; }
+.tt-site--to:focus-visible { outline: 2px solid var(--control-focus); outline-offset: 2px; }
+.tt-site--to[aria-expanded="true"] { background: #24242A; }
+.tt-site--to:disabled { cursor: not-allowed; opacity: 0.55; }
+@media (hover: hover) and (pointer: fine) { .tt-site--to:not(:disabled):hover { background: #24242A; } }
+
+.tt-site-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8E8E93;
+}
+.tt-site--to .tt-site-label { color: var(--tone-ink); }
+.tt-site-chevrons { position: absolute; top: 12px; right: 12px; font-size: 14px; color: #8E8E93; }
+.tt-site-icon {
+    width: 44px;
+    height: 44px;
+    margin: 10px 0 8px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2A2A30;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #AEB6C2;
+    font-size: 17px;
+}
+.tt-site--to .tt-site-icon { background: var(--tone-fill); color: var(--tone-ink); box-shadow: none; }
+.tt-site-name, .tt-site-sub {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tt-site-name { font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.25; }
+.tt-site-sub { margin-top: 2px; font-size: 13px; font-weight: 500; line-height: 1.3; color: #A1A1AA; }
+/* A street line too long even shortened ("Warehouse & Central Depot") wraps at a word, never mid-word */
+.tt-site-sub {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: normal;
+}
+
+/* The arrow badge sits in the gap between the two cards, centred on their middle */
+.tt-route-arrow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0E0E11;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--tone-ink);
+    font-size: 14px;
+    pointer-events: none;
+}
+
+/* ---- Destination list ---- */
+.tt-site-list {
+    padding: 6px;
+    border-radius: 16px;
+    background: #1C1C20;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: 264px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: none;
+}
+.tt-site-list[hidden] { display: none; }
+.tt-site-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: #fff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.tt-site-option + .tt-site-option { margin-top: 2px; }
+.tt-site-option:active { background: rgba(255, 255, 255, 0.08); }
+@media (hover: hover) and (pointer: fine) { .tt-site-option:hover { background: rgba(255, 255, 255, 0.05); } }
+.tt-site-option.is-focused { background: rgba(255, 255, 255, 0.07); }
+.tt-site-option[aria-selected="true"] { background: var(--tone-fill, rgba(255, 255, 255, 0.08)); }
+.tt-site-option[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.tt-site-option-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2A2A30;
+    color: #AEB6C2;
+    font-size: 15px;
+}
+.tt-site-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tt-site-option-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-site-option-sub { font-size: 13px; color: #A1A1AA; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-site-option-check { flex-shrink: 0; font-size: 18px; color: var(--tone-ink, #fff); visibility: hidden; }
+.tt-site-option[aria-selected="true"] .tt-site-option-check { visibility: visible; }
+
+/* ---- 3. Quantity and note ---- */
+.tt-inputs > * + * { margin-top: 12px; }
+.tt-inputs[hidden] { display: none; }
+.tt-qty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
+    border-radius: 16px;
+    background: #1C1C20;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tt-qty[hidden] { display: none; }
+.tt-qty-label { display: block; font-size: 14px; font-weight: 700; color: #fff; }
+.tt-qty-sub { display: block; font-size: 12px; font-weight: 500; color: #A1A1AA; }
+.tt-qty-input {
+    width: 64px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #141417;
+    color: #fff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+.tt-qty-input::-webkit-outer-spin-button, .tt-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tt-qty-input:focus { outline: 2px solid var(--control-focus); outline-offset: 1px; }
+.tt-note-label { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 600; color: #A1A1AA; }
+.tt-note-input {
+    display: block;
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: #1C1C20;
+    color: #fff;
+    font: inherit;
+    font-size: 16px;                               /* 16px: iOS doesn't zoom on focus */
+    -webkit-appearance: none;
+    appearance: none;
+}
+.tt-note-input::placeholder { color: #71717A; }
+.tt-note-input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--control-focus); }
+
+/* ---- 4. Action ---- */
+.tt-action { padding-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) { .tt-site--to:active { transform: none; } }

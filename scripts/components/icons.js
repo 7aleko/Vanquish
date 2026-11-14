@@ -72,11 +72,18 @@ function getFaIconName(el) {
 function renderAppIcon(el) {
     if (el.closest('[data-icon-lib="fa"]')) return;
     const fa = getFaIconName(el);
-    if (!fa || el.dataset.icon === fa) return;
+    if (!fa) return;
+    if (el.dataset.icon === fa) {
+        // Same icon re-classed (a className swap drops ph-icon): restore it so Font Awesome's glyph stays hidden
+        if (!el.classList.contains('ph-icon')) el.classList.add('ph-icon');
+        return;
+    }
 
     const name = FA_TO_PHOSPHOR[fa];
     if (!name) {
         console.warn(`icons.js: no Phosphor mapping for fa-${fa}`);
+        // Swapped to an unmapped icon: drop the previous Phosphor glyph so Font Awesome draws this one alone
+        if (el.dataset.icon) { el.replaceChildren(); delete el.dataset.icon; el.classList.remove('ph-icon'); }
         return;
     }
     const glyph = document.createElement('span');

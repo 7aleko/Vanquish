@@ -112,6 +112,25 @@ test('equipment: available moves, in use requests, service refused', async () =>
     await assert.rejects(env.equipment.transfer('tool-2', 'miranda'), code('VALIDATION'));  // archived destination
 });
 
+test('equipment register: starts available at the site, audits, refuses bad input and duplicates', async () => {
+    const env = await app.makeEnv();
+    const tool = await env.equipment.register({ name: '  Makita  Impact Driver ', category: 'power tools', siteId: 'bondi' });
+    assert.equal(tool.name, 'Makita Impact Driver');
+    assert.equal(tool.status, 'Available');
+    assert.equal(tool.siteId, 'bondi');
+    assert.equal(tool.quantity, undefined);
+    assert.ok(env.store.get('equipment').some(t => t.id === tool.id));
+    assert.equal((await env.provider.audit.list({ entity: 'equipment', entityId: tool.id }))[0].action, 'create');
+    const props = await env.equipment.register({ name: 'Formwork Clamps', category: 'site', siteId: 'lugarno', quantity: '40', unit: 'Clamps' });
+    assert.equal(props.quantity, 40);
+    assert.equal(props.unit, 'Clamps');
+    await assert.rejects(env.equipment.register({ name: 'x', category: 'power tools', siteId: 'bondi' }), code('VALIDATION'));
+    await assert.rejects(env.equipment.register({ name: 'Saw', category: 'nope', siteId: 'bondi' }), code('VALIDATION'));
+    await assert.rejects(env.equipment.register({ name: 'Saw', category: 'power tools', siteId: 'miranda' }), code('VALIDATION'));  // archived
+    await assert.rejects(env.equipment.register({ name: 'Saw', category: 'power tools', siteId: 'bondi', quantity: 0 }), code('VALIDATION'));
+    await assert.rejects(env.equipment.register({ name: 'makita impact driver', category: 'power tools', siteId: 'bondi' }), code('CONFLICT'));
+});
+
 test('leave: request, overlapping refused, approval deducts the balance atomically', async () => {
     const env = await app.makeEnv();
     const r = await env.leave.request({ type: 'annual', startDate: '2026-12-04', endDate: '2026-12-08' });

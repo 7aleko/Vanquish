@@ -21,6 +21,7 @@ const Permissions = (() => {
         'timesheets.submitForOthers': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
         'timesheets.approve': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
         'equipment.transfer': ALL_STAFF,
+        'equipment.register': ALL_STAFF,
         'leave.request': ALL_STAFF,
         'leave.approve': [R.ADMIN, R.PROJECT_MANAGER]
     });

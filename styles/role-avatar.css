@@ -32,6 +32,8 @@
 .role-avatar--top { width: 34px; height: 34px; font-size: 12.5px; letter-spacing: -0.01em; }
 /* Account sheet identity */
 .role-avatar--xl { width: 76px; height: 76px; font-size: 26px; letter-spacing: -0.02em; }
+/* Account sheet: Personal Details page header */
+.role-avatar--page { width: 64px; height: 64px; font-size: 22px; letter-spacing: -0.02em; }
 /* A chosen profile photo takes the avatar's place, same circle */
 .role-avatar--photo { overflow: hidden; background: #18181b; }
 .role-avatar--photo img { width: 100%; height: 100%; object-fit: cover; }

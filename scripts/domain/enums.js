@@ -51,6 +51,19 @@ const LeaveStatus = Object.freeze({
     REJECTED: 'rejected'
 });
 
+/** Equipment categories, in the order Tools & Gear lists them (id is stored on the Tool) */
+const ToolCategories = Object.freeze([
+    { id: 'power tools', label: 'Power Tools' },
+    { id: 'access', label: 'Access' },
+    { id: 'concrete', label: 'Concrete' },
+    { id: 'setout', label: 'Setout' },
+    { id: 'site', label: 'Site' },
+    { id: 'safety', label: 'Safety' },
+    { id: 'trailers', label: 'Trailers' },
+    { id: 'scaffolds', label: 'Scaffolds' },
+    { id: 'bobcat', label: 'Bobcat' }
+].map(Object.freeze));
+
 const AuditAction = Object.freeze({
     CREATE: 'create',
     UPDATE: 'update',

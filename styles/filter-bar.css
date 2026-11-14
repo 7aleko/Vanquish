@@ -1,18 +1,21 @@
-/* Horizontal category filters (Tools & Gear, Team): iOS-style pills in a row that scrolls edge to edge.
+/* Horizontal filter pills: one component for every scrolling pill row in the app (Messages, Notifications,
+   Team, Tools & Gear, Trade Schedule). Values come from the control tokens in styles/tokens.css.
    Markup: <div class="filter-bar" role="toolbar"> <button class="filter-pill is-active" aria-pressed="true">All</button> ... </div>
-   Active state is switched by setActiveFilterPill() (scripts/components/filter-bar.js). */
+   Active state is switched by setActiveFilterPill() (scripts/components/filter-bar.js).
+   Inside a pill: an icon (<i>), a count (.filter-pill-count) or an unread badge (.filter-pill-badge). */
 
 .filter-bar {
     display: flex;
+    flex-shrink: 0;                                /* never squashed when the view is a flex column (Trade Schedule) */
     align-items: center;
     gap: 8px;
     overflow-x: auto;
     overflow-y: hidden;
-    /* Bleed to the screen edges past the page's 20px gutter (px-5), keeping the gutter as inner padding,
-       so pills scroll off the edge instead of being clipped at the margin */
-    margin-inline: -20px;
-    padding: 2px 0 2px 20px;
-    scroll-padding-inline: 20px;
+    /* Bleed to the screen edges past the view's gutter, keeping the gutter as inner padding, so pills
+       scroll off the edge instead of being clipped at the margin */
+    margin-inline: calc(var(--page-gutter) * -1);
+    padding: 2px 0 2px var(--page-gutter);
+    scroll-padding-inline: var(--page-gutter);
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -21,11 +24,21 @@
 }
 .filter-bar::-webkit-scrollbar { display: none; }
 /* Trailing gutter: padding-right on a scrolling flex row is dropped by some engines, so a spacer keeps
-   the last pill 20px off the edge at the end of the scroll (8px gap + 12px) */
+   the last pill a gutter off the edge at the end of the scroll (8px gap + the rest) */
 .filter-bar::after {
     content: "";
-    flex: 0 0 12px;
+    flex: 0 0 calc(var(--page-gutter) - 8px);
     height: 1px;
+}
+/* A pill row inside a card scrolls within the card instead of bleeding to the screen edge */
+.filter-bar--inset { margin-inline: 0; padding-left: 0; scroll-padding-inline: 0; }
+.filter-bar--inset::after { flex-basis: 0; }
+
+/* Views whose side padding isn't the default 20px (px-4 / px-3.5, 20px from sm up) */
+#view-notifications { --page-gutter: 16px; }
+#view-schedule { --page-gutter: 14px; }
+@media (min-width: 640px) {
+    #view-notifications, #view-schedule { --page-gutter: 20px; }
 }
 
 .filter-pill {
@@ -33,31 +46,63 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 38px;
-    padding: 0 16px;                           /* px-4; the fixed height stands in for py-2 */
+    gap: 6px;
+    height: var(--pill-height);
+    padding: 0 16px;
     border-radius: 9999px;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: -0.005em;
     white-space: nowrap;
-    color: #D1D5DB;
-    background: #1C1C1E;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--control-text);
+    background: var(--control-surface);
+    border: 1px solid var(--pill-border);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 120ms var(--ease-out);
 }
+/* Pressed: immediate, on touch-down */
+.filter-pill:active { transform: scale(0.96); transition-duration: 60ms; }
+.filter-pill:not(.is-active):active { background: var(--btn-pressed-bg); }
 .filter-pill.is-active {
     color: #0A0A0A;
-    background: #B4F828;
-    border-color: #B4F828;
+    background: var(--control-accent);
+    border-color: var(--control-accent);
     font-weight: 700;
 }
 @media (hover: hover) and (pointer: fine) {
-    .filter-pill:not(.is-active):hover { background: #26262a; color: #ffffff; }
+    .filter-pill:not(.is-active):hover { background: var(--control-surface-hover); color: #ffffff; }
 }
 .filter-pill:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline: 2px solid var(--control-focus);
     outline-offset: 2px;
     border-radius: 9999px;
 }
+
+/* Contents */
+.filter-pill i { font-size: 13px; color: var(--control-icon); }
+.filter-pill.is-active i { color: inherit; }
+.filter-pill-count,
+.filter-pill-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.filter-pill-count { background: rgba(255, 255, 255, 0.1); color: inherit; }
+.filter-pill.is-active .filter-pill-count { background: rgba(0, 0, 0, 0.12); }
+.filter-pill-badge { background: var(--control-alert); color: #fff; }
+.filter-pill-badge.hidden, .filter-pill-badge[hidden] { display: none; }
+.filter-pill-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--control-accent); }
+.filter-pill.is-active .filter-pill-dot { background: currentColor; }
+
+/* A pill picker inside a form: pills wrap onto lines instead of scrolling */
+.filter-bar--wrap { flex-wrap: wrap; overflow: visible; margin-inline: 0; padding: 0; }
+.filter-bar--wrap::after { display: none; }

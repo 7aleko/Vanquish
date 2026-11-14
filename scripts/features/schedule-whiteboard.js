@@ -50,31 +50,12 @@ function renderWhiteboardWeekPills() {
     const container = document.getElementById('wb-week-pills-row');
     if (!container) return;
 
-    let html = `
-        <button onclick="jumpWhiteboardToday()" class="hit-44 px-3 py-1.5 rounded-xl bg-slate-900 text-brand-lime text-xs font-black shrink-0 active:scale-95 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer hover:bg-black">
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-lime"></span>
-            <span>Today</span>
-        </button>
-    `;
-
+    // Shared pill bar (styles/filter-bar.css): "Today" jumps to the current week; the chosen week is active
+    let html = `<button type="button" onclick="jumpWhiteboardToday()" class="filter-pill"><span class="filter-pill-dot" aria-hidden="true"></span>Today</button>`;
     WHITEBOARD_WEEKS_LIST.forEach((w, idx) => {
-        const isSelected = idx === currentWhiteboardWeekIndex;
-        if (isSelected) {
-            html += `
-                <button onclick="selectWhiteboardWeek(${idx})" class="hit-44 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black shrink-0 shadow-apple flex items-center gap-1.5 cursor-pointer border border-slate-800">
-                    <span>${w.shortTitle}</span>
-                    <span class="text-[11px] font-black text-brand-lime">Active</span>
-                </button>
-            `;
-        } else {
-            html += `
-                <button onclick="selectWhiteboardWeek(${idx})" class="hit-44 px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-slate-700 text-xs font-extrabold shrink-0 border border-slate-200/70 shadow-xs cursor-pointer active:scale-95 transition-all">
-                    <span>${w.shortTitle}</span>
-                </button>
-            `;
-        }
+        const on = idx === currentWhiteboardWeekIndex;
+        html += `<button type="button" onclick="selectWhiteboardWeek(${idx})" class="filter-pill${on ? ' is-active' : ''}" aria-pressed="${on}">${w.shortTitle}</button>`;
     });
-
     container.innerHTML = html;
 }
 
@@ -397,14 +378,7 @@ function filterTradeWhiteboard(cat, btn) {
     triggerHaptic('light');
     activeWhiteboardTradeFilter = cat;
 
-    // Update active button classes
-    document.querySelectorAll('.wb-trade-filter-btn').forEach(b => {
-        b.className = 'wb-trade-filter-btn px-3 py-1.5 rounded-xl bg-white/80 backdrop-blur-xl border border-white/90 text-slate-700 text-xs font-extrabold shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all hover:bg-white active:scale-95';
-    });
-
-    if (btn) {
-        btn.className = 'wb-trade-filter-btn px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-all active:scale-95';
-    }
+    if (btn) setActiveFilterPill(btn);
 
     renderWeeklyTimelineBars();
     renderDailyRosterCards();

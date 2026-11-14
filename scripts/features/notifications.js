@@ -38,16 +38,7 @@ function filterNotifications(category) {
     triggerHaptic('light');
     currentActiveNotifFilter = category;
 
-    // Update filter chip styling
-    const filterButtons = document.querySelectorAll('.notif-filter-chip');
-    filterButtons.forEach(btn => {
-        const isCurrent = btn.id === `notif-filter-${category}`;
-        if (isCurrent) {
-            btn.className = 'notif-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-black bg-slate-900 text-brand-lime shadow-sm transition-all cursor-pointer flex items-center justify-center';
-        } else {
-            btn.className = 'notif-filter-chip shrink-0 px-4 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-slate-700 bg-white/70 backdrop-blur-xl border border-white/80 hover:text-slate-900 hover:bg-white shadow-2xs transition-all cursor-pointer flex items-center justify-center';
-        }
-    });
+    setActiveFilterPill(document.getElementById(`notif-filter-${category}`));
 
     renderNotificationsFeed(category);
 }

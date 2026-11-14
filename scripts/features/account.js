@@ -41,12 +41,13 @@ function escapeAccountHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** Avatar contents: the photo if one is set, otherwise the initials */
-function accountAvatarInner() {
+/** The person's avatar: their role avatar - the same one the Team page shows (renderRoleAvatar,
+ *  scripts/components/role-avatar.js) - or their photo once they set one. One circle everywhere. */
+function accountRoleAvatar(size) {
     const p = ACCOUNT_DATA.profile;
-    return p.photo
-        ? `<img src="${p.photo}" alt="" class="w-full h-full object-cover">`
-        : escapeAccountHtml(p.initials);
+    if (p.photo) return `<span class="role-avatar role-avatar--${size} role-avatar--photo" aria-hidden="true"><img src="${p.photo}" alt=""></span>`;
+    const me = (typeof getCurrentEmployee === 'function') ? getCurrentEmployee() : null;
+    return renderRoleAvatar(me ? { name: me.name, role: me.role, initials: me.initials } : { name: p.name, initials: p.initials }, size);
 }
 
 // ---------------- Avatar and account sheet ----------------
@@ -56,16 +57,10 @@ function renderAccountStatus() {
     const show = (el, on) => { if (el) el.hidden = !on; };
     const label = (id, text) => { const el = byId(id); if (el) el.setAttribute('aria-label', text); };
 
-    // Avatars: the top bar and the sheet's identity use the person's role avatar - the same one the Team page
-    // shows (renderRoleAvatar, scripts/components/role-avatar.js) - or their photo once they set one
-    document.querySelectorAll('[data-account-avatar]').forEach(el => { el.innerHTML = accountAvatarInner(); });
-    const me = (typeof getCurrentEmployee === 'function') ? getCurrentEmployee() : null;
-    const person = me ? { name: me.name, role: me.role, initials: me.initials } : { name: p.name, initials: p.initials };
-    const roleAvatar = size => p.photo
-        ? `<span class="role-avatar role-avatar--${size} role-avatar--photo" aria-hidden="true"><img src="${p.photo}" alt=""></span>`
-        : renderRoleAvatar(person, size);
-    if (byId('account-avatar-top')) byId('account-avatar-top').innerHTML = roleAvatar('top');
-    if (byId('account-avatar-identity')) byId('account-avatar-identity').innerHTML = roleAvatar('xl');
+    // Avatars: the top bar, the sheet's identity and the profile page all show the same avatar
+    if (byId('account-avatar-top')) byId('account-avatar-top').innerHTML = accountRoleAvatar('top');
+    if (byId('account-avatar-identity')) byId('account-avatar-identity').innerHTML = accountRoleAvatar('xl');
+    document.querySelectorAll('[data-account-avatar]').forEach(el => { el.innerHTML = accountRoleAvatar(el.dataset.accountAvatar); });
     if (byId('account-sheet-name')) byId('account-sheet-name').textContent = p.name;
     if (byId('account-sheet-email')) byId('account-sheet-email').textContent = p.email;
     if (byId('account-profile-id')) byId('account-profile-id').textContent = p.employeeId;

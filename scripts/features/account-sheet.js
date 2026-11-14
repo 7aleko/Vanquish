@@ -17,9 +17,16 @@ const ACCOUNT_SHEET_CLOSE_MS = 320;
 let accountSheetCloseTimer = null;
 let accountSheetReturnFocus = null;
 
-function isAccountSheetOpen() {
-    const overlay = document.getElementById('account-sheet-overlay');
-    return !!overlay && overlay.classList.contains('is-open');
+let accountSheetOpen = false;                         // logical state (the is-open class follows a frame later)
+let accountSheetEnterFrame = 0;
+
+function isAccountSheetOpen() { return accountSheetOpen; }
+
+// iOS Safari only animates from the closed position if it has painted that position first: un-hiding an
+// element and moving it to its open position in the same frame shows it already open (the glass layer is
+// created that frame). So: un-hide, wait two frames, then animate - as the shared modal does (modal.js).
+function afterFirstPaint(fn) {
+    return requestAnimationFrame(() => { accountSheetEnterFrame = requestAnimationFrame(fn); });
 }
 
 function openAccountSheet() {
@@ -33,8 +40,9 @@ function openAccountSheet() {
     accountSheetReturnFocus = document.activeElement;
     sheet.style.transform = '';
     overlay.hidden = false;
-    void overlay.offsetWidth;                         // start the entrance from the closed position
-    overlay.classList.add('is-open');
+    accountSheetOpen = true;
+    cancelAnimationFrame(accountSheetEnterFrame);
+    accountSheetEnterFrame = afterFirstPaint(() => { if (accountSheetOpen) overlay.classList.add('is-open'); });
     document.getElementById('account-sheet-overlay').querySelector('.account-sheet-body').scrollTop = 0;
 
     const stage = document.getElementById('app-main-stage');
@@ -52,7 +60,9 @@ function closeAccountSheet(opts = {}) {
     const overlay = document.getElementById('account-sheet-overlay');
     const sheet = document.getElementById('account-sheet');
     if (!overlay || overlay.hidden) return;
-    const wasOpen = overlay.classList.contains('is-open');
+    const wasOpen = accountSheetOpen;
+    accountSheetOpen = false;
+    cancelAnimationFrame(accountSheetEnterFrame);
     overlay.classList.remove('is-open');
     sheet.classList.remove('is-dragging');
     sheet.style.transform = '';
@@ -66,7 +76,7 @@ function closeAccountSheet(opts = {}) {
 
     clearTimeout(accountSheetCloseTimer);
     const finish = () => {
-        if (overlay.classList.contains('is-open')) return;
+        if (accountSheetOpen) return;
         overlay.hidden = true;
         resetAccountPages();                          // reopening starts on the list
     };
@@ -123,9 +133,11 @@ function pushAccountPage(title, html) {
     } else {
         clearTimeout(accountPageTimer);
         page.hidden = false;
-        void page.offsetWidth;                        // start from off-screen right
-        page.classList.add('is-shown');
-        rootPage.classList.add('is-covered');
+        accountSheetEnterFrame = afterFirstPaint(() => {   // start from off-screen right (see afterFirstPaint)
+            if (accountPageState !== 'shown') return;
+            page.classList.add('is-shown');
+            rootPage.classList.add('is-covered');
+        });
         rootPage.inert = true;
         accountPageState = 'shown';
     }

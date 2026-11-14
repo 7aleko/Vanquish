@@ -8,10 +8,14 @@
 
 let currentTransferTool = null;
 let currentTransferToIndex = 0;
+// The "To" choices: the active sites (SITES), taken when the sheet opens so the roller's order holds while
+// it is open
+let transferSites = [];
 
-function getCurrentWorkingSite() {
-    // Current rostered working site in the app is Lugarno Site
-    return 'Lugarno Site';
+// Today's rostered site (ROSTER), as a siteId
+function getCurrentWorkingSiteId() {
+    const today = (typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date();
+    return getRosteredSiteId(today);
 }
 
 function parseToolLastLog(lastLogged) {
@@ -66,14 +70,13 @@ function updateTransferConfirmButtonLabel() {
 }
 
 function openToolTransferModal(toolId) {
-    closeSideDrawer();
     triggerHaptic('medium');
-    const tool = TOOLS_DIRECTORY_DATA.find(t => t.id === toolId);
+    const tool = getToolById(toolId);
     if (!tool) return;
 
     currentTransferTool = tool;
 
-    const isAvailable = tool.status === 'Available';
+    const isAvailable = tool.status === ToolStatus.AVAILABLE;
     const isService = tool.status === 'Service';
     const isInUse = tool.status === 'In Use';
     const isBulk = Boolean(tool.quantity && tool.quantity > 1);
@@ -94,7 +97,7 @@ function openToolTransferModal(toolId) {
     if (nameEl) nameEl.textContent = tool.name;
     if (metaEl) {
         const unitBadge = isBulk ? ` • ${tool.quantity} ${tool.unit || 'Units'}` : '';
-        metaEl.textContent = `${tool.category.toUpperCase()}${unitBadge} • ${tool.location}`;
+        metaEl.textContent = `${tool.category.toUpperCase()}${unitBadge} • ${getSiteName(tool.siteId, 'Unknown site')}`;
     }
     if (iconEl) iconEl.className = getToolCategoryIcon(tool.category);
 
@@ -223,18 +226,19 @@ function openToolTransferModal(toolId) {
     const fromDescEl = document.getElementById('transfer-from-desc');
     const fromByEl = document.getElementById('transfer-from-by');
     const logInfo = parseToolLastLog(tool.lastLogged);
-    if (fromNameEl) fromNameEl.textContent = tool.location;
+    if (fromNameEl) fromNameEl.textContent = getSiteName(tool.siteId, 'Unknown site');
     if (fromDescEl) fromDescEl.textContent = `Last log: ${logInfo.dateText}`;
     if (fromByEl) {
         fromByEl.textContent = logInfo.byText;
         fromByEl.classList.toggle('hidden', !logInfo.byText);
     }
 
-    // Default "To" site: working site (Lugarno Site) unless already there
-    const workingSite = getCurrentWorkingSite();
-    let defaultIndex = ALL_TRANSFER_SITES.findIndex(s => s.name.toLowerCase() === workingSite.toLowerCase());
-    if (tool.location.toLowerCase() === workingSite.toLowerCase()) {
-        const altIndex = ALL_TRANSFER_SITES.findIndex(s => s.name !== tool.location);
+    // Default "To" site: today's rostered site unless the tool is already there
+    transferSites = getActiveSites();
+    const workingSiteId = getCurrentWorkingSiteId();
+    let defaultIndex = transferSites.findIndex(s => s.id === workingSiteId);
+    if (tool.siteId === workingSiteId) {
+        const altIndex = transferSites.findIndex(s => s.id !== tool.siteId);
         defaultIndex = altIndex !== -1 ? altIndex : 0;
     } else if (defaultIndex === -1) {
         defaultIndex = 0;
@@ -360,7 +364,7 @@ function renderTransferToItems() {
             ? 'w-14 h-14 rounded-2xl bg-slate-900 text-amber-400 shadow-sm flex items-center justify-center text-lg mb-2 transition-all'
             : 'w-14 h-14 rounded-2xl bg-slate-900 text-brand-lime shadow-sm flex items-center justify-center text-lg mb-2 transition-all');
 
-    scroller.innerHTML = ALL_TRANSFER_SITES.map((site, idx) => {
+    scroller.innerHTML = transferSites.map((site, idx) => {
         const isSelected = idx === currentTransferToIndex;
         return `
             <div onclick="selectTransferToSite(${idx})" 
@@ -371,8 +375,8 @@ function renderTransferToItems() {
                 <div id="transfer-to-icon-${idx}" class="w-14 h-14 rounded-2xl ${isSelected ? selectedIconClass : 'bg-slate-200/80 text-slate-600'} flex items-center justify-center text-lg mb-2 transition-all">
                     <i class="${site.icon}" aria-hidden="true"></i>
                 </div>
-                <span id="transfer-to-name-${idx}" class="text-base sm:text-[17px] font-black ${isSelected ? 'text-slate-900' : 'text-slate-600'} tracking-tight line-clamp-1 leading-tight">${site.name}</span>
-                <span id="transfer-to-addr-${idx}" class="text-[13px] sm:text-sm ${isSelected ? 'text-slate-600 font-bold' : 'text-slate-500 font-medium'} line-clamp-1 mt-0.5 leading-tight">${site.address}</span>
+                <span id="transfer-to-name-${idx}" class="text-base sm:text-[17px] font-black ${isSelected ? 'text-slate-900' : 'text-slate-600'} tracking-tight line-clamp-1 leading-tight">${site.shortName}</span>
+                <span id="transfer-to-addr-${idx}" class="text-[13px] sm:text-sm ${isSelected ? 'text-slate-600 font-bold' : 'text-slate-500 font-medium'} line-clamp-1 mt-0.5 leading-tight">${getSiteFullAddress(site.id)}</span>
             </div>
         `;
     }).join('');
@@ -381,7 +385,7 @@ function renderTransferToItems() {
 function onTransferToScrolled(scroller) {
     if (!scroller) return;
     const scrollTop = scroller.scrollTop;
-    const activeIndex = Math.max(0, Math.min(ALL_TRANSFER_SITES.length - 1, Math.round(scrollTop / 120)));
+    const activeIndex = Math.max(0, Math.min(transferSites.length - 1, Math.round(scrollTop / 120)));
 
     if (activeIndex !== currentTransferToIndex) {
         currentTransferToIndex = activeIndex;
@@ -391,7 +395,7 @@ function onTransferToScrolled(scroller) {
 }
 
 function selectTransferToSite(index) {
-    const clampedIndex = Math.max(0, Math.min(ALL_TRANSFER_SITES.length - 1, index));
+    const clampedIndex = Math.max(0, Math.min(transferSites.length - 1, index));
     currentTransferToIndex = clampedIndex;
     triggerHaptic('light');
     const scroller = document.getElementById('transfer-to-scroller');
@@ -402,7 +406,7 @@ function selectTransferToSite(index) {
 }
 
 function stepTransferSite(delta) {
-    const nextIndex = Math.max(0, Math.min(ALL_TRANSFER_SITES.length - 1, currentTransferToIndex + delta));
+    const nextIndex = Math.max(0, Math.min(transferSites.length - 1, currentTransferToIndex + delta));
     selectTransferToSite(nextIndex);
 }
 
@@ -425,7 +429,7 @@ function updateTransferToItemStyles(activeIndex) {
             : "w-14 h-14 rounded-2xl bg-slate-900 text-brand-lime shadow-sm flex items-center justify-center text-lg mb-2 transition-all");
     const selectedAddrClass = "text-[13px] sm:text-sm text-slate-600 font-bold line-clamp-1 mt-0.5 leading-tight";
 
-    ALL_TRANSFER_SITES.forEach((site, idx) => {
+    transferSites.forEach((site, idx) => {
         const item = document.getElementById(`transfer-to-item-${idx}`);
         const icon = document.getElementById(`transfer-to-icon-${idx}`);
         const name = document.getElementById(`transfer-to-name-${idx}`);
@@ -451,45 +455,45 @@ function updateTransferToItemStyles(activeIndex) {
     updateTransferConfirmButtonLabel();
 }
 
-function confirmToolTransfer() {
+// The transfer itself is equipmentService.transfer (scripts/application/services/equipment-service.js):
+// an available tool moves now, a tool in use gets a move request, a tool in service can't move. The sheet
+// only celebrates once the service has saved it.
+async function confirmToolTransfer() {
     if (!currentTransferTool) return;
+    const tool = currentTransferTool;
 
-    // 1. Guard Service items: unavailable until workshop pickup is ready
-    if (currentTransferTool.status === 'Service') {
+    // Service items: say why straight away (the service refuses them too)
+    if (tool.status === ToolStatus.SERVICE) {
         triggerHaptic('light');
-        showToast('Workshop Hold', `${currentTransferTool.name} is unavailable until pickup is ready.`);
+        showToast('Workshop Hold', `${tool.name} is unavailable until pickup is ready.`);
         return;
     }
 
-    triggerHaptic('success');
-
-    const fromSite = currentTransferTool.location;
-    const destSite = ALL_TRANSFER_SITES[currentTransferToIndex] ? ALL_TRANSFER_SITES[currentTransferToIndex].name : 'Lugarno Site';
-    const isBulk = Boolean(currentTransferTool.quantity && currentTransferTool.quantity > 1);
+    const dest = transferSites[currentTransferToIndex] || getSiteById(getCurrentWorkingSiteId());
+    if (!dest) return;
+    const fromSite = getSiteName(tool.siteId, 'Unknown site');
+    const isBulk = EquipmentRules.isBulk(tool);
     const qtyInput = document.getElementById('transfer-input-qty');
     const qty = isBulk && qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
-    const unitName = currentTransferTool.unit || (qty > 1 ? 'Units' : 'Unit');
+    const unitName = tool.unit || (qty > 1 ? 'Units' : 'Unit');
 
-    // 2. If item is currently "In Use", log a Move Request instead of an immediate transfer
-    if (currentTransferTool.status === 'In Use') {
-        currentTransferTool.moveRequestedTo = destSite;
-        currentTransferTool.lastLogged = '14 Oct by Alexander F.';
-        filterToolsDirectory();
-        showToast('Move Request Sent', `Requested ${currentTransferTool.name} move from ${fromSite} to ${destSite}`);
+    const result = await runUiAction(() => equipmentService.transfer(tool.id, dest.id), {
+        button: document.getElementById('transfer-confirm-btn'),
+        errorTitle: 'Transfer not logged'
+    });
+    if (!result.ok) return;
+    currentTransferTool = result.value.tool;
+    triggerHaptic('success');
+
+    if (result.value.outcome === 'request') {
+        showToast('Move Request Sent', `Requested ${tool.name} move from ${fromSite} to ${dest.shortName}`);
         closeToolTransferModal();
         return;
     }
 
-    // 3. Available item: execute transfer immediately
-    currentTransferTool.location = destSite;
-    delete currentTransferTool.moveRequestedTo;
-    currentTransferTool.lastLogged = '14 Oct by Alexander F.';
-
-    filterToolsDirectory();
-
     const toastMsg = isBulk
-        ? `${qty} ${unitName} (${currentTransferTool.name}) transferred to ${destSite}`
-        : `${currentTransferTool.name} transferred to ${destSite}`;
+        ? `${qty} ${unitName} (${tool.name}) transferred to ${dest.shortName}`
+        : `${tool.name} transferred to ${dest.shortName}`;
     showToast('Transfer Logged', toastMsg);
 
     if (typeof confetti === 'function') {

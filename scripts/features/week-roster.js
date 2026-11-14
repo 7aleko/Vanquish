@@ -326,6 +326,31 @@ function animateRosterDrawerHeight(cardId, drawer, shouldExpand, startHeightOver
     }
 }
 
+// ----- Sites (scripts/application/selectors.js) -----
+// A card's date in the week on screen
+function getRosterCardDate(cardId) {
+    const idx = ROSTER_DAY_IDS.indexOf(cardId);
+    return new Date(currentRosterMonday.getFullYear(), currentRosterMonday.getMonth(), currentRosterMonday.getDate() + Math.max(0, idx));
+}
+// What a card shows for a site: { siteId, title, address }. An area ("Indoor Hub", in "Shed B") names a part
+// of the site. No site (not rostered that day) gives a placeholder.
+function describeRosterSite(siteId, area, areaDetail) {
+    const site = getSiteById(siteId);
+    if (!site) return { siteId: null, title: 'Not rostered', address: '' };
+    const title = area ? `${site.shortName} ${area}` : site.shortName;
+    const address = areaDetail ? `${site.address} (${areaDetail}), ${site.suburb}` : getSiteFullAddress(siteId);
+    return { siteId, title, address };
+}
+// The rostered site for a card's date (ROSTER), or its wet-weather site (ROSTER_CONFIG)
+function getRosterCardSite(cardId, rain) {
+    const config = ROSTER_CONFIG[cardId];
+    if (rain && config && config.rainSite) return describeRosterSite(config.rainSite.siteId, config.rainSite.area, config.rainSite.areaDetail);
+    return describeRosterSite(getRosteredSiteId(getRosterCardDate(cardId)));
+}
+function rosterAddressHref(address) {
+    return address ? `href="https://maps.apple.com/?q=${encodeURIComponent(address)}"` : '';
+}
+
 function toggleCardWeatherMode(cardId) {
     triggerHaptic('medium');
     const currentMode = rosterCardStates[cardId] || 'normal';
@@ -352,7 +377,7 @@ function setCardWeatherMode(cardId, mode) {
     rosterCardStates[cardId] = mode;
     const isRain = (mode === 'rain');
     const isToday = (cardId === activeTodayCardId);
-    const targetSite = isRain ? config.rainSite : config.normalSite;
+    const targetSite = getRosterCardSite(cardId, isRain);
 
     // 1. Smoothly update card surface styling
     surfaceEl.classList.toggle('is-rain-mode', isRain);
@@ -412,13 +437,14 @@ function setCardWeatherMode(cardId, mode) {
             titleEl.style.transform = 'translateY(0)';
         }
         if (addressLink) {
-            addressLink.href = `https://maps.apple.com/?q=${encodeURIComponent(targetSite.address)}`;
+            if (targetSite.address) addressLink.href = `https://maps.apple.com/?q=${encodeURIComponent(targetSite.address)}`;
+            else addressLink.removeAttribute('href');
             if (!isToday) {
                 addressLink.className = `site-address inline-flex items-center gap-1.5 text-[13px] font-semibold transition-colors duration-300 ${isRain ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800'}`;
             }
         }
         if (addressText) {
-            addressText.textContent = targetSite.address;
+            addressText.textContent = targetSite.address || 'No site this day';
             addressText.style.opacity = '1';
             addressText.style.transform = 'translateY(0)';
         }
@@ -542,7 +568,7 @@ function formatRosterShiftTimes() {
 // rain-safe means the crew works undercover; otherwise it is only the backup site
 function getRainSiteArrangement(config) {
     const dayKey = String(config.day || '').toLowerCase();
-    const job = (typeof JOBS_DATA !== 'undefined') ? JOBS_DATA.find(j => j.name === config.rainSite.title) : null;
+    const job = (typeof JOBS_DATA !== 'undefined' && config.rainSite) ? JOBS_DATA.find(j => j.siteId === config.rainSite.siteId) : null;
     const day = job && job.days ? job.days[dayKey] : null;
     return (day && day.isRainSafe) ? 'Undercover' : 'Backup';
 }
@@ -558,7 +584,7 @@ function renderRosterCards() {
         const isExpanded = !!expandedRosterCards[cardId];
         const currentMode = rosterCardStates[cardId] || 'normal';
         const isRainActive = (currentMode === 'rain');
-        const activeSite = (isRainActive && config.isRainRisk) ? config.rainSite : config.normalSite;
+        const activeSite = getRosterCardSite(cardId, isRainActive && config.isRainRisk);
         const isDarkSurface = isToday || (isRainActive && config.isRainRisk);
 
         let rainToggleBtnHtml = '';
@@ -641,8 +667,8 @@ function renderRosterCards() {
                                     <div class="roster-drawer-inner">
                                         <div class="px-[18px] pb-4 pt-0.5">
                                             <div>
-                                                <a href="https://maps.apple.com/?q=${encodeURIComponent(activeSite.address)}" target="_blank" onclick="event.stopPropagation()" class="site-address inline-flex items-center gap-1.5 text-[13px] font-semibold ${isToday ? 'text-emerald-200/90 hover:text-white' : (isRainActive ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800')} transition-colors">
-                                                    <span class="site-address-text">${activeSite.address}</span>
+                                                <a ${rosterAddressHref(activeSite.address)} target="_blank" onclick="event.stopPropagation()" class="site-address inline-flex items-center gap-1.5 text-[13px] font-semibold ${isToday ? 'text-emerald-200/90 hover:text-white' : (isRainActive ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800')} transition-colors">
+                                                    <span class="site-address-text">${activeSite.address || 'No site this day'}</span>
                                                     <i class="ph-bold ph-arrow-up-right text-xs"></i>
                                                 </a>
                                             </div>
@@ -682,3 +708,6 @@ function renderRosterCards() {
         }
     });
 }
+
+// Sites renamed or archived: redraw the cards
+subscribeSites(() => renderRosterCards());

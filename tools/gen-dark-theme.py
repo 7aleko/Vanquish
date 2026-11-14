@@ -141,10 +141,10 @@ rule([f'{on_light}{darks}', f'{on_light} {darks}'], 'color: #0c0f05;', prefix='h
 rule([f'{on_light} {darks}'.replace(darks, ':is(.text-slate-500, .text-slate-400)')], 'color: rgba(12, 15, 5, 0.6);', prefix='html body ')
 rule([f'.group:hover .{esc("group-hover:text-slate-950")}', f'.{esc("hover:bg-brand-lime")}:hover', f'.{esc("hover:bg-brand-lime")}:hover *', f'.group:hover .{esc("group-hover:bg-brand-lime")}', f'.group:hover .{esc("group-hover:bg-brand-lime")} *'], 'color: #0c0f05;', prefix='html body ')
 
-comment('Home (and the drawer) are the reference and were already dark: dark ink there keeps its original colour (e.g. the Sign In label on its lime layer)')
+comment('Home is the reference and was already dark: dark ink there keeps its original colour (e.g. the Sign In label on its lime layer)')
 orig = {'text-slate-950':'#020617','text-slate-900':'#0f172a','text-slate-800':'#1e293b','text-slate-700':'#334155','text-slate-600':'#475569','text-slate-500':'#64748b'}
 for c,v in orig.items():
-    rule([f'#view-home .{c}', f'#app-side-drawer .{c}'], f'color: {v};', prefix='html body ')
+    rule([f'#view-home .{c}'], f'color: {v};', prefix='html body ')
 
 open(sys.argv[1],'w').write('\n'.join(out)+'\n')
 print(len(out),'blocks')

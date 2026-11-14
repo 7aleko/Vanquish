@@ -15,9 +15,6 @@
     }
 
     #modal-overlay, #tool-transfer-modal-overlay { transition: opacity 0.2s ease !important; }
-    #app-side-drawer, #drawer-layer-card, #app-main-stage {
-        transition-duration: 0.01ms !important;
-    }
     .roster-card-header {
         transition-duration: 0.01ms !important;
     }

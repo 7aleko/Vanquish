@@ -402,7 +402,7 @@ function sendLifestyleMessage(chatId) {
 // =========================================================================
 function openNewMessageModal() {
     triggerHaptic('light');
-    const members = (typeof TEAM_DIRECTORY_DATA !== 'undefined') ? TEAM_DIRECTORY_DATA : [];
+    const members = getEmployees();
 
     openModal("New Conversation", `
                 <div class="space-y-3 py-1">
@@ -464,7 +464,7 @@ function openDirectMessage(name) {
     let chat = LIFESTYLE_CHATS.find(c => c.name.toLowerCase() === name.toLowerCase());
 
     if (!chat) {
-        const member = (typeof TEAM_DIRECTORY_DATA !== 'undefined') ? TEAM_DIRECTORY_DATA.find(m => m.name.toLowerCase() === name.toLowerCase()) : null;
+        const member = getEmployeeByName(name);
         const initials = member ? member.initials : name.split(' ').map(n => n[0]).join('').slice(0, 2);
         const role = member ? member.role : 'Team Member';
 

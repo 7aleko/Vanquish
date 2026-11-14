@@ -39,7 +39,6 @@
     <link rel="stylesheet" href="styles/dock.css">
     <link rel="stylesheet" href="styles/quick-actions.css">
     <link rel="stylesheet" href="styles/accessibility.css">
-    <link rel="stylesheet" href="styles/side-drawer.css">
     <link rel="stylesheet" href="styles/attendance.css">
     <link rel="stylesheet" href="styles/whiteboard.css">
     <link rel="stylesheet" href="styles/notification-banner.css">
@@ -51,6 +50,8 @@
     <link rel="stylesheet" href="styles/filter-bar.css">
     <link rel="stylesheet" href="styles/role-avatar.css">
     <link rel="stylesheet" href="styles/timesheets.css">
+    <link rel="stylesheet" href="styles/account-sheet.css">
+    <link rel="stylesheet" href="styles/data-status.css">
     <link rel="stylesheet" href="styles/dark-theme.css">
 </head>
 <body class="bg-slate-950 sm:bg-slate-950 text-gray-900 sm:h-full sm:flex sm:justify-center sm:items-center font-sans antialiased selection:bg-brand-lime selection:text-black">
@@ -78,103 +79,22 @@
         })();
     </script>
 
-<!-- Mobile Container Wrapper with Forest Green Background for 3D Drawer Effect -->
+<!-- Mobile Container Wrapper -->
 <div id="app-container" class="content-container fixed inset-0 sm:relative sm:inset-auto sm:w-full sm:h-[90vh] sm:max-w-[420px] sm:max-h-[880px] sm:rounded-[48px] sm:shadow-2xl flex flex-col overflow-hidden border-0 sm:border border-slate-800/50 select-none">
 
-    <!-- Seamless Full-Bleed Ambient Glow Orbs for 3D Drawer (Flows behind top status bar and drawer) -->
-    <div class="absolute -top-16 -right-16 w-64 h-64 bg-emerald-500/30 rounded-full blur-[80px] pointer-events-none z-0"></div>
-    <div class="absolute bottom-12 -right-8 w-52 h-52 bg-blue-600/20 rounded-full blur-[70px] pointer-events-none z-0"></div>
 
 
-    <!-- 3D Stage Viewport Wrapper -->
+    <!-- Stage Viewport Wrapper -->
     <div id="app-stage-wrapper" class="relative w-full flex-1 overflow-hidden">
 
-    <!-- 3D Off-Canvas Side Navigation Drawer (Apple / Reference Design) -->
-    <aside id="app-side-drawer" 
-           role="dialog" 
-           aria-label="My Profile" 
-           aria-modal="true" 
-           aria-hidden="true"
-           class="absolute inset-y-0 right-0 left-auto w-[78%] z-20 flex flex-col justify-between pl-6 pr-6 pt-3 pb-7 text-white pointer-events-none opacity-0 select-none"
-           style="padding-bottom: max(1.75rem, calc(env(safe-area-inset-bottom) + 1.5rem)); padding-right: max(1.5rem, calc(env(safe-area-inset-right) + 1.25rem));">
-
-        <!-- Ambient Glow Orbs (Matching Hero Card Palette) -->
-        <div class="absolute -top-16 -right-16 w-56 h-56 bg-emerald-500/25 rounded-full blur-[75px] pointer-events-none"></div>
-        <div class="absolute bottom-12 -right-8 w-52 h-52 bg-blue-600/20 rounded-full blur-[70px] pointer-events-none"></div>
-
-        <!-- Drawer Top Header Label -->
-        <!-- Drawer header: close button sits exactly where the menu button was, so the same tap toggles -->
-        <div class="drawer-top relative z-10">
-            <button type="button" id="btn-drawer-close" onclick="closeSideDrawer()" aria-label="Close menu" class="drawer-close-btn">
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-        </div>
-        <!-- Profile card: opens personal details (photo, details). Filled by renderAccountStatus() in
-             scripts/features/account.js from ACCOUNT_DATA (scripts/data/account.js). -->
-        <button type="button" id="drawer-profile-card" onclick="drawerNavigate('profile')" class="drawer-nav-item drawer-profile-card relative z-10" aria-label="Alexander Floratos, EMP-0415. Open personal details">
-            <span data-account-avatar class="drawer-profile-avatar" aria-hidden="true">AF</span>
-            <span class="min-w-0 flex-1">
-                <span id="drawer-profile-name" class="drawer-profile-name">Alexander Floratos</span>
-                <span id="drawer-profile-id" class="drawer-profile-id">EMP-0415</span>
-            </span>
-            <i class="fa-solid fa-chevron-right drawer-row-chevron" aria-hidden="true"></i>
-        </button>
-
-        <!-- Drawer navigation: two sections, five rows. Every pill and badge comes from ACCOUNT_DATA. -->
-        <nav class="relative z-10 flex-1 drawer-nav" aria-label="Menu">
-            <h2 class="drawer-section-label">My Work &amp; Gear</h2>
-            <button type="button" id="drawer-row-leave" onclick="drawerNavigate('leave')" class="drawer-nav-item drawer-row group">
-                <span class="drawer-row-icon" aria-hidden="true"><i class="fa-solid fa-calendar-minus"></i></span>
-                <span class="drawer-row-label">Leave &amp; Sick Days</span>
-                <span id="drawer-leave-pill" class="drawer-pill is-lime">13.9d</span>
-            </button>
-            <button type="button" id="drawer-row-role" onclick="drawerNavigate('role')" class="drawer-nav-item drawer-row group">
-                <span class="drawer-row-icon" aria-hidden="true"><i class="fa-solid fa-file-signature"></i></span>
-                <span class="drawer-row-label">My Role &amp; Sign-Off</span>
-                <span id="drawer-role-pill" class="drawer-pill is-amber">Oct Due</span>
-            </button>
-            <button type="button" id="drawer-row-workwear" onclick="drawerNavigate('workwear')" class="drawer-nav-item drawer-row group">
-                <span class="drawer-row-icon" aria-hidden="true"><i class="fa-solid fa-shirt"></i><span id="drawer-workwear-badge" class="drawer-row-badge">2</span></span>
-                <span class="drawer-row-label">Workwear</span>
-                <span id="drawer-workwear-pill" class="drawer-pill is-rose">2 Due</span>
-            </button>
-
-            <h2 class="drawer-section-label">Company &amp; App</h2>
-            <button type="button" id="drawer-row-safety" onclick="drawerNavigate('safety')" class="drawer-nav-item drawer-row group">
-                <span class="drawer-row-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
-                <span class="drawer-row-label">Safety &amp; Training</span>
-                <i class="fa-solid fa-chevron-right drawer-row-chevron" aria-hidden="true"></i>
-            </button>
-            <button type="button" id="drawer-row-guide" onclick="drawerNavigate('guide')" class="drawer-nav-item drawer-row group">
-                <span class="drawer-row-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
-                <span class="drawer-row-label">App Guide &amp; Status</span>
-                <span id="drawer-app-status" class="drawer-pill is-status" data-state="synced"><span class="drawer-status-dot" aria-hidden="true"></span><span data-label>Synced</span></span>
-            </button>
-        </nav>
-
-        <!-- Drawer Footer Section -->
-        <div class="relative z-10 pt-4 border-t border-white/15 space-y-1">
-            <button type="button" onclick="drawerNavigate('logout')" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-emerald-200/80 hover:text-white hover:bg-white/10 transition-all group cursor-pointer">
-                <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
-                <span class="text-xs font-black">Sign Out</span>
-            </button>
-            <div class="px-3 pt-1 text-[11px] font-semibold text-emerald-300/40">
-                Lifestyle App • v2.4.0
-            </div>
-        </div>
-    </aside>
-
-    <!-- Intermediate 3D Layer Card (Physical Depth Effect as in Reference Image) -->
-    <div id="drawer-layer-card" onclick="handleDrawerDismissOverlayClick(event)" role="button" aria-label="Close navigation menu" class="absolute inset-0 bg-emerald-500/[0.12] backdrop-blur-2xl rounded-hero border border-emerald-400/30 shadow-2xl pointer-events-none z-10 opacity-0" style="transform: translate3d(0,0,0) scale(1);"></div>
-
-    <!-- Main Screen Content Stage (Transforms in 3D when drawer opens) -->
+    <!-- Main Screen Content Stage -->
     <div id="app-main-stage" class="content-container w-full h-full bg-appBg flex flex-col overflow-hidden relative z-30">
 
-        <!-- iOS Native Navigation Top Bar. Lives inside the stage, so it moves with the screen when the 3D menu opens.
+        <!-- iOS Native Navigation Top Bar. Lives inside the stage.
              Starts in Home's dark style (the app always opens on Home); status-bar.js restyles it per screen. -->
         <header id="app-top-bar" data-mode="root" class="custom-header on-dark w-full shrink-0 z-40 pt-3 sm:pt-4 pb-2.5 px-5 sm:px-6 border-b border-black/[0.04] transition-all" style="background: #08080a; border-color: transparent; margin-top: 0; padding-top: max(0.75rem, calc(var(--safe-top) + 0.35rem));">
             <div class="top-bar-inner">
-            <!-- Root (Home only): brand, notifications, menu -->
+            <!-- Root (Home only): brand, notifications, account -->
             <div id="top-bar-root" class="top-bar-group flex justify-between items-center py-0.5">
                 <div id="top-bar-brand" class="flex items-center gap-0.5">
                     <span id="app-top-bar-title" class="text-2xl font-black tracking-tight text-white transition-colors duration-300">lifestyle</span>
@@ -192,13 +112,15 @@
                         <span id="notif-badge-count" class="absolute min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black leading-none flex items-center justify-center border-2 border-[#08080a] shadow-sm pointer-events-none transition-transform duration-200">3</span>
                     </button>
 
-                    <!-- Hamburger Menu Button (Squircle - 48x48px) -->
-                    <button id="btn-hamburger" 
-                            onclick="toggleSideDrawer()" 
-                            aria-label="Open Navigation Menu" 
-                            aria-expanded="false" 
-                            class="top-bar-icon">
-                        <i class="fa-solid fa-bars menu-glyph" aria-hidden="true"></i>
+                    <!-- Account: the signed-in person's avatar opens the account sheet (scripts/features/account-sheet.js) -->
+                    <button type="button" id="btn-account"
+                            onclick="openAccountSheet()"
+                            aria-label="Account"
+                            aria-haspopup="dialog"
+                            aria-controls="account-sheet"
+                            aria-expanded="false"
+                            class="top-bar-icon top-bar-avatar">
+                        <span id="account-avatar-top" class="top-bar-avatar-img" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
@@ -249,11 +171,8 @@
         <h2 class="page-title" data-large-title>Trade Schedule</h2>
         <div class="flex items-center gap-1 text-slate-700 text-xs font-bold mt-0.5">
                     <i class="fa-solid fa-location-dot text-emerald-600 text-[11px]" aria-hidden="true"></i>
-                    <select id="schedule-site-select" onchange="showToast('Site Switched', this.value)" aria-label="Select construction site" class="min-w-0 max-w-full truncate bg-transparent font-extrabold text-slate-900 focus:outline-none cursor-pointer text-xs">
-                        <option value="Lugarno Site">Lugarno Site • Block A</option>
-                        <option value="Cronulla Waterfront">Cronulla Waterfront • Lot 4</option>
-                        <option value="Miranda Commercial">Miranda Commercial Hub</option>
-                    </select>
+                    <!-- Options: the active sites, from SITES (renderScheduleSiteSelect, scripts/features/schedule-whiteboard.js) -->
+                    <select id="schedule-site-select" onchange="showToast('Site Switched', getSiteName(this.value))" aria-label="Select construction site" class="min-w-0 max-w-full truncate bg-transparent font-extrabold text-slate-900 focus:outline-none cursor-pointer text-xs"></select>
                 </div>
     </div>
 
@@ -523,7 +442,7 @@
                     </div>
 
                     <!-- Crew on this site today: role avatars + count; opens today's roster card (scripts/features/home-crew.js) -->
-                    <button type="button" id="home-crew-preview" class="home-crew" data-site="Lugarno" onclick="openTodayRosterForSite(event)" hidden>
+                    <button type="button" id="home-crew-preview" class="home-crew" onclick="openTodayRosterForSite(event)" hidden>
                         <span id="home-crew-stack" class="home-crew-stack"></span>
                         <span class="home-crew-label"><span id="home-crew-count"></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
                     </button>
@@ -1150,8 +1069,6 @@
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
 </div>
-        <!-- Click-to-Dismiss Scrim Overlay for 3D Drawer (Active when drawer is open, zero blur to keep home stage razor sharp) -->
-        <div id="drawer-dismiss-overlay" onclick="handleDrawerDismissOverlayClick(event)" class="absolute inset-0 z-50 cursor-pointer pointer-events-none opacity-0 bg-slate-950/20"></div>
     </div> <!-- /#app-main-stage -->
     </div> <!-- /#app-stage-wrapper -->
 
@@ -1222,6 +1139,91 @@
         </div>
 
         <!-- Universal Modal Overlay with Apple Bottom Sheet (Light Frosted Backdrop) -->
+        <!-- Account sheet (scripts/features/account-sheet.js, styles/account-sheet.css): the signed-in person's
+             identity and every account destination, grouped; a bottom sheet on phones, a centred dialog wider up.
+             Rows open the existing sheets (sheets.js / account.js). Filled by renderAccountStatus(). -->
+        <div id="account-sheet-overlay" class="account-sheet-overlay" hidden>
+            <div class="account-sheet-backdrop" onclick="closeAccountSheet()" aria-hidden="true"></div>
+            <section id="account-sheet" class="account-sheet" role="dialog" aria-modal="true" aria-label="Account" aria-describedby="account-sheet-name" tabindex="-1">
+                <button type="button" class="account-sheet-close" onclick="closeAccountSheet()" aria-label="Close">
+                    <i class="ph-bold ph-x" aria-hidden="true"></i>
+                </button>
+                <!-- Page 1: the account list -->
+                <div id="account-page-root" class="account-page account-page-root">
+                <div class="account-sheet-grab" aria-hidden="true"><span></span></div>
+                <div class="account-sheet-body">
+                    <header class="account-identity">
+                        <span id="account-avatar-identity" class="account-identity-avatar" aria-hidden="true"></span>
+                        <h2 id="account-sheet-name" class="account-identity-name"></h2>
+                        <p id="account-sheet-email" class="account-identity-email"></p>
+                    </header>
+
+                    <h3 class="account-group-label" id="account-group-account">Account</h3>
+                    <div class="account-group" role="group" aria-labelledby="account-group-account">
+                        <button type="button" class="account-row" onclick="accountSheetNavigate('profile')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+                            <span class="account-row-label">Personal Details</span>
+                            <span id="account-profile-id" class="account-row-value"></span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="account-row-role" class="account-row" onclick="accountSheetNavigate('role')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-file-signature"></i></span>
+                            <span class="account-row-label">My Role &amp; Sign-Off</span>
+                            <span id="account-role-pill" class="account-pill is-amber"></span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <h3 class="account-group-label" id="account-group-work">My Work &amp; Gear</h3>
+                    <div class="account-group" role="group" aria-labelledby="account-group-work">
+                        <button type="button" id="account-row-leave" class="account-row" onclick="accountSheetNavigate('leave')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-calendar-minus"></i></span>
+                            <span class="account-row-label">Leave &amp; Sick Days</span>
+                            <span id="account-leave-value" class="account-row-value"></span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="account-row-workwear" class="account-row" onclick="accountSheetNavigate('workwear')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-shirt"></i></span>
+                            <span class="account-row-label">Workwear</span>
+                            <span id="account-workwear-pill" class="account-pill is-rose"></span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <h3 class="account-group-label" id="account-group-app">Company &amp; App</h3>
+                    <div class="account-group" role="group" aria-labelledby="account-group-app">
+                        <button type="button" class="account-row" onclick="accountSheetNavigate('safety')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+                            <span class="account-row-label">Safety &amp; Training</span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="account-row-guide" class="account-row" onclick="accountSheetNavigate('guide')">
+                            <span class="account-row-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
+                            <span class="account-row-label">App Guide &amp; Status</span>
+                            <span id="account-app-status" class="account-status" data-state="synced"><span class="account-status-dot" aria-hidden="true"></span><span data-label></span></span>
+                            <i class="ph-bold ph-caret-right account-row-chevron" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="account-group account-group-signout">
+                        <button type="button" class="account-row account-row-signout" onclick="accountSheetNavigate('logout')">Sign Out</button>
+                    </div>
+                    <p id="account-sheet-version" class="account-sheet-version"></p>
+                </div>
+                </div>
+                <!-- Page 2: a row's page, pushed in from the right (Back, or swipe from the left edge). Its content is
+                     the same sheet content those rows always showed (sheets.js / account.js via openModal). -->
+                <div id="account-page-detail" class="account-page account-page-detail" role="region" aria-labelledby="account-detail-title" hidden>
+                    <div class="account-sheet-grab" aria-hidden="true"><span></span></div>
+                    <button type="button" class="account-detail-back" onclick="popAccountPage()" aria-label="Back to Account">
+                        <i class="ph-bold ph-caret-left" aria-hidden="true"></i>
+                    </button>
+                    <h2 id="account-detail-title" class="account-detail-title" tabindex="-1"></h2>
+                    <div id="account-detail-body" class="account-detail-body space-y-4 text-slate-600 text-sm"></div>
+                </div>
+            </section>
+        </div>
+
         <div id="modal-overlay" aria-hidden="true" class="absolute inset-0 bg-slate-400/20 backdrop-blur-md z-50 flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-0 sm:p-4">
             <div id="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title" class="w-full sm:max-w-md bg-white/95 backdrop-blur-3xl rounded-t-hero rounded-b-none sm:rounded-hero p-5 pt-2.5 pb-6 shadow-[0_-14px_44px_rgba(15,23,42,0.14),0_0_1px_rgba(15,23,42,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)] border-t border-x sm:border border-white/90 transform translate-y-[120%] transition-transform duration-350 max-h-[88vh] flex flex-col overflow-hidden will-change-transform" style="padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1.25rem));">
                 <!-- iOS Drag Handle Pill Zone (Large hit area) -->
@@ -1348,7 +1350,7 @@
                                         <div id="transfer-from-icon-box" class="w-14 h-14 rounded-2xl bg-slate-900 text-[#AEB6C2] shadow-sm flex items-center justify-center text-lg mb-2 transition-all" aria-hidden="true">
                                             <i class="fa-solid fa-location-dot"></i>
                                         </div>
-                                        <span id="transfer-from-name" class="text-base sm:text-[17px] font-black text-slate-900 tracking-tight line-clamp-1 leading-tight">Lugarno Site</span>
+                                        <span id="transfer-from-name" class="text-base sm:text-[17px] font-black text-slate-900 tracking-tight line-clamp-1 leading-tight"></span>
                                         <span id="transfer-from-desc" class="text-[13px] sm:text-sm text-slate-600 font-bold line-clamp-1 mt-0.5 leading-tight">Last log: 13 Oct</span>
                                         <span id="transfer-from-by" class="text-[13px] sm:text-sm text-slate-500 font-medium line-clamp-1 leading-tight">by David H.</span>
                                     </div>
@@ -1525,6 +1527,17 @@
     <script src="scripts/utils/feedback.js"></script>
     <script src="scripts/utils/clipboard.js"></script>
     <script src="scripts/utils/dates.js"></script>
+    <script src="scripts/utils/async-ui.js"></script>
+    <!-- Domain: entities, controlled values, rules and validation (no UI, no storage) -->
+    <script src="scripts/domain/enums.js"></script>
+    <script src="scripts/domain/errors.js"></script>
+    <script src="scripts/domain/models.js"></script>
+    <script src="scripts/domain/rules/time.js"></script>
+    <script src="scripts/domain/rules/pay-run.js"></script>
+    <script src="scripts/domain/rules/timesheets.js"></script>
+    <script src="scripts/domain/validation.js"></script>
+    <!-- Mock database contents (read only by the mock provider's seed mapper) -->
+    <script src="scripts/data/sites.js"></script>
     <script src="scripts/data/roster.js"></script>
     <script src="scripts/data/projects.js"></script>
     <script src="scripts/data/chats.js"></script>
@@ -1532,21 +1545,40 @@
     <script src="scripts/data/whiteboard.js"></script>
     <script src="scripts/data/team.js"></script>
     <script src="scripts/data/tools.js"></script>
-    <script src="scripts/data/sites.js"></script>
     <script src="scripts/data/notifications.js"></script>
     <script src="scripts/data/account.js"></script>
     <script src="scripts/data/timesheets.js"></script>
+    <!-- Data access: repository contracts, the provider factory and the mock provider -->
+    <script src="scripts/config/app-config.js"></script>
+    <script src="scripts/data-access/contracts.js"></script>
+    <script src="scripts/data-access/mock/seed.js"></script>
+    <script src="scripts/data-access/mock/mock-provider.js"></script>
+    <script src="scripts/data-access/provider.js"></script>
+    <!-- Infrastructure: identity -->
+    <script src="scripts/infrastructure/auth.js"></script>
+    <!-- Application: permissions, server-state cache, selectors, services, composition root -->
+    <script src="scripts/application/permissions.js"></script>
+    <script src="scripts/application/store.js"></script>
+    <script src="scripts/application/selectors.js"></script>
+    <script src="scripts/application/services/service-kit.js"></script>
+    <script src="scripts/application/services/sites-service.js"></script>
+    <script src="scripts/application/services/roster-service.js"></script>
+    <script src="scripts/application/services/timesheet-service.js"></script>
+    <script src="scripts/application/services/crew-log-service.js"></script>
+    <script src="scripts/application/services/equipment-service.js"></script>
+    <script src="scripts/application/services/leave-service.js"></script>
+    <script src="scripts/application/bootstrap.js"></script>
     <script src="scripts/core/boot.js"></script>
     <script src="scripts/features/attendance.js"></script>
     <script src="scripts/features/site-card-energy.js"></script>
     <script src="scripts/core/navigation.js"></script>
     <script src="scripts/core/status-bar.js"></script>
     <script src="scripts/core/top-bar.js"></script>
-    <script src="scripts/core/side-drawer.js"></script>
     <script src="scripts/components/siri-orb.js"></script>
     <script src="scripts/core/app-shell.js"></script>
     <script src="scripts/core/modal.js"></script>
     <script src="scripts/features/account.js"></script>
+    <script src="scripts/features/account-sheet.js"></script>
     <script src="scripts/features/sheets.js"></script>
     <script src="scripts/features/week-roster.js"></script>
     <script src="scripts/features/chat.js"></script>

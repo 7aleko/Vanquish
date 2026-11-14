@@ -11,9 +11,11 @@ function toggleSiteSignIn(e) {
     updateSiteAttendanceUI();
     triggerGlowSurge(isSiteSignedIn);
     triggerHaptic(isSiteSignedIn ? 'success' : 'medium');
+    // Today's rostered site (ROSTER, resolved through SITES)
+    const siteName = getSiteName(getRosteredSiteId(typeof APP_TODAY !== 'undefined' ? APP_TODAY : new Date()), 'site');
     showToast(
         isSiteSignedIn ? 'Site Check-In' : 'Site Check-Out',
-        isSiteSignedIn ? 'Signed into Lugarno Site at 7:02 AM • Have a safe shift!' : 'Signed out of Lugarno Site successfully'
+        isSiteSignedIn ? `Signed into ${siteName} at 7:02 AM • Have a safe shift!` : `Signed out of ${siteName} successfully`
     );
 }
 
@@ -93,7 +95,7 @@ function updateSiteAttendanceUI() {
     if (!btn || !kicker) return;
 
     if (isSiteSignedIn) {
-        // Bolder text above Lugarno: "Signed In", or "Shift Completed" once the shift has ended
+        // Bolder text above the site name: "Signed In", or "Shift Completed" once the shift has ended
         delete kicker.dataset.state;
         renderSiteSignedInStatus();
 
@@ -108,7 +110,7 @@ function updateSiteAttendanceUI() {
             glowBeam.classList.add('is-signed-in-hidden');
         }
     } else {
-        // Bolder text above Lugarno: "Not Signed In"
+        // Bolder text above the site name: "Not Signed In"
         kicker.dataset.state = 'signed-out';
         kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-amber-400 uppercase whitespace-nowrap";
         kicker.innerHTML = `

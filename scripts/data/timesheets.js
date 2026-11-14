@@ -1,28 +1,15 @@
 /**
- * Timesheets sample data (scripts/features/timesheets.js): sites, roster, cost codes, the signed-in
- * worker's submitted days and what the rest of the crew logged.
+ * Timesheets sample data (scripts/features/timesheets.js): cost codes, the signed-in worker's submitted
+ * days and what the rest of the crew logged.
  * Pure data - no logic. Loaded before all feature scripts.
  *
- * Every date is derived from real Date objects: records and roster entries are written against "workday N
- * of the current pay run", so the scenario follows TIMESHEET_CONFIG.demoToday (or the real date when that is
- * switched off) instead of hard-coding calendar dates. Swap these for API responses to go live.
+ * Sites and the roster are not kept here: every record refers to its site by siteId (SITES,
+ * scripts/data/sites.js) and the rostered site for a day comes from ROSTER (scripts/data/roster.js).
+ *
+ * Records are written against "workday N of the current pay run", so the scenario follows
+ * TIMESHEET_CONFIG.demoToday (or the real date when that is switched off). Swap these for API responses to
+ * go live.
  */
-
-// The 11 active sites (the site picker lists them in this order)
-const TIMESHEET_SITES = {
-    'lugarno':          { id: 'lugarno',          name: 'Lugarno',          short: '935 Forest Rd' },
-    'yowie-bay':        { id: 'yowie-bay',        name: 'Yowie Bay',        short: '1a Yelambie St' },
-    'castlecrag':       { id: 'castlecrag',       name: 'Castlecrag',       short: '8C The Bulwark' },
-    'bondi':            { id: 'bondi',            name: 'Bondi',            short: '350 Bondi Rd' },
-    'coogee':           { id: 'coogee',           name: 'Coogee',           short: '14 Arden St' },
-    'sutherland-depot': { id: 'sutherland-depot', name: 'Sutherland Depot', short: 'Flora St Storage Yard' },
-    'cronulla':         { id: 'cronulla',         name: 'Cronulla',         short: 'Lot 4 Waterfront Esplanade' },
-    'caringbah':        { id: 'caringbah',        name: 'Caringbah',        short: 'Warehouse & Central Depot' },
-    'kirrawee':         { id: 'kirrawee',         name: 'Kirrawee',         short: '22 Bath Rd' },
-    'gymea':            { id: 'gymea',            name: 'Gymea',            short: '5 Gymea Bay Rd' },
-    'oatley':           { id: 'oatley',           name: 'Oatley',           short: '41 Mulga Rd' }
-};
-const TIMESHEET_SITE_ORDER = Object.keys(TIMESHEET_SITES);
 
 // Cost codes a time block can be booked against
 const TIMESHEET_COST_CODES = [
@@ -36,7 +23,6 @@ const TIMESHEET_COST_CODES = [
 ];
 
 const TIMESHEET_CONFIG = {
-    userId: 'alexander-floratos',
     targetHours: 8,                          // a full day; the ring closes at this many net hours
     defaultStart: '07:00',
     defaultFinish: '15:30',
@@ -48,50 +34,49 @@ const TIMESHEET_CONFIG = {
     demoToday: new Date(2026, 10, 13)
 };
 
-// The worker's roster: site by workday of the pay run (repeats every pay run). null = not rostered that
-// day (the worker picks the site themselves).
-const TIMESHEET_ROSTER = ['lugarno', 'lugarno', 'yowie-bay', 'yowie-bay', 'castlecrag',
-                          'lugarno', 'lugarno', null, 'lugarno', 'lugarno'];
-
 // Submitted days, by workday of the current pay run (0 = its first Monday, 9 = its second Friday).
 // Workday 8 (Thursday) is the missed day; workday 9 is today, not yet logged. Totals: 65.5h over 8 days,
 // with one overtime day (9.5h).
 const TIMESHEET_SAMPLE_RECORDS = [
-    { workday: 0, site: 'lugarno', approval: 'approved', blocks: [
+    { workday: 0, siteId: 'lugarno', approval: 'approved', blocks: [
         { code: '004-1', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Stripped existing subfloor framing, rear wing' },
         { code: '006-1', start: '09:00', finish: '15:30', breakMins: 30, task: 'Stood & plumbed ground floor wall frames' } ] },
-    { workday: 1, site: 'lugarno', approval: 'approved', blocks: [
+    { workday: 1, siteId: 'lugarno', approval: 'approved', blocks: [
         { code: '006-1', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Fixed lintels & trimmers over window openings' },
         { code: '006-1', start: '12:00', finish: '16:00', breakMins: 30, task: 'Installed temp bracing to stair void' } ] },
-    { workday: 2, site: 'yowie-bay', approval: 'approved', blocks: [
+    { workday: 2, siteId: 'yowie-bay', approval: 'approved', blocks: [
         { code: '006-4', start: '07:00', finish: '15:30', breakMins: 30, task: 'Set out deck footings, poured & levelled pier brackets' } ] },
-    { workday: 3, site: 'yowie-bay', approval: 'approved', blocks: [
+    { workday: 3, siteId: 'yowie-bay', approval: 'approved', blocks: [
         { code: '006-4', start: '06:30', finish: '10:30', breakMins: 0,  task: 'Ran deck bearers to string lines' },
         { code: '006-4', start: '10:30', finish: '16:30', breakMins: 30, task: 'Laid & fixed deck joists, checked falls to waterfront edge' } ] },
-    { workday: 4, site: 'castlecrag', approval: 'approved', blocks: [
+    { workday: 4, siteId: 'castlecrag', approval: 'approved', blocks: [
         { code: '004-1', start: '07:00', finish: '11:00', breakMins: 0,  task: 'Stripped slab edge formwork, level 1' },
         { code: '001-9', start: '11:00', finish: '15:00', breakMins: 30, task: 'Cleaned & stacked formply, site lockup' } ] },
-    { workday: 5, site: 'lugarno', approval: 'awaiting', blocks: [
+    { workday: 5, siteId: 'lugarno', approval: 'awaiting', blocks: [
         { code: '001-2', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Supervised apprentice on truss set-out' },
         { code: '006-1', start: '09:00', finish: '15:30', breakMins: 30, task: 'Pitched rear wing trusses, fixed tie-downs' } ] },
-    { workday: 6, site: 'lugarno', approval: 'awaiting', blocks: [
+    { workday: 6, siteId: 'lugarno', approval: 'awaiting', blocks: [
         { code: '008-2', start: '07:00', finish: '15:30', breakMins: 30, task: 'Fixed fascia, barge boards & eaves lining' } ] },
-    { workday: 7, site: 'castlecrag', approval: 'awaiting', blocks: [
+    { workday: 7, siteId: 'castlecrag', approval: 'awaiting', blocks: [
         { code: '009-3', start: '07:00', finish: '12:00', breakMins: 0,  task: 'Framed internal partitions, units 3 & 4' },
         { code: '009-3', start: '12:00', finish: '15:30', breakMins: 30, task: 'Set out door openings, fixed jamb studs' } ] }
 ];
 
 // The previous pay run, all approved, so the Pay Run card's fortnight navigation has history to show.
-// Each workday reuses a typical day from above at that day's roster site (Castlecrag when unrostered).
-const TIMESHEET_PREVIOUS_RUN_RECORDS = [0, 1, 2, 3, 4, 5, 6, 7, 1, 2].map((src, workday) => ({
-    workday, site: TIMESHEET_ROSTER[workday] || 'castlecrag', approval: 'approved',
-    blocks: TIMESHEET_SAMPLE_RECORDS[src].blocks
-}));
+// Each workday reuses a typical day from above (`src`) at the site worked: the rostered site, and Castlecrag
+// on the unrostered Wednesday.
+const TIMESHEET_PREVIOUS_RUN_RECORDS = [
+    { src: 0, siteId: 'lugarno' }, { src: 1, siteId: 'lugarno' }, { src: 2, siteId: 'yowie-bay' },
+    { src: 3, siteId: 'yowie-bay' }, { src: 4, siteId: 'castlecrag' }, { src: 5, siteId: 'lugarno' },
+    { src: 6, siteId: 'lugarno' }, { src: 7, siteId: 'castlecrag' }, { src: 1, siteId: 'lugarno' },
+    { src: 2, siteId: 'lugarno' }
+].map((r, workday) => ({ workday, siteId: r.siteId, approval: 'approved', blocks: TIMESHEET_SAMPLE_RECORDS[r.src].blocks }));
 
-// What the rest of the crew submitted at each site. Each person has a few typical days ("plans"); a day's
-// plan is picked by its workday number, so logs change from day to day. Crew logs show for days that have
-// started. Sites missing here have no crew logs.
-const TIMESHEET_SITE_CREW = {
+// What the rest of the crew submits at each site, keyed by siteId. Each person has a few typical days
+// ("plans"); a day's plan is picked by its workday number, so logs change from day to day. The Timesheets
+// screen turns these into dated CREW_LOGS records (one per person, date and site) and filters them by date
+// and siteId. Sites missing here have no crew logs.
+const TIMESHEET_CREW_PLANS = {
     'lugarno': [
         { name: 'David Hilt', plans: [
             [ { code: '004-1', start: '07:00', finish: '09:00', breakMins: 0,  task: 'Cut out rotten bearers, north elevation' },

@@ -1,5 +1,7 @@
 /**
  * Tools & gear directory: render, search, category filter.
+ * Reads equipment and site names through the selectors (getTools, getSiteName); transfers go through
+ * equipmentService (scripts/features/tool-transfer.js). Re-renders when equipment or sites change.
  */
 
 let currentToolCategory = 'all';
@@ -22,10 +24,10 @@ function filterToolsDirectory() {
     const query = input.value.toLowerCase().trim();
     if (clearBtn) clearBtn.classList.toggle('hidden', query === '');
 
-    const filtered = TOOLS_DIRECTORY_DATA.filter(t => {
+    const filtered = getTools().filter(t => {
         const matchesCategory = (currentToolCategory === 'all' || t.category === currentToolCategory);
         const matchesSearch = t.name.toLowerCase().includes(query) ||
-                              t.location.toLowerCase().includes(query) ||
+                              getSiteName(t.siteId).toLowerCase().includes(query) ||
                               t.status.toLowerCase().includes(query);
         return matchesCategory && matchesSearch;
     });
@@ -56,9 +58,9 @@ function clearToolsSearch() {
     if (!container) return;
 
     // Dynamically calculate counts using 'Service' strictly
-    const availableCount = TOOLS_DIRECTORY_DATA.filter(t => t.status === 'Available').length;
-    const inUseCount = TOOLS_DIRECTORY_DATA.filter(t => t.status === 'In Use').length;
-    const serviceCount = TOOLS_DIRECTORY_DATA.filter(t => t.status === 'Service').length;
+    const availableCount = getTools().filter(t => t.status === ToolStatus.AVAILABLE).length;
+    const inUseCount = getTools().filter(t => t.status === ToolStatus.IN_USE).length;
+    const serviceCount = getTools().filter(t => t.status === ToolStatus.SERVICE).length;
 
     // Update the stat cards in the UI
     document.getElementById('stat-available').textContent = availableCount;
@@ -80,8 +82,8 @@ function clearToolsSearch() {
     }
 
     container.innerHTML = items.map(t => {
-        const isAvailable = t.status === 'Available';
-        const isService = t.status === 'Service';
+        const isAvailable = t.status === ToolStatus.AVAILABLE;
+        const isService = t.status === ToolStatus.SERVICE;
         const logInfo = parseToolLastLog(t.lastLogged);
 
         // Corner gradient colors strictly radiating from top-right apex (identical intensity across all 3 states)
@@ -109,7 +111,7 @@ function clearToolsSearch() {
             <div onclick="openToolTransferModal('${t.id}')"
                  role="button"
                  tabindex="0"
-                 aria-label="${t.name} at ${t.location}, ${t.status}"
+                 aria-label="${t.name} at ${getSiteName(t.siteId, 'an unknown site')}, ${t.status}"
                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openToolTransferModal('${t.id}');}"
                  class="relative overflow-hidden bg-white/85 backdrop-blur-2xl rounded-card p-5 shadow-apple border ${theme.border} transition-all space-y-3.5 group hover:shadow-apple-lg active:scale-[0.985] cursor-pointer select-none">
                 <!-- Glassmorphic Corner Gradient Radiating strictly from Top-Right Corner (100% 0%) -->
@@ -123,7 +125,7 @@ function clearToolsSearch() {
                     <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1 flex items-center gap-2 flex-wrap">
                         <span class="flex items-center gap-1.5 truncate">
                             <i class="fa-solid fa-location-dot text-xs text-slate-400 shrink-0"></i>
-                            <span>Location: <strong class="text-slate-800 font-bold">${t.location}</strong></span>
+                            <span>Location: <strong class="text-slate-800 font-bold">${getSiteName(t.siteId, 'Unknown site')}</strong></span>
                         </span>
                         ${t.quantity && t.quantity > 1 ? `
                             <span class="text-slate-300">•</span>
@@ -134,10 +136,10 @@ function clearToolsSearch() {
                         ` : ''}
                         <span class="text-slate-300">•</span>
                         <span class="font-bold ${theme.statusText}">${t.status === 'Service' ? 'Service • Until Pickup Ready' : t.status}</span>
-                        ${t.moveRequestedTo ? `
+                        ${t.moveRequestedToSiteId ? `
                             <span class="inline-flex items-center gap-1 font-extrabold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full text-[11px]">
                                 <i class="fa-solid fa-paper-plane text-[11px]"></i>
-                                <span>Requested → ${t.moveRequestedTo}</span>
+                                <span>Requested → ${getSiteName(t.moveRequestedToSiteId, 'Unknown site')}</span>
                             </span>
                         ` : ''}
                     </p>
@@ -184,3 +186,7 @@ function clearToolsSearch() {
         `;
     }).join('');
 }
+
+// Sites renamed or archived: redraw the list (names resolve from SITES)
+subscribeSites(() => { if (document.getElementById('tools-search-input')) filterToolsDirectory(); });
+appStore.subscribe(() => { if (document.getElementById('tools-search-input')) filterToolsDirectory(); }, ['equipment']);

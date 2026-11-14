@@ -61,23 +61,25 @@ function clearTeamSearch() {
     }
 }
 
+// A member's usual site and area, by siteId (names from SITES)
 function getMemberSite(member) {
+    let siteId = 'miranda', area = '';
     if (['David Hilt', 'Jude Hudson', 'Trent Jamieson', 'Lachlan Swatosch', 'Alexander Floratos', 'Brad Davis'].includes(member.name)) {
-        return 'Lugarno Site • Block A';
+        siteId = 'lugarno'; area = 'Block A';
     } else if (['Curtis Bell', 'Brendan Hodge', 'Jeremy G.'].includes(member.name)) {
-        return 'Castlecrag Hub • Lot 8';
+        siteId = 'castlecrag'; area = 'Lot 8';
     } else if (['Marcus Russo', 'Luke Parkes', 'Lisa Isemonger', 'Shanelle Organista'].includes(member.name)) {
-        return 'Caringbah HQ & Warehouse';
-    } else {
-        return 'Miranda Commercial Site';
+        siteId = 'caringbah'; area = 'Warehouse';
     }
+    const name = getSiteName(siteId);
+    return area ? `${name} • ${area}` : name;
 }
 
 function openTeamContactModal(memberId) {
-    const member = TEAM_DIRECTORY_DATA.find(m => m.id === memberId);
+    const member = getEmployeeById(memberId);
     if (!member) return;
 
-    const isOnLeave = member.status === 'On Leave';
+    const isOnLeave = member.status === EmployeeStatus.ON_LEAVE;
 
     openModal("", `
                 <div class="space-y-5 pt-1 pb-2">
@@ -208,7 +210,7 @@ function filterTeamDirectory() {
     const query = input.value.toLowerCase().trim();
     if (clearBtn) clearBtn.classList.toggle('hidden', query === '');
 
-    const filtered = TEAM_DIRECTORY_DATA.filter(m => {
+    const filtered = getEmployees().filter(m => {
         const matchesCategory = (currentTeamCategory === 'all' || m.category === currentTeamCategory);
         const matchesSearch = m.name.toLowerCase().includes(query) ||
                             m.role.toLowerCase().includes(query) ||

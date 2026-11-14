@@ -6,7 +6,7 @@
  *   getRoleCategory(title)      job title -> 'supervisor' | 'carpenter' | 'tradesman' | 'apprentice' | 'labour' | 'other'
  *   getRoleGradient(title)      CSS gradient for that category
  *   getRoleSeniority(title)     1 (supervisor) .. 5 (labour), 6 unknown
- *   getPersonRole(name)         the person's role from TEAM_DIRECTORY_DATA (scripts/data/team.js)
+ *   getPersonRole(name)         the person's role from the employees (getEmployeeByName, scripts/application/selectors.js)
  *   sortCrewBySeniority(names)  new array, most senior first; stable within a role; input untouched
  *   renderRoleAvatar(person, size)  HTML for one avatar; sizes in styles/role-avatar.css
  */
@@ -44,18 +44,14 @@ function getRoleSeniority(title) { return ROLE_CATEGORIES[getRoleCategory(title)
 // person, so they resolve to that role. Anyone not in the directory gets no role (the neutral fallback).
 function getPersonRole(name) {
     const n = String(name || '').trim().toLowerCase();
-    const member = (typeof TEAM_DIRECTORY_DATA !== 'undefined')
-        ? TEAM_DIRECTORY_DATA.find(m => m.name.toLowerCase() === n)
-        : null;
+    const member = (typeof getEmployeeByName === 'function') ? getEmployeeByName(n) : null;
     if (member) return member.role;
     if (/^labou?r hire\b/.test(n)) return 'Labour Hire';
     return '';
 }
 
 function getPersonInitials(name) {
-    const member = (typeof TEAM_DIRECTORY_DATA !== 'undefined')
-        ? TEAM_DIRECTORY_DATA.find(m => m.name.toLowerCase() === String(name || '').trim().toLowerCase())
-        : null;
+    const member = (typeof getEmployeeByName === 'function') ? getEmployeeByName(name) : null;
     if (member && member.initials) return member.initials;
     const words = String(name || '').trim().split(/\s+/).filter(Boolean);
     return ((words[0] || '?')[0] + (words[1] ? words[1][0] : '')).toUpperCase();

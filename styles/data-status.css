@@ -1,0 +1,44 @@
+/* Async data feedback. App data load error (scripts/core/boot.js showDataLoadError): a dark glass bar under the status bar with Retry */
+.data-status {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    top: calc(env(safe-area-inset-top) + 56px);
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 12px 16px;
+    border-radius: 16px;
+    background: rgba(24, 24, 27, 0.92);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+.data-status[hidden] { display: none; }
+.data-status-text { flex: 1; min-width: 0; }
+.data-status-retry {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 9999px;
+    background: #A3E635;
+    color: #09090B;
+    font-weight: 700;
+    cursor: pointer;
+}
+.data-status-retry:disabled { opacity: 0.6; cursor: default; }
+
+/* A failed action's message, right under its button (scripts/utils/async-ui.js) */
+.ui-action-error {
+    margin: 8px 4px 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #FBBF24;
+    text-align: center;
+}
+.ui-action-error[hidden] { display: none; }

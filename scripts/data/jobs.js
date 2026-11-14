@@ -1,13 +1,13 @@
 /**
- * Jobs view: active sites with per-day weather and crew.
+ * Jobs: the work running at each of the employee's assigned sites (the Site screen's "Your Sites"), with
+ * per-day weather and crew. Each job points at its site by siteId; the name and address come from SITES.
  * Pure data - no logic. Loaded before all feature scripts.
  */
 
-        const JOBS_DATA = [
+const JOBS_DATA = [
     {
         id: 'job-bondi',
-        name: 'Bondi',
-        address: '350 Bondi Road, Bondi',
+        siteId: 'bondi',
         client: 'Mark and Jennifer',
         projectType: 'NEW BUILD',
         badgeText: 'ON SITE THIS WEEK',
@@ -22,8 +22,7 @@
     },
     {
         id: 'job-castlecrag',
-        name: 'Castlecrag',
-        address: '8c The Bulwark, Castlecrag',
+        siteId: 'castlecrag',
         client: 'Vanguard Properties',
         projectType: 'RENOVATION',
         badgeText: '5 Days this week',
@@ -38,8 +37,7 @@
     },
     {
         id: 'job-lugarno',
-        name: 'Lugarno',
-        address: '935 Forest Road, Lugarno',
+        siteId: 'lugarno',
         client: 'Johnson Family',
         projectType: 'NEW BUILD',
         badgeText: '5 Days this week',

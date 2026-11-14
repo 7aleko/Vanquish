@@ -4,14 +4,27 @@
  * crew logs drawer. Markup lives in #view-time and #ts-sheet-overlay (index.html); styles in
  * styles/timesheets.css; sample data in scripts/data/timesheets.js.
  *
- * One source of truth: `timesheetState.records` (submitted days, keyed by ISO date) and
- * `timesheetState.selected` (the one selected date; the strip, ring, Pay Run chart, day card, button and
- * sheet all read it). Every figure on screen is summed from the records. Edits live in
- * `timesheetState.drafts[iso]` until submitted, so closing the sheet or switching days never loses input.
- * Replace the sample seeding in buildTimesheetState() with an API call to persist for real.
+ * Layers: this file is presentation only.
+ *  - Data: submitted days come from the server-state cache (getTimesheetsByDate, scripts/application/
+ *    selectors.js) - `timesheetState.records` is a read-only view of it. Crew logs, cost codes, sites and the
+ *    roster come from selectors too.
+ *  - Rules: net hours, block validity, pay runs and the site assignment are domain rules
+ *    (scripts/domain/rules/); the ts* helpers below only adapt them for this screen.
+ *  - Changes: submitting goes through timesheetService.submit (scripts/application/services/), which
+ *    validates, saves through the repository and updates the cache. Nothing here saves a record.
+ *  - UI state stays here: `timesheetState.selected` (the one selected date; the strip, ring, Pay Run chart,
+ *    day card, button and sheet all read it), the sheet / picker / drawer state, and the unsaved edits in
+ *    `timesheetState.drafts[iso]`, so closing the sheet or switching days never loses input.
+ *
+ * Sites are relational: records, drafts and crew logs store a siteId and every name / address is resolved
+ * through SITES (scripts/application/selectors.js). The rostered site for a date comes from ROSTER for the
+ * signed-in employee. Each record and draft carries a siteAssignmentType:
+ *   'rostered'   - the day's roster site (ROSTERED badge)
+ *   'override'   - a different site chosen by hand on a rostered day (TRANSFERRED / SPLIT badge)
+ *   'unrostered' - a site chosen on a day with no roster entry (MANUAL badge)
+ * The roster itself is never changed by a timesheet.
  */
 
-const TS_DAY_MS = 86400000;
 const TS_WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const TS_HERO_C = 107;                                       // hero ring centre (viewBox 214)
 const TS_RING_RADIUS = 87;                                   // (214 - 40) / 2
@@ -19,35 +32,19 @@ const TS_RING_CIRC = 2 * Math.PI * TS_RING_RADIUS;
 const TS_MAX_LAPS = 2;
 let tsBlockSeq = 0;
 
-// ---------- Dates ----------
-function tsToday() {
-    const d = TIMESHEET_CONFIG.useDemoToday ? TIMESHEET_CONFIG.demoToday : new Date();
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-function tsIso(d) { return formatIsoDateLocal(d); }
-function tsFromIso(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
-function tsAddDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
-function tsDayDiff(a, b) { return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / TS_DAY_MS); }
-function tsIsWeekend(d) { const g = d.getDay(); return g === 0 || g === 6; }
+// ---------- Dates (DateRules / PayRunRules, scripts/domain/rules/) ----------
+function tsToday() { return appClock.today(); }
+function tsIso(d) { return DateRules.toIso(d); }
+function tsFromIso(iso) { return DateRules.fromIso(iso); }
+function tsAddDays(d, n) { return DateRules.addDays(d, n); }
+function tsDayDiff(a, b) { return DateRules.dayDiff(a, b); }
+function tsIsWeekend(d) { return DateRules.isWeekend(d); }
 function tsIsFuture(d) { return tsDayDiff(tsToday(), d) > 0; }
 
-function tsPayRunStart(d) {
-    const anchor = TIMESHEET_CONFIG.payRunAnchor, len = TIMESHEET_CONFIG.payRunLengthDays;
-    return tsAddDays(anchor, Math.floor(tsDayDiff(anchor, d) / len) * len);
-}
+function tsPayRunStart(d) { return PayRunRules.startOf(d, PAY_RUN_POLICY); }
 // The weekdays (Mon-Fri) of the pay run containing `d`
-function tsPayRunWorkdays(d) {
-    const start = tsPayRunStart(d), days = [];
-    for (let i = 0; i < TIMESHEET_CONFIG.payRunLengthDays; i++) {
-        const day = tsAddDays(start, i);
-        if (!tsIsWeekend(day)) days.push(day);
-    }
-    return days;
-}
-function tsWorkdayIndex(d) {
-    if (tsIsWeekend(d)) return -1;
-    return tsPayRunWorkdays(d).findIndex(w => tsDayDiff(w, d) === 0);
-}
+function tsPayRunWorkdays(d) { return PayRunRules.workdays(d, PAY_RUN_POLICY); }
+function tsWorkdayIndex(d) { return PayRunRules.workdayIndex(d, PAY_RUN_POLICY); }
 // "Fri 13 Nov" (en-AU puts a comma after the weekday)
 function tsShortDate(d) {
     return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '');
@@ -56,28 +53,10 @@ function tsTitleFor(d) {
     return d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).replace(/,/g, '');
 }
 
-// ---------- Times ----------
-function tsMinutes(hhmm) {
-    if (!/^\d{1,2}:\d{2}$/.test(hhmm || '')) return null;
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-}
-function tsFromMinutes(mins) {
-    const m = ((mins % 1440) + 1440) % 1440;
-    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-// Net hours for one block. A finish earlier than the start runs overnight; anything with no paid time is invalid.
-function tsComputeShift(start, finish, breakMins) {
-    const s = tsMinutes(start), f = tsMinutes(finish);
-    if (s === null || f === null) return { valid: false, net: 0, message: 'Enter a start and finish time' };
-    if (s === f) return { valid: false, net: 0, message: 'Finish time is the same as start' };
-    const overnight = f < s;
-    const gross = (overnight ? f + 1440 : f) - s;
-    const net = gross - (Number(breakMins) || 0);
-    if (net <= 0) return { valid: false, net: 0, message: 'Block is shorter than the lunch break' };
-    if (gross > 16 * 60) return { valid: false, net: 0, message: 'Block is over 16 hours — check the times' };
-    return { valid: true, net: Math.round(net / 60 * 100) / 100, overnight };
-}
+// ---------- Times (TimeRules, scripts/domain/rules/time.js) ----------
+function tsMinutes(hhmm) { return TimeRules.minutes(hhmm); }
+function tsFromMinutes(mins) { return TimeRules.fromMinutes(mins); }
+function tsComputeShift(start, finish, breakMins) { return TimeRules.computeShift(start, finish, breakMins); }
 function tsFormatHours(h) { return `${(Math.round(h * 10) / 10).toFixed(1)}h`; }
 // "7:00 AM" (crew windows) or "07:00 AM" (summary cards)
 function tsFormatClock(hhmm, pad) {
@@ -89,7 +68,7 @@ function tsFormatClock(hhmm, pad) {
 }
 
 // ---------- Model ----------
-function tsCostCode(code) { return TIMESHEET_COST_CODES.find(c => c.code === code) || null; }
+function tsCostCode(code) { return getCostCode(code); }
 // An editable block (drafts)
 function tsNewBlock(src = {}) {
     return {
@@ -102,47 +81,48 @@ function tsNewBlock(src = {}) {
         chained: !!src.chained            // start follows the previous line's finish until set by hand
     };
 }
-// A block as stored on a submitted record (and in crew logs)
-function tsStoredBlock(b) {
+// A stored block (a submitted day's or a crew log's) as this screen shows it: with its cost code's title
+// and net hours derived
+function tsBlockView(b) {
     const cc = tsCostCode(b.code);
-    return { id: `blk-${++tsBlockSeq}`, code: b.code, title: cc ? cc.title : '', start: b.start, finish: b.finish,
-             breakMins: Number(b.breakMins), netHours: tsComputeShift(b.start, b.finish, b.breakMins).net, task: (b.task || '').trim() };
+    return { id: b.id, code: b.code, title: cc ? cc.title : '', start: b.start, finish: b.finish,
+             breakMins: Number(b.breakMins), netHours: tsComputeShift(b.start, b.finish, b.breakMins).net, task: b.task || '' };
 }
 // Sum of each valid block's own net hours (each block already took off its own lunch)
-function tsSumHours(blocks) {
-    return Math.round(blocks.reduce((sum, b) => {
-        const s = tsComputeShift(b.start, b.finish, b.breakMins);
-        return sum + (s.valid ? s.net : 0);
-    }, 0) * 100) / 100;
-}
+function tsSumHours(blocks) { return TimeRules.sumHours(blocks); }
 
+// ---------- Sites & roster (scripts/application/selectors.js) ----------
+// The signed-in employee's rostered site for a day (ROSTER), or null
 function tsRosterSite(d) {
-    const i = tsWorkdayIndex(d);
-    return i >= 0 ? (TIMESHEET_ROSTER[i % TIMESHEET_ROSTER.length] || null) : null;
+    return getRosteredSiteId(d, getCurrentEmployeeId());
+}
+// How a day's site was arrived at (see the header)
+function tsAssignmentType(iso, siteId) {
+    return TimesheetRules.assignmentType(tsRosterSite(tsFromIso(iso)), siteId);
 }
 
+// The signed-in employee's submitted days, keyed by date, as this screen shows them (derived titles, net
+// hours and totals; `approval` for the status pill). Read-only: rebuilt when the cache changes.
+function tsRecordsView() {
+    const employeeId = getCurrentEmployeeId();
+    return appStore.memo(`tsRecordsView:${employeeId}`, ['timesheets', 'costCodes'], () => {
+        const byDate = getTimesheetsByDate(employeeId), view = {};
+        Object.keys(byDate).forEach(iso => {
+            const t = byDate[iso], blocks = t.blocks.map(tsBlockView);
+            view[iso] = { ...t, blocks, totalHours: tsSumHours(t.blocks),
+                          approval: t.status === TimesheetStatus.APPROVED ? 'approved' : 'awaiting' };
+        });
+        return Object.freeze(view);
+    });
+}
+
+// UI state only. `records` reads the server-state cache (it can't be assigned).
 function buildTimesheetState() {
     const today = tsToday();
-    const workdays = tsPayRunWorkdays(today);
     const prevStart = tsAddDays(tsPayRunStart(today), -TIMESHEET_CONFIG.payRunLengthDays);
-    const prevWorkdays = tsPayRunWorkdays(prevStart);
-    const records = {};
-    const seed = [
-        ...(typeof TIMESHEET_PREVIOUS_RUN_RECORDS !== 'undefined' ? TIMESHEET_PREVIOUS_RUN_RECORDS : []).map(r => ({ ...r, days: prevWorkdays })),
-        ...TIMESHEET_SAMPLE_RECORDS.map(r => ({ ...r, days: workdays }))
-    ];
-    seed.forEach(r => {
-        const date = r.days[r.workday];
-        if (!date || tsDayDiff(date, today) < 0) return;            // never seed a future day
-        const iso = tsIso(date);
-        const blocks = r.blocks.map(tsStoredBlock);
-        records[iso] = { userId: TIMESHEET_CONFIG.userId, date: iso, siteId: r.site, rosterRef: tsRosterSite(date),
-                         status: 'submitted', approval: r.approval, blocks, totalHours: tsSumHours(blocks),
-                         submittedAt: new Date(date.getFullYear(), date.getMonth(), date.getDate(), 16, 0).toISOString() };
-    });
     return {
-        records,
-        drafts: {},              // iso -> { siteId, blocks } while a day is being edited
+        get records() { return tsRecordsView(); },
+        drafts: {},              // iso -> { siteId, siteAssignmentType, blocks } while a day is being edited
         showErrors: {},          // iso -> true after a failed submit, so errors then update live
         historyStart: prevStart,  // no records exist before this, so earlier days are not "gaps"
         selected: tsIso(today),
@@ -170,9 +150,13 @@ function tsDayStatus(d) {
 function tsDraft(iso) {
     if (!timesheetState.drafts[iso]) {
         const rec = timesheetState.records[iso];
-        timesheetState.drafts[iso] = rec
-            ? { siteId: rec.siteId, blocks: rec.blocks.map(b => tsNewBlock(b)) }
-            : { siteId: tsRosterSite(tsFromIso(iso)), blocks: [tsNewBlock()] };
+        const siteId = rec ? rec.siteId : tsRosterSite(tsFromIso(iso));
+        timesheetState.drafts[iso] = {
+            siteId,
+            // a submitted day keeps the assignment it was submitted with; a new day starts at its roster site
+            siteAssignmentType: rec ? (rec.siteAssignmentType || tsAssignmentType(iso, siteId)) : tsAssignmentType(iso, siteId),
+            blocks: rec ? rec.blocks.map(b => tsNewBlock(b)) : [tsNewBlock()]
+        };
     }
     return timesheetState.drafts[iso];
 }
@@ -227,14 +211,13 @@ function tsRangeLabel(start) {
     return `${fmt(start)} – ${fmt(end)}`;
 }
 
-// Crew logs for a day and site (same block structure as the worker's own), only for days that have started
+// Crew logs for a day and site (same block structure as the worker's own), matched on both the date and the
+// siteId (crewLogService). Only days that have started have any.
 function tsCrewLogs(iso, siteId) {
-    const d = tsFromIso(iso);
-    if (!siteId || tsIsFuture(d) || tsIsWeekend(d)) return [];
-    const wd = Math.max(0, tsWorkdayIndex(d));
-    return (TIMESHEET_SITE_CREW[siteId] || []).map(c => {
-        const blocks = c.plans[(wd + 1) % c.plans.length].map(tsStoredBlock);
-        return { name: c.name, blocks, totalHours: tsSumHours(blocks), start: blocks[0].start, finish: blocks[blocks.length - 1].finish };
+    return crewLogService.forSiteOnDate(iso, siteId).map(log => {
+        const blocks = log.blocks.map(tsBlockView);
+        return { id: log.id, name: log.name, employeeId: log.employeeId, blocks, totalHours: tsSumHours(blocks),
+                 start: blocks[0].start, finish: blocks[blocks.length - 1].finish };
     });
 }
 
@@ -335,8 +318,9 @@ function renderTimesheetTitle() {
 function tsFitBarTitle() {}
 
 // The strip: every calendar day the Pay Run arrows can reach (the first run we hold to the run after the
-// current one), in one horizontally scrolling row. Built once; each render only updates the cells, so the
-// user's own scroll position is kept. Cells are keyed by date (data-iso), never by index.
+// current one), paged by week: each Monday-Sunday is one page and a swipe moves a whole week. Built once;
+// each render only updates the cells, so the user's own scroll position is kept. Cells are keyed by date
+// (data-iso), never by index.
 function tsStripRange() {
     const b = tsRunBounds();
     const days = [], len = tsDayDiff(b.min, b.max) + TIMESHEET_CONFIG.payRunLengthDays;
@@ -351,11 +335,14 @@ function renderTimesheetStrip() {
     const key = tsIso(days[0]) + '/' + days.length;
     if (key !== tsStripKey) {
         tsStripKey = key;
-        strip.innerHTML = days.map(d => `<button type="button" class="ts-day" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}', { fromStrip: true })">
+        const cell = d => `<button type="button" class="ts-day" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}', { fromStrip: true })">
                     <span class="ts-day-initial">${TS_WEEKDAY_INITIALS[(d.getDay() + 6) % 7]}</span>
                     <svg class="ts-day-ring" viewBox="0 0 40 40" aria-hidden="true"></svg>
                     <span class="ts-day-num">${d.getDate()}</span>
-                </button>`).join('');
+                </button>`;
+        const weeks = [];
+        for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+        strip.innerHTML = weeks.map(w => `<div class="ts-week-page">${w.map(cell).join('')}</div>`).join('');
     }
     const todayIso = tsIso(tsToday());
     strip.querySelectorAll('.ts-day').forEach(btn => {
@@ -370,14 +357,16 @@ function renderTimesheetStrip() {
         btn.setAttribute('aria-pressed', String(isSel));
     });
 }
-// Centre a day in the strip. Scrolls only the strip (scrollIntoView would also scroll the page and the
-// clipped stage that holds every screen).
+// Bring a day's week into view in the strip. Scrolls only the strip (scrollIntoView would also scroll the
+// page and the clipped stage that holds every screen). The name is kept for its callers.
 function tsCenterStripDay(iso, behavior = 'smooth') {
     const strip = document.getElementById('ts-week-strip');
     const cell = strip && strip.querySelector(`.ts-day[data-iso="${iso}"]`);
-    if (!cell || !strip.clientWidth) return;
-    const left = cell.offsetLeft + cell.offsetWidth / 2 - strip.clientWidth / 2;
-    strip.scrollTo({ left: Math.max(0, left), behavior });
+    const page = cell && cell.closest('.ts-week-page');
+    if (!page || !strip.clientWidth) return;
+    const pad = parseFloat(getComputedStyle(strip).paddingLeft) || 0;
+    const left = strip.scrollLeft + page.getBoundingClientRect().left - strip.getBoundingClientRect().left - pad;
+    strip.scrollTo({ left: Math.max(0, Math.round(left)), behavior });
 }
 
 function renderTimesheetHero() {
@@ -487,12 +476,24 @@ function renderTimesheetPayRun() {
 
 // ----- Day card: the selected day's site, status and submitted blocks -----
 const TS_STATUS_LABELS = { missing: 'MISSING', upcoming: 'UPCOMING', today: 'TODAY', weekend: 'WEEKEND', none: 'NOT LOGGED' };
-function tsSiteBadge(el, siteId, iso) {
-    const roster = tsRosterSite(tsFromIso(iso));
-    // ROSTERED only when the site really is this day's roster assignment; a site picked by hand says so
-    if (TIMESHEET_SITES[siteId] && roster === siteId) { el.hidden = false; el.textContent = 'ROSTERED'; el.className = 'ts-site-badge is-rostered'; }
-    else if (TIMESHEET_SITES[siteId]) { el.hidden = false; el.textContent = 'MANUAL'; el.className = 'ts-site-badge is-manual'; }
-    else el.hidden = true;
+const TS_ASSIGNMENT_BADGES = {
+    rostered:   { text: 'ROSTERED',            cls: 'is-rostered' },
+    override:   { text: 'TRANSFERRED / SPLIT', cls: 'is-override' },
+    unrostered: { text: 'MANUAL',              cls: 'is-manual' }
+};
+// The badge follows the stored assignment type, so ROSTERED only shows when the site came from the roster
+function tsSiteBadge(el, siteId, type) {
+    const badge = getSiteById(siteId) && TS_ASSIGNMENT_BADGES[type];
+    el.hidden = !badge;
+    if (badge) { el.textContent = badge.text; el.className = `ts-site-badge ${badge.cls}`; }
+}
+// The site and assignment for a day: the draft while one exists, else the submitted record, else the roster
+function tsDaySite(iso) {
+    const draft = timesheetState.drafts[iso], rec = timesheetState.records[iso];
+    if (draft) return { siteId: draft.siteId, type: draft.siteAssignmentType };
+    if (rec) return { siteId: rec.siteId, type: rec.siteAssignmentType || tsAssignmentType(iso, rec.siteId) };
+    const siteId = tsRosterSite(tsFromIso(iso));
+    return { siteId, type: tsAssignmentType(iso, siteId) };
 }
 function renderTimesheetDay() {
     const iso = timesheetState.selected, d = tsFromIso(iso);
@@ -501,18 +502,21 @@ function renderTimesheetDay() {
 
     const pill = document.getElementById('ts-day-status');
     if (rec) {
-        pill.textContent = rec.approval === 'approved' ? 'APPROVED' : 'AWAITING SIGN-OFF';
-        pill.className = `ts-status-pill is-${rec.approval === 'approved' ? 'approved' : 'awaiting'}`;
+        const approved = rec.status === TimesheetStatus.APPROVED;
+        pill.textContent = approved ? 'APPROVED' : 'AWAITING SIGN-OFF';
+        pill.className = `ts-status-pill is-${approved ? 'approved' : 'awaiting'}`;
     } else {
         pill.textContent = TS_STATUS_LABELS[status];
         pill.className = `ts-status-pill is-${status}`;
     }
 
-    const siteId = rec ? rec.siteId : tsCurrentSiteId(iso), site = TIMESHEET_SITES[siteId];
-    document.getElementById('ts-day-site-name').textContent = site ? site.name : 'No site';
-    document.getElementById('ts-day-site-address').textContent = site ? site.short : 'Not rostered this day';
+    // The card shows what was submitted; an unsaved site change shows once it is submitted
+    const daySite = rec ? { siteId: rec.siteId, type: rec.siteAssignmentType || tsAssignmentType(iso, rec.siteId) } : tsDaySite(iso);
+    const site = getSiteById(daySite.siteId);
+    document.getElementById('ts-day-site-name').textContent = site ? site.shortName : 'No site';
+    document.getElementById('ts-day-site-address').textContent = site ? tsSiteAddressLine(site) : 'Not rostered this day';
     document.getElementById('ts-day-site-name').classList.toggle('is-empty', !site);
-    tsSiteBadge(document.getElementById('ts-day-site-badge'), siteId, iso);
+    tsSiteBadge(document.getElementById('ts-day-site-badge'), daySite.siteId, daySite.type);
 
     document.getElementById('ts-day-draft').hidden = !tsIsDirty(iso);
 
@@ -563,8 +567,8 @@ function renderTimesheetCta() {
 function renderTimesheetEditor() {
     if (!timesheetState.sheetOpen) return;
     const iso = timesheetState.selected, d = tsFromIso(iso), rec = timesheetState.records[iso];
-    const site = TIMESHEET_SITES[tsCurrentSiteId(iso)];
-    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.name : ''}`;
+    const site = getSiteById(tsCurrentSiteId(iso));
+    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.shortName : ''}`;
     const pill = document.getElementById('ts-editor-status');
     const status = tsDayStatus(d);
     pill.textContent = rec ? 'EDITING' : (status === 'missing' ? 'MISSING' : 'NEW');
@@ -576,13 +580,18 @@ function renderTimesheetEditor() {
 
 function renderTimesheetSiteRow() {
     const iso = timesheetState.selected;
-    const siteId = tsCurrentSiteId(iso), site = TIMESHEET_SITES[siteId];
+    const daySite = tsDaySite(iso), site = getSiteById(daySite.siteId);
     const row = document.getElementById('ts-site-row');
     row.classList.toggle('is-empty', !site);
-    document.getElementById('ts-site-name').textContent = site ? site.name : 'Choose a site';
-    document.getElementById('ts-site-address').textContent = site ? site.short : 'Not rostered this day';
-    tsSiteBadge(document.getElementById('ts-site-badge'), siteId, iso);
+    document.getElementById('ts-site-name').textContent = site ? site.shortName : 'Choose a site';
+    document.getElementById('ts-site-address').textContent = site ? tsSiteAddressLine(site) : 'Not rostered this day';
+    tsSiteBadge(document.getElementById('ts-site-badge'), daySite.siteId, daySite.type);
     syncTimesheetSitePicker();
+}
+
+// A site's street line; an archived site says so (it still resolves for the days logged there)
+function tsSiteAddressLine(site) {
+    return site.active ? site.address : `${site.address} · archived`;
 }
 
 function tsBlockTimes(b, pad) {
@@ -591,7 +600,7 @@ function tsBlockTimes(b, pad) {
 
 function tsCodeOptions(selected) {
     return `<option value="" disabled${selected ? '' : ' selected'}>Choose cost code</option>` +
-        TIMESHEET_COST_CODES.map(c => `<option value="${c.code}"${c.code === selected ? ' selected' : ''}>${c.code} · ${tsEscape(c.title)}</option>`).join('');
+        getCostCodes().filter(c => c.active || c.code === selected).map(c => `<option value="${c.code}"${c.code === selected ? ' selected' : ''}>${c.code} · ${tsEscape(c.title)}</option>`).join('');
 }
 
 // State B: editable blocks. Rebuilt only on structural changes (day, add, delete, copy); typing updates in place.
@@ -629,13 +638,7 @@ function renderTimesheetBlocks() {
     updateTimesheetEditComputed();
 }
 
-function tsBlockError(b) {
-    if (!b.code) return 'Choose a cost code';
-    const s = tsComputeShift(b.start, b.finish, b.breakMins);
-    if (!s.valid) return s.message;
-    if (!String(b.task).trim()) return 'Add a short task description';
-    return '';
-}
+function tsBlockError(b) { return TimesheetRules.blockError(b, getCostCodes()); }
 
 // Durations, errors, total, unsaved note and the submit button: refreshed on every keystroke.
 // Returns the first block with an error.
@@ -686,11 +689,12 @@ function renderTimesheetSiteList() {
     const q = (document.getElementById('ts-site-search').value || '').trim().toLowerCase();
     const current = tsCurrentSiteId(timesheetState.selected);
     const roster = tsRosterSite(tsFromIso(timesheetState.selected));
-    const sites = TIMESHEET_SITE_ORDER.map(id => TIMESHEET_SITES[id])
-        .filter(s => !q || s.name.toLowerCase().includes(q) || s.short.toLowerCase().includes(q));
+    // New choices are the active sites only (an archived site stays on the days already logged there)
+    const sites = getActiveSites()
+        .filter(s => !q || s.shortName.toLowerCase().includes(q) || s.address.toLowerCase().includes(q) || s.suburb.toLowerCase().includes(q));
     document.getElementById('ts-site-list').innerHTML = sites.length ? sites.map(s => `
         <button type="button" class="ts-site-option${s.id === current ? ' is-selected' : ''}" role="option" aria-selected="${s.id === current}" onclick="chooseTimesheetSite('${s.id}')">
-            <span class="ts-site-option-text"><span class="ts-site-option-name">${tsEscape(s.name)}</span><span class="ts-site-option-addr">${tsEscape(s.short)}</span></span>
+            <span class="ts-site-option-text"><span class="ts-site-option-name">${tsEscape(s.shortName)}</span><span class="ts-site-option-addr">${tsEscape(s.address)}</span></span>
             ${s.id === roster ? '<span class="ts-site-badge is-rostered">ROSTERED</span>' : ''}
             <i class="ph-bold ph-check ts-site-check" aria-hidden="true"></i>
         </button>`).join('') : '<p class="ts-site-empty">No sites match</p>';
@@ -715,14 +719,17 @@ function closeTimesheetSitePicker() {
     syncTimesheetSitePicker();
 }
 function chooseTimesheetSite(siteId) {
+    if (!getSiteById(siteId)) return;
     triggerHaptic('light');
-    tsDraft(timesheetState.selected).siteId = siteId;     // the date and the time blocks stay as they are
+    const iso = timesheetState.selected, draft = tsDraft(iso);
+    draft.siteId = siteId;                                 // the date and the time blocks stay as they are
+    draft.siteAssignmentType = tsAssignmentType(iso, siteId);   // the roster entry itself is untouched
     timesheetState.sitePickerOpen = false;
     renderTimesheetSiteRow();
     renderTimesheetCrew();                                 // crew logs follow the site
     updateTimesheetEditComputed();
-    const site = TIMESHEET_SITES[siteId], d = tsSelectedDate();
-    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.name : ''}`;
+    const site = getSiteById(siteId), d = tsSelectedDate();
+    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.shortName : ''}`;
     renderTimesheetDay();
     renderTimesheetCta();
 }
@@ -731,13 +738,13 @@ function chooseTimesheetSite(siteId) {
 function renderTimesheetCrew() {
     const iso = timesheetState.selected, siteId = tsCurrentSiteId(iso);
     const logs = tsCrewLogs(iso, siteId);
-    const site = TIMESHEET_SITES[siteId];
+    const site = getSiteById(siteId);
     document.getElementById('ts-crew-link-count').textContent = logs.length ? `(${logs.length})` : '';
     const list = document.getElementById('ts-crew-list');
     if (!logs.length) {
         const msg = !site ? 'Choose a site to see its crew logs.'
             : tsIsFuture(tsFromIso(iso)) ? 'Crew logs show up once the day has started.'
-            : `No crew logs at ${tsEscape(site.name)} for this day.`;
+            : `No crew logs at ${tsEscape(site.shortName)} for this day.`;
         list.innerHTML = `<p class="ts-crew-empty">${msg}</p>`;
     } else {
         list.innerHTML = logs.map((c, i) => `
@@ -761,7 +768,7 @@ function renderTimesheetCrew() {
                 </ul>
             </div>`).join('');
     }
-    document.getElementById('ts-crew-context').textContent = `${tsShortDate(tsFromIso(iso))}${site ? ' · ' + site.name : ''}`;
+    document.getElementById('ts-crew-context').textContent = `${tsShortDate(tsFromIso(iso))}${site ? ' · ' + site.shortName : ''}`;
     syncTimesheetCrewDrawer();
 }
 
@@ -800,9 +807,14 @@ function renderTimesheets() {
 // ---------- Actions ----------
 // opts.fromStrip: tapped in the strip itself, so the strip stays where the user scrolled it; a date chosen
 // anywhere else (chart, gap badge, pay run arrows, Save & Next) is centred in the strip
+// A failed save's message belongs to the day it was for
+function tsClearSubmitErrors() {
+    ['ts-submit', 'ts-save-next'].forEach(id => setUiActionError(document.getElementById(id), '', ''));
+}
 function selectTimesheetDate(iso, opts = {}) {
     if (iso === timesheetState.selected) return;
     triggerHaptic('light');
+    tsClearSubmitErrors();
     tsDropCleanDraft(timesheetState.selected);
     timesheetState.selected = iso;     // unsaved edits stay in drafts[] for when the day is reopened
     timesheetState.sitePickerOpen = false;
@@ -893,6 +905,7 @@ function openTimesheetSheet(opts = {}) {
 }
 function closeTimesheetSheet() {
     if (!timesheetState.sheetOpen) return;
+    tsClearSubmitErrors();
     const iso = timesheetState.selected;
     // Opening alone (or adding a line and leaving it untouched) isn't an edit: drop that draft again.
     // Anything actually changed stays as an unsaved draft (the day card offers Resume / Discard).
@@ -1048,7 +1061,8 @@ function copyTimesheetCrewFormat(index) {
     if (!c) return;
     triggerHaptic('success');
     const draft = tsDraft(iso);
-    draft.blocks = c.blocks.map(b => tsNewBlock({ code: b.code, start: b.start, finish: b.finish, breakMins: b.breakMins, task: b.task }));
+    // Fresh blocks for the editable draft; the crew record is untouched and nothing is submitted
+    draft.blocks = crewLogService.copyBlocks(c.id).map(b => tsNewBlock(b));
     timesheetState.editingIndex = -1;
     if (timesheetState.sheetOpen) {
         renderTimesheetEditor();
@@ -1075,24 +1089,39 @@ function copyTimesheetCrewFormat(index) {
 }
 
 let tsSubmittedTimer = null;
-// Submit Hours / Update Timesheet (andNext = false), or Save & Next Gap (andNext = true)
-function submitTimesheet(andNext) {
+// Submit Hours / Update Timesheet (andNext = false), or Save & Next Gap (andNext = true).
+// timesheetService.submit validates, saves (one record per day: resubmitting updates it) and updates the
+// cache; the sheet only moves on once that has succeeded. A failure keeps the draft and says why.
+function tsShowSubmitErrors(iso) {
+    const draft = tsDraft(iso);
+    timesheetState.showErrors[iso] = true;
+    triggerHaptic('error');
+    const firstError = updateTimesheetEditComputed();
+    tsScrollSheetTo(!draft.siteId ? document.getElementById('ts-site-row') : firstError);
+}
+async function submitTimesheet(andNext) {
     const iso = timesheetState.selected, d = tsFromIso(iso);
     if (tsIsFuture(d)) return;
     const draft = tsDraft(iso);
-    if (!draft.siteId || draft.blocks.some(b => tsBlockError(b))) {
-        timesheetState.showErrors[iso] = true;
-        triggerHaptic('error');
-        const firstError = updateTimesheetEditComputed();
-        tsScrollSheetTo(!draft.siteId ? document.getElementById('ts-site-row') : firstError);
-        return;
-    }
+    if (!draft.siteId || draft.blocks.some(b => tsBlockError(b))) { tsShowSubmitErrors(iso); return; }
 
-    const blocks = draft.blocks.map(tsStoredBlock);
-    // One record per date: resubmitting replaces it, never adds a second
-    timesheetState.records[iso] = { userId: TIMESHEET_CONFIG.userId, date: iso, siteId: draft.siteId, rosterRef: tsRosterSite(d),
-                                    status: 'submitted', approval: 'awaiting', blocks, totalHours: tsSumHours(blocks),
-                                    submittedAt: new Date().toISOString() };
+    const button = document.getElementById(andNext ? 'ts-save-next' : 'ts-submit');
+    const result = await runUiAction(() => timesheetService.submit({
+        date: iso, siteId: draft.siteId,
+        blocks: draft.blocks.map(b => ({ id: b.id, code: b.code, start: b.start, finish: b.finish, breakMins: b.breakMins, task: b.task }))
+    }), {
+        button,
+        errorTitle: 'Timesheet not saved',
+        keepDisabled: () => tsIsFuture(tsFromIso(timesheetState.selected)),
+        onError: err => {
+            if (err.code === ErrorCode.VALIDATION && timesheetState.selected === iso) { tsShowSubmitErrors(iso); }
+            return false;
+        }
+    });
+    if (!result.ok) return;
+    // The person may have moved to another day while it saved: only the day that was submitted changes
+    if (timesheetState.selected !== iso) { delete timesheetState.drafts[iso]; delete timesheetState.showErrors[iso]; renderTimesheets(); return; }
+
     delete timesheetState.drafts[iso];
     delete timesheetState.showErrors[iso];
     timesheetState.sitePickerOpen = false;
@@ -1200,3 +1229,28 @@ function tsInitSheetDrag() {
     grab.addEventListener('pointerup', end);
     grab.addEventListener('pointercancel', end);
 }
+
+// Sites renamed, added or archived: every name, address and the picker follow SITES at once
+subscribeSites(() => {
+    if (!document.getElementById('view-time')) return;
+    renderTimesheets();
+    if (timesheetState.sitePickerOpen) renderTimesheetSiteList();
+});
+
+// Timesheets, crew logs or cost codes changed in the cache (a submit, an approval, a refresh): redraw what
+// shows them on the next frame. The open editor is left alone so typing is never interrupted.
+let tsDataRenderQueued = false;
+appStore.subscribe(() => {
+    if (tsDataRenderQueued) return;
+    tsDataRenderQueued = true;
+    requestAnimationFrame(() => {
+        tsDataRenderQueued = false;
+        if (!document.getElementById('view-time')) return;
+        renderTimesheetStrip();
+        renderTimesheetHero();
+        renderTimesheetPayRun();
+        renderTimesheetDay();
+        renderTimesheetCta();
+        if (timesheetState.sheetOpen) { renderTimesheetCrew(); updateTimesheetEditComputed(); }
+    });
+}, ['timesheets', 'crewLogs', 'costCodes']);

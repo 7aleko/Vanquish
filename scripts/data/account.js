@@ -16,12 +16,14 @@ const ACCOUNT_DATA = {
         employeeId: 'EMP-0415',
         role: 'Senior Product Engineer',
         department: 'Engineering & Field Ops',
-        site: 'Lugarno',
-        primaryProject: '935 Forest Rd, Lugarno',
+        siteId: 'lugarno',                // home site (SITES); the name shown comes from there
+        primaryProjectId: 'P-415',        // PROCORE_PROJECTS
         email: 'alexander@lifestyle.com.au',
         photo: null                       // data URL once the user sets a photo (kept in localStorage)
     },
 
+    // Leave: seed for the mock leave repository only (scripts/data-access/mock/seed.js). Screens read leave
+    // through getLeaveBalance / getLeaveRequests and change it through leaveService.
     leave: {
         annualDays: 10.4,
         personalDays: 3.5,                // personal / sick

@@ -1,10 +1,8 @@
 /**
  * Home: the birthday notification banner.
- * Reads the existing team data - no data of its own.
+ * Reads employees through the selectors (getEmployees) - no data of its own. The signed-in employee comes
+ * from the auth session (getCurrentEmployeeId).
  */
-
-// The employee using the app (TEAM_DIRECTORY_DATA record)
-const CURRENT_EMPLOYEE_ID = 'team-1';
 
 // The app's "today": the anchor day the roster, sites and hero date are built around
 // (Wednesday 14 October 2026 - see activeTodayCardId in week-roster.js and isToday in site-sites.js).
@@ -14,10 +12,6 @@ const BIRTHDAY_LOOKAHEAD_DAYS = 5;
 const BIRTHDAY_BANNER_AUTOHIDE_MS = 6000;
 
 const MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-
-function getCurrentEmployee() {
-    return TEAM_DIRECTORY_DATA.find(m => m.id === CURRENT_EMPLOYEE_ID) || null;
-}
 
 /* ================= BIRTHDAYS ================= */
 
@@ -43,8 +37,9 @@ function daysBetween(a, b) {
 
 // Colleagues with a birthday today or within the next BIRTHDAY_LOOKAHEAD_DAYS days, soonest first
 function getUpcomingBirthdays(from = APP_TODAY) {
-    return TEAM_DIRECTORY_DATA
-        .filter(m => m.id !== CURRENT_EMPLOYEE_ID && m.birthday)
+    const me = getCurrentEmployeeId();
+    return getEmployees()
+        .filter(m => m.id !== me && m.birthday)
         .map(m => {
             const date = nextBirthdayDate(m.birthday, from);
             return date ? { member: m, date, daysAway: daysBetween(from, date) } : null;

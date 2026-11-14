@@ -11,21 +11,27 @@ function hydrateAppViews() {
 
     try {
         if (typeof renderSiteSites === 'function') renderSiteSites();
+        if (typeof renderConnectedProject === 'function') renderConnectedProject();
     } catch (err) { console.warn('renderSiteSites notice:', err); }
 
     try {
-        if (typeof renderTeamDirectory === 'function') {
-            const tData = (typeof TEAM_DIRECTORY_DATA !== 'undefined') ? TEAM_DIRECTORY_DATA : [];
-            renderTeamDirectory(tData);
-        }
+        if (typeof renderHomeSiteCard === 'function') renderHomeSiteCard();
+        if (typeof renderScheduleSiteSelect === 'function') renderScheduleSiteSelect();
+    } catch (err) { console.warn('renderHomeSiteCard notice:', err); }
+
+    try {
+        if (typeof renderTeamDirectory === 'function') renderTeamDirectory(getEmployees());
     } catch (err) { console.warn('renderTeamDirectory notice:', err); }
 
     try {
-        if (typeof renderToolsDirectory === 'function') {
-            const toolData = (typeof TOOLS_DIRECTORY_DATA !== 'undefined') ? TOOLS_DIRECTORY_DATA : [];
-            renderToolsDirectory(toolData);
-        }
+        if (typeof renderToolsDirectory === 'function') renderToolsDirectory(getTools());
     } catch (err) { console.warn('renderToolsDirectory notice:', err); }
+
+    try {
+        if (typeof renderHomeCrewPreview === 'function') renderHomeCrewPreview();
+        if (typeof renderHomeNavList === 'function') renderHomeNavList();
+        if (typeof renderTimesheets === 'function') renderTimesheets();
+    } catch (err) { console.warn('data-driven render notice:', err); }
 
     try {
         if (typeof updateSiteAttendanceUI === 'function') updateSiteAttendanceUI();
@@ -43,6 +49,38 @@ function hydrateAppViews() {
         if (typeof updateHeroGreetingAndDate === 'function') updateHeroGreetingAndDate();
         if (typeof fetchLiveWeather === 'function') fetchLiveWeather();
     } catch (err) { console.warn('weather hydrate notice:', err); }
+}
+
+// ================= APP DATA (scripts/application/bootstrap.js) =================
+function whenAppDataReady() {
+    return appStore.ready.then(() => true, err => { showDataLoadError(err); return false; });
+}
+// A small banner over the app: the data couldn't load, with Retry. The provider's own error text is never shown.
+function showDataLoadError(err) {
+    console.error('App data failed to load:', err);
+    let bar = document.getElementById('data-status');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'data-status';
+        bar.className = 'data-status';
+        bar.setAttribute('role', 'alert');
+        bar.innerHTML = `<span class="data-status-text"></span><button type="button" class="data-status-retry">Retry</button>`;
+        bar.querySelector('button').addEventListener('click', retryAppDataLoad);
+        (document.getElementById('app-container') || document.body).appendChild(bar);
+    }
+    bar.querySelector('.data-status-text').textContent = (err && err.userMessage) || 'Couldn\'t load your data.';
+    bar.hidden = false;
+}
+function retryAppDataLoad() {
+    const bar = document.getElementById('data-status');
+    const btn = bar && bar.querySelector('button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    appStore.load().then(() => {
+        if (bar) bar.hidden = true;
+        hydrateAppViews();
+    }).catch(err => showDataLoadError(err)).finally(() => {
+        if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+    });
 }
 
 // Safari (WebKit) + the Tailwind Play CDN: classes in markup that JS renders during startup (the roster
@@ -104,9 +142,13 @@ function dismissPreloaderWhenReady() {
     const safetyTimeout = setTimeout(forceDismissPreloader, isWarmSession ? 450 : 1200);
 
     const domReadyPromise = new Promise((resolve) => {
+        // First render once the page AND the app's data (appStore, scripts/application/bootstrap.js) are in.
+        // A failed load still renders (empty states) and offers Retry.
         const runHydrate = () => {
-            try { hydrateAppViews(); } catch (err) { console.warn('Hydration notice:', err); }
-            resolve();
+            whenAppDataReady().then(() => {
+                try { hydrateAppViews(); } catch (err) { console.warn('Hydration notice:', err); }
+                resolve();
+            });
         };
 
         if (document.readyState === 'loading') {

@@ -1,34 +1,36 @@
 /**
- * Site screen - "Your Sites": switch between assigned sites (JOBS_DATA), week navigation, day selector,
- * and the selected site's card (client / project details, weather plan, crew on site).
- * The selected site and the Site screen's connected Procore project stay in sync (selectProject in sheets.js).
+ * Site screen - "Your Sites": switch between assigned sites, week navigation, day selector, and the selected
+ * site's card (client / project details, weather plan, crew on site).
+ *
+ * The switcher lists the employee's jobs (JOBS_DATA) whose site is active; every name and address comes
+ * from the master SITES table (scripts/application/selectors.js), so a rename or archive shows here at once.
+ * The selected site and the connected Procore project stay in sync by siteId (sheets.js).
  */
 
 var currentSitesDay = 'wed';
 var currentSitesMonday = new Date(2026, 9, 12);
-var currentSiteId = 'job-lugarno';   // the rostered site today
+var currentSiteId = null;   // a siteId once one is picked; until then today's rostered site
 
+// The employee's jobs whose site is active (an archived site drops out of the switcher)
+function getAssignedJobs() {
+    return JOBS_DATA.filter(j => isSiteActive(j.siteId));
+}
 function getSelectedSite() {
-    return JOBS_DATA.find(j => j.id === currentSiteId) || JOBS_DATA[0];
+    const jobs = getAssignedJobs();
+    const siteId = currentSiteId || getRosteredSiteId(typeof APP_TODAY !== 'undefined' ? APP_TODAY : new Date());
+    return jobs.find(j => j.siteId === siteId) || jobs[0] || null;
 }
 
-// Switch site from the segmented control. Also points the connected project at that site.
+// Switch site from the segmented control. Also connects that site's Procore project.
 function selectSite(siteId, options = {}) {
-    if (!JOBS_DATA.some(j => j.id === siteId)) return;
+    if (!getAssignedJobs().some(j => j.siteId === siteId)) return;
     if (!options.silent) triggerHaptic('light');
     currentSiteId = siteId;
     if (!options.fromProject) {
-        const nameEl = document.getElementById('current-project-name');
-        if (nameEl) nameEl.textContent = getSelectedSite().name;
+        if (typeof connectProjectForSite === 'function') connectProjectForSite(siteId);
         if (typeof renderHomeNavList === 'function') renderHomeNavList();
     }
     renderSiteSites();
-}
-
-// Procore project picked (sheets.js): select the matching assigned site, if there is one
-function selectSiteForProject(projectName) {
-    const match = JOBS_DATA.find(j => projectName.toLowerCase().includes(j.name.toLowerCase()));
-    if (match) selectSite(match.id, { fromProject: true, silent: true });
 }
 
 function setSitesDay(dayKey) {
@@ -93,21 +95,22 @@ function renderSiteSites() {
     }
 
     // 2. Crew deployed across all sites on the selected day (header)
-    const totalCrew = JOBS_DATA.reduce((n, job) => n + ((job.days[currentSitesDay] || {}).crew || []).length, 0);
+    const jobs = getAssignedJobs();
+    const totalCrew = jobs.reduce((n, job) => n + ((job.days[currentSitesDay] || {}).crew || []).length, 0);
     const totalEl = document.getElementById('sites-crew-total');
-    if (totalEl) totalEl.textContent = `${totalCrew} crew across ${JOBS_DATA.length} sites`;
+    if (totalEl) totalEl.textContent = `${totalCrew} crew across ${jobs.length} ${jobs.length === 1 ? 'site' : 'sites'}`;
 
     // 3. Assigned-site switcher (segmented control)
     if (switcherContainer) {
         switcherContainer.innerHTML = `
-                    <div role="tablist" aria-label="Assigned sites" class="grid gap-1 bg-slate-200/70 p-1 rounded-2xl" style="grid-template-columns: repeat(${JOBS_DATA.length}, minmax(0, 1fr));">
-                        ${JOBS_DATA.map(job => {
-                    const isSelected = job.id === currentSiteId;
+                    <div role="tablist" aria-label="Assigned sites" class="grid gap-1 bg-slate-200/70 p-1 rounded-2xl" style="grid-template-columns: repeat(${Math.max(1, jobs.length)}, minmax(0, 1fr));">
+                        ${jobs.map(job => {
+                    const isSelected = job.siteId === (getSelectedSite() || {}).siteId;
                     return `
-                                <button type="button" role="tab" aria-selected="${isSelected}" onclick="selectSite('${job.id}')"
+                                <button type="button" role="tab" aria-selected="${isSelected}" onclick="selectSite('${job.siteId}')"
                                     class="min-h-[40px] px-2 rounded-xl text-sm font-extrabold tracking-tight truncate transition-all cursor-pointer active:scale-[0.97] ${
                             isSelected ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                        }">${job.name}</button>
+                        }">${getSiteName(job.siteId)}</button>
                             `;
                 }).join('')}
                     </div>
@@ -115,8 +118,10 @@ function renderSiteSites() {
     }
 
     // 4. Selected site card (client, project type, weather plan, crew on site)
-    listContainer.innerHTML = [getSelectedSite()].map(job => {
+    const selectedJob = getSelectedSite();
+    listContainer.innerHTML = (selectedJob ? [selectedJob] : []).map(job => {
         const dayData = job.days[currentSitesDay];
+        const siteName = getSiteName(job.siteId);
         const isNewBuild = job.projectType === 'NEW BUILD';
 
         return `
@@ -130,7 +135,7 @@ function renderSiteSites() {
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <h3 class="text-xl font-black text-slate-900 tracking-tight leading-snug truncate">${job.name}</h3>
+                                        <h3 class="text-xl font-black text-slate-900 tracking-tight leading-snug truncate">${siteName}</h3>
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
                                     isNewBuild 
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/80 shadow-xs' 
@@ -141,7 +146,7 @@ function renderSiteSites() {
                                     </div>
                                     <p class="text-sm text-slate-600 font-semibold mt-0.5 truncate flex items-center gap-1.5">
                                         <i class="fa-solid fa-location-dot text-slate-400 text-xs shrink-0"></i>
-                                        <span class="truncate">${job.address}</span>
+                                        <span class="truncate">${getSiteFullAddress(job.siteId)}</span>
                                     </p>
                                 </div>
                             </div>
@@ -207,10 +212,10 @@ function renderSiteSites() {
 
                         <!-- 5. CARD ACTION FOOTER -->
                         <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <button onclick="showToast('Procore Hub', 'Viewing ${job.name} project logs');" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-sm rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-95 min-h-[44px]">
+                            <button onclick="showToast('Procore Hub', 'Viewing ${siteName} project logs');" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-sm rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-95 min-h-[44px]">
                                 <i class="fa-solid fa-book-open text-xs text-slate-600"></i> Site Logs
                             </button>
-                            <button onclick="showToast('Directions', 'Opening directions to ${job.name}')" class="px-4 py-2.5 bg-slate-900 text-brand-lime font-black text-sm rounded-xl hover:bg-black transition-all flex items-center gap-2 shadow-sm cursor-pointer active:scale-95 min-h-[44px]">
+                            <button onclick="showToast('Directions', 'Opening directions to ${siteName}')" class="px-4 py-2.5 bg-slate-900 text-brand-lime font-black text-sm rounded-xl hover:bg-black transition-all flex items-center gap-2 shadow-sm cursor-pointer active:scale-95 min-h-[44px]">
                                 <i class="fa-solid fa-location-arrow text-brand-lime text-xs"></i> Directions
                             </button>
                         </div>
@@ -264,3 +269,9 @@ function handleSitesDatePick(isoValue) {
     const picked = new Date(parts[0], parts[1] - 1, parts[2]);
     applySitesWeek(getMondayForDate(picked), picked);
 }
+
+// Sites renamed, added or archived: redraw the switcher and card
+subscribeSites(() => {
+    renderSiteSites();
+    if (typeof renderConnectedProject === 'function') renderConnectedProject();
+});

@@ -11,9 +11,10 @@
 const WEATHER_CACHE_KEY = 'lifestyle_weather_data_v1';
 const WEATHER_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-// Configured default location: Lugarno Site (from ALL_TRANSFER_SITES)
+// Configured default location: the Lugarno site. The name shown comes from SITES (scripts/application/selectors.js).
 const DEFAULT_WEATHER_LOCATION = {
-    name: 'Lugarno',
+    siteId: 'lugarno',
+    get name() { return getSiteName(this.siteId, 'Lugarno'); },
     latitude: -33.9961,
     longitude: 151.0475
 };

@@ -100,12 +100,6 @@ function syncDynamicStatusBar() {
         return;
     }
 
-    const container = document.getElementById('app-container');
-    if (container && container.classList.contains('drawer-open')) {
-        setStatusBarThemeColor('#064e3b', true);
-        return;
-    }
-
     const modalOverlay = document.getElementById('modal-overlay');
     const transferOverlay = document.getElementById('tool-transfer-modal-overlay');
     const isModalOpen = (modalOverlay && !modalOverlay.classList.contains('opacity-0')) ||

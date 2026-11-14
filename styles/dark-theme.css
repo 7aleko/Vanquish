@@ -964,16 +964,10 @@ html body .hover\:bg-brand-lime:hover *,
 html body .group:hover .group-hover\:bg-brand-lime,
 html body .group:hover .group-hover\:bg-brand-lime * { color: #0c0f05; }
 
-/* Home (and the drawer) are the reference and were already dark: dark ink there keeps its original colour (e.g. the Sign In label on its lime layer) */
-html body #view-home .text-slate-950,
-html body #app-side-drawer .text-slate-950 { color: #020617; }
-html body #view-home .text-slate-900,
-html body #app-side-drawer .text-slate-900 { color: #0f172a; }
-html body #view-home .text-slate-800,
-html body #app-side-drawer .text-slate-800 { color: #1e293b; }
-html body #view-home .text-slate-700,
-html body #app-side-drawer .text-slate-700 { color: #334155; }
-html body #view-home .text-slate-600,
-html body #app-side-drawer .text-slate-600 { color: #475569; }
-html body #view-home .text-slate-500,
-html body #app-side-drawer .text-slate-500 { color: #64748b; }
+/* Home is the reference and was already dark: dark ink there keeps its original colour (e.g. the Sign In label on its lime layer) */
+html body #view-home .text-slate-950 { color: #020617; }
+html body #view-home .text-slate-900 { color: #0f172a; }
+html body #view-home .text-slate-800 { color: #1e293b; }
+html body #view-home .text-slate-700 { color: #334155; }
+html body #view-home .text-slate-600 { color: #475569; }
+html body #view-home .text-slate-500 { color: #64748b; }

@@ -1,8 +1,9 @@
 /**
- * Personal account, reached from the side drawer (the drawer replaced the old Accounts & Profile page).
+ * Personal account, reached from the avatar in the top bar (the account sheet, scripts/features/
+ * account-sheet.js, replaced the old 3D side menu).
  *
- *  - renderAccountStatus(): the drawer's profile card, status pills and workwear badge, all from
- *    ACCOUNT_DATA (scripts/data/account.js). Call it after anything changes that data.
+ *  - renderAccountStatus(): the avatar(s), the account sheet's identity, values, pills and status, all from
+ *    ACCOUNT_DATA (scripts/data/account.js) and the leave selectors. Call it after anything changes that data.
  *  - Profile photo: pick, downscale and keep a photo (openProfileModal in sheets.js shows the editor).
  *  - Sheets: My Role & Sign-Off, Safety & Training (Policies | Inductions), App Guide & Status.
  *    Leave & Sick Days, Workwear and the profile sheet live in scripts/features/sheets.js.
@@ -11,9 +12,22 @@
 const ACCOUNT_PHOTO_KEY = 'lifestyle.profilePhoto';
 
 // ---------------- Derived values ----------------
+// Leave comes from the leave repository through the cache (getLeaveBalance / getLeaveRequests)
 function getLeaveTotalDays() {
-    const l = ACCOUNT_DATA.leave;
-    return Math.round((l.annualDays + l.personalDays) * 10) / 10;
+    const b = getLeaveBalance();
+    return b ? Math.round((b.annualDays + b.personalDays) * 10) / 10 : 0;
+}
+const LEAVE_TYPE_LABELS = { annual: 'Annual Leave', personal: 'Sick Leave' };
+const LEAVE_STATUS_LABELS = { pending: 'Pending', approved: 'Approved', rejected: 'Declined' };
+// "Sep 12 – Sep 14, 2026" or "Aug 4, 2026"
+function formatLeaveDates(r) {
+    const f = iso => DateRules.fromIso(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const year = r.endDate.slice(0, 4);
+    return r.startDate === r.endDate ? `${f(r.startDate)}, ${year}` : `${f(r.startDate)} – ${f(r.endDate)}, ${year}`;
+}
+// A leave request as the leave sheet lists it
+function leaveRequestView(r) {
+    return { type: LEAVE_TYPE_LABELS[r.type] || r.type, days: r.days, dates: formatLeaveDates(r), status: LEAVE_STATUS_LABELS[r.status] || r.status };
 }
 function formatDays(n) { return `${n.toFixed(1)}`; }
 function getWorkwearDueCount() {
@@ -21,7 +35,7 @@ function getWorkwearDueCount() {
     return w.pending.length + w.ready.length;
 }
 function isRoleSignOffDue() { return !ACCOUNT_DATA.roleSignOff.signedOff; }
-function getRoleMonthShort() { return ACCOUNT_DATA.roleSignOff.month.slice(0, 3).toUpperCase(); }
+function getRoleMonthShort() { return ACCOUNT_DATA.roleSignOff.month.slice(0, 3); }
 
 function escapeAccountHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,57 +49,59 @@ function accountAvatarInner() {
         : escapeAccountHtml(p.initials);
 }
 
-// ---------------- Drawer ----------------
+// ---------------- Avatar and account sheet ----------------
 function renderAccountStatus() {
     const p = ACCOUNT_DATA.profile;
     const byId = id => document.getElementById(id);
     const show = (el, on) => { if (el) el.hidden = !on; };
+    const label = (id, text) => { const el = byId(id); if (el) el.setAttribute('aria-label', text); };
 
-    // Profile card
+    // Avatars: the top bar and the sheet's identity use the person's role avatar - the same one the Team page
+    // shows (renderRoleAvatar, scripts/components/role-avatar.js) - or their photo once they set one
     document.querySelectorAll('[data-account-avatar]').forEach(el => { el.innerHTML = accountAvatarInner(); });
-    if (byId('drawer-profile-name')) byId('drawer-profile-name').textContent = p.name;
-    if (byId('drawer-profile-id')) byId('drawer-profile-id').textContent = p.employeeId;
-    const card = byId('drawer-profile-card');
-    if (card) card.setAttribute('aria-label', `${p.name}, ${p.employeeId}. Open personal details`);
+    const me = (typeof getCurrentEmployee === 'function') ? getCurrentEmployee() : null;
+    const person = me ? { name: me.name, role: me.role, initials: me.initials } : { name: p.name, initials: p.initials };
+    const roleAvatar = size => p.photo
+        ? `<span class="role-avatar role-avatar--${size} role-avatar--photo" aria-hidden="true"><img src="${p.photo}" alt=""></span>`
+        : renderRoleAvatar(person, size);
+    if (byId('account-avatar-top')) byId('account-avatar-top').innerHTML = roleAvatar('top');
+    if (byId('account-avatar-identity')) byId('account-avatar-identity').innerHTML = roleAvatar('xl');
+    if (byId('account-sheet-name')) byId('account-sheet-name').textContent = p.name;
+    if (byId('account-sheet-email')) byId('account-sheet-email').textContent = p.email;
+    if (byId('account-profile-id')) byId('account-profile-id').textContent = p.employeeId;
+    label('btn-account', `Account: ${p.name}`);
 
     // Leave & Sick Days
     const total = getLeaveTotalDays();
-    const leavePill = byId('drawer-leave-pill');
-    if (leavePill) leavePill.textContent = `${formatDays(total)}d`;
-    const leaveRow = byId('drawer-row-leave');
-    if (leaveRow) leaveRow.setAttribute('aria-label', `Leave and Sick Days, ${formatDays(total)} days available`);
+    if (byId('account-leave-value')) byId('account-leave-value').textContent = `${formatDays(total)} days`;
+    label('account-row-leave', `Leave and Sick Days, ${formatDays(total)} days available`);
 
     // My Role & Sign-Off
     const due = isRoleSignOffDue();
-    const rolePill = byId('drawer-role-pill');
+    const rolePill = byId('account-role-pill');
     if (rolePill) rolePill.textContent = `${getRoleMonthShort()} Due`;
     show(rolePill, due);
-    const roleRow = byId('drawer-row-role');
-    if (roleRow) roleRow.setAttribute('aria-label', due
+    label('account-row-role', due
         ? `My Role and Sign-Off, ${ACCOUNT_DATA.roleSignOff.month} sign-off due`
         : `My Role and Sign-Off, ${ACCOUNT_DATA.roleSignOff.month} signed off`);
 
     // Workwear
     const ww = getWorkwearDueCount();
-    const wwBadge = byId('drawer-workwear-badge');
-    const wwPill = byId('drawer-workwear-pill');
-    if (wwBadge) wwBadge.textContent = ww;
+    const wwPill = byId('account-workwear-pill');
     if (wwPill) wwPill.textContent = `${ww} Due`;
-    show(wwBadge, ww > 0);
     show(wwPill, ww > 0);
-    const wwRow = byId('drawer-row-workwear');
-    if (wwRow) wwRow.setAttribute('aria-label', ww > 0 ? `Workwear, ${ww} due` : 'Workwear');
+    label('account-row-workwear', ww > 0 ? `Workwear, ${ww} due` : 'Workwear');
 
     // App Guide & Status
     const proc = ACCOUNT_DATA.integrations.procore;
-    const statusPill = byId('drawer-app-status');
-    if (statusPill) {
-        const label = { synced: 'Synced', syncing: 'Syncing', offline: 'Offline' }[proc.status] || proc.status;
-        statusPill.querySelector('[data-label]').textContent = label;
-        statusPill.dataset.state = proc.status;
+    const statusEl = byId('account-app-status');
+    if (statusEl) {
+        statusEl.querySelector('[data-label]').textContent = { synced: 'Synced', syncing: 'Syncing', offline: 'Offline' }[proc.status] || proc.status;
+        statusEl.dataset.state = proc.status;
     }
-    const guideRow = byId('drawer-row-guide');
-    if (guideRow) guideRow.setAttribute('aria-label', `App Guide and Status, ${proc.name} ${proc.status}`);
+    label('account-row-guide', `App Guide and Status, ${proc.name} ${proc.status}`);
+
+    if (byId('account-sheet-version')) byId('account-sheet-version').textContent = `${ACCOUNT_DATA.app.name} · v${ACCOUNT_DATA.app.version}`;
 }
 
 // ---------------- Profile photo ----------------
@@ -205,7 +221,7 @@ function openRoleSignOffModal() {
             <div class="bg-slate-50/90 rounded-2xl p-4 space-y-3 border border-slate-100">
                 <div class="flex justify-between items-center text-slate-500"><span class="font-medium">Role</span><span class="font-bold text-slate-900">${escapeAccountHtml(p.role)}</span></div>
                 <div class="flex justify-between items-center text-slate-500"><span class="font-medium">Department</span><span class="font-bold text-slate-900">${escapeAccountHtml(p.department)}</span></div>
-                <div class="flex justify-between items-center text-slate-500"><span class="font-medium">Site</span><span class="font-bold text-slate-900">${escapeAccountHtml(p.site)}</span></div>
+                <div class="flex justify-between items-center text-slate-500"><span class="font-medium">Site</span><span class="font-bold text-slate-900">${escapeAccountHtml(getSiteName(p.siteId))}</span></div>
             </div>
             ${statusCard}
             <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
@@ -320,3 +336,6 @@ function openAppGuideModal() {
 loadSavedProfilePhoto();
 ACCOUNT_DATA.integrations.procore.lastSync = ACCOUNT_DATA.integrations.procore.lastSync || Date.now();
 document.addEventListener('DOMContentLoaded', renderAccountStatus);
+
+// Leave balance or requests changed (a request, an approval, the first load): refresh the avatar and the account sheet
+appStore.subscribe(() => renderAccountStatus(), ['leaveBalances', 'leaveRequests', '$status']);

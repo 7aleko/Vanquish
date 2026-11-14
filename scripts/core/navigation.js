@@ -86,7 +86,7 @@ function resetViewScroll(view) {
 }
 
 function switchTab(tabName, options = {}) {
-    closeSideDrawer();
+    if (typeof closeAccountSheet === 'function') closeAccountSheet({ instant: true, keepFocus: true });
     if (!options.silentHaptic) {
         triggerHaptic('medium');
     }

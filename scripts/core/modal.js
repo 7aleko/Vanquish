@@ -17,7 +17,12 @@ function setBackgroundShadersPaused(paused) {
 }
 
 function openModal(title, htmlContent) {
-    closeSideDrawer();
+    // While the account sheet is open, its rows' pages open inside it (scripts/features/account-sheet.js)
+    if (typeof isAccountSheetOpen === 'function' && isAccountSheetOpen()) {
+        triggerHaptic('light');
+        pushAccountPage(title, htmlContent);
+        return;
+    }
     setBackgroundShadersPaused(true);
     triggerHaptic('medium');
     const titleEl = document.getElementById('modal-title');
@@ -61,6 +66,11 @@ function openModal(title, htmlContent) {
 }
 
 function closeModal(fromDrag = false, startYOffset = 0, releaseVelocity = 0) {
+    // A page inside the account sheet: its Done / Save goes back to the account list
+    if (typeof isAccountPageShown === 'function' && isAccountSheetOpen() && isAccountPageShown()) {
+        popAccountPage();
+        return;
+    }
     triggerHaptic('light');
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');

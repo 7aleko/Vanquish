@@ -83,7 +83,6 @@
 }
 .nav-actions-group[hidden] { display: none; }
 
-/* 3D menu: the whole bar travels with the screen card (see styles/side-drawer.css) */
 
 @media (prefers-reduced-motion: reduce) {
     .nav-inline-title { transform: none; }

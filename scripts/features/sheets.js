@@ -19,7 +19,7 @@ function openProfileModal() {
                                 <h4 class="font-black text-slate-900 text-lg tracking-tight truncate">${esc(p.name)}</h4>
                                 <span class="shrink-0 px-2 py-0.5 rounded-full bg-slate-900 text-brand-lime text-[11px] font-black uppercase tracking-wider">Staff</span>
                             </div>
-                            <p class="text-xs text-slate-500 font-semibold truncate mt-0.5">${esc(p.role)} • ${esc(p.site)} Site</p>
+                            <p class="text-xs text-slate-500 font-semibold truncate mt-0.5">${esc(p.role)} • ${esc(getSiteName(p.siteId))}</p>
                             <span class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-700">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span> Active on Duty
                             </span>
@@ -45,7 +45,7 @@ function openProfileModal() {
                         </div>
                         <div class="flex justify-between items-center text-slate-500">
                             <span class="font-medium">Primary Project</span>
-                            <span class="font-bold text-slate-900">${esc(p.primaryProject)}</span>
+                            <span class="font-bold text-slate-900">${esc((PROCORE_PROJECTS.find(pr => pr.id === p.primaryProjectId) || { name: '' }).name)}</span>
                         </div>
                         <div class="flex justify-between items-center text-slate-500">
                             <span class="font-medium">Contact Email</span>
@@ -118,12 +118,10 @@ function openProfileModal() {
                 `;
             }
 
-            const currentActiveName = document.getElementById('current-project-name')?.textContent || '';
-
             return projects.map(p => {
-                const isSelected = currentActiveName.includes(p.name.split(',')[0]);
+                const isSelected = p.id === currentProcoreProjectId;
                 return `
-                    <div onclick="selectProject('${p.name}')" class="p-4 rounded-2xl ${isSelected ? 'bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-emerald-50/90 border-2 border-emerald-500/80 shadow-sm' : 'bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/80'} cursor-pointer transition-all flex items-center justify-between gap-3 group active:scale-[0.99]">
+                    <div onclick="selectProject('${p.id}')" class="p-4 rounded-2xl ${isSelected ? 'bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-emerald-50/90 border-2 border-emerald-500/80 shadow-sm' : 'bg-slate-50/90 hover:bg-slate-100/90 border border-slate-200/80'} cursor-pointer transition-all flex items-center justify-between gap-3 group active:scale-[0.99]">
                         <div class="space-y-1 min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <h4 class="text-sm font-black text-slate-900 tracking-tight leading-snug group-hover:text-emerald-700 transition-colors">
@@ -174,14 +172,37 @@ function openProfileModal() {
             }
         }
 
-        function selectProject(projectName) {
-            const shortName = projectName.split(',')[0];
+        // The connected Procore project (Site screen card). Tracked by project id; a project linked to a site
+        // (PROCORE_PROJECTS[].siteId) shows that site's name and selects it in Your Sites.
+        var currentProcoreProjectId = 'P-415';
+
+        function getConnectedProjectLabel(project) {
+            if (!project) return '';
+            return project.siteId ? getSiteName(project.siteId, project.name.split(',')[0]) : project.name.split(',')[0];
+        }
+
+        function renderConnectedProject() {
             const nameEl = document.getElementById('current-project-name');
-            if (nameEl) nameEl.textContent = shortName;
-            if (typeof selectSiteForProject === 'function') selectSiteForProject(projectName);
+            const project = PROCORE_PROJECTS.find(p => p.id === currentProcoreProjectId);
+            if (nameEl && project) nameEl.textContent = getConnectedProjectLabel(project);
+        }
+
+        // A site picked in Your Sites connects its Procore project, when it has one
+        function connectProjectForSite(siteId) {
+            const project = PROCORE_PROJECTS.find(p => p.siteId === siteId);
+            if (project) currentProcoreProjectId = project.id;
+            renderConnectedProject();
+        }
+
+        function selectProject(projectId) {
+            const project = PROCORE_PROJECTS.find(p => p.id === projectId);
+            if (!project) return;
+            currentProcoreProjectId = project.id;
+            renderConnectedProject();
+            if (project.siteId && typeof selectSite === 'function') selectSite(project.siteId, { fromProject: true, silent: true });
             if (typeof renderHomeNavList === 'function') renderHomeNavList();
             closeModal();
-            showToast('Procore', `Switched project to ${shortName}`);
+            showToast('Procore', `Switched project to ${getConnectedProjectLabel(project)}`);
         }
 
         function openCameraCaptureModal() {
@@ -192,7 +213,7 @@ function openProfileModal() {
                         <span class="text-xs text-slate-300">Camera Viewfinder Active</span>
                         <div class="absolute bottom-2 left-2 right-2 flex justify-between text-xs text-slate-400 px-2">
                             <span>Auto-Tag: Progress</span>
-                            <span>GPS: Lugarno Site</span>
+                            <span>GPS: ${getSiteName(getRosteredSiteId(typeof APP_TODAY !== 'undefined' ? APP_TODAY : new Date()), 'No site')}</span>
                         </div>
                     </div>
                     <button onclick="closeModal(); showToast('Procore', 'Photo captured & uploaded to Procore album');" class="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-500 transition-all cursor-pointer">Capture & Sync Photo</button>
@@ -392,7 +413,7 @@ function openProfileModal() {
                     precipitation: 0,
                     windSpeed: 14,
                     humidity: 62,
-                    locationName: 'Lugarno',
+                    locationName: DEFAULT_WEATHER_LOCATION.name,
                     icon: 'fa-cloud-sun',
                     iconColor: 'text-cyan-300'
                 };
@@ -442,7 +463,13 @@ function openProfileModal() {
         }
 
         function openPendingLeaveModal() {
-    const l = ACCOUNT_DATA.leave;
+    const balance = getLeaveBalance() || { annualDays: 0, personalDays: 0 };
+    const l = {
+        annualDays: balance.annualDays,
+        personalDays: balance.personalDays,
+        pending: getLeaveRequests({ status: LeaveStatus.PENDING }).map(leaveRequestView),
+        history: getLeaveRequests({ status: LeaveStatus.APPROVED }).map(leaveRequestView)
+    };
     const total = getLeaveTotalDays();
     const pct = v => Math.max(0, Math.min(100, (v / (total || 1)) * 100)).toFixed(1);
     const card = (r, tone) => `
@@ -549,7 +576,7 @@ function openTimesheetsModal() {
                 <div>
                     <span class="text-[11px] font-black uppercase tracking-wider text-emerald-700 block">Pay Period</span>
                     <h4 class="text-sm font-black tracking-tight text-slate-900 mt-0.5">Week Ending Sun 18 Oct</h4>
-                    <p class="text-xs text-slate-500 font-medium">Lugarno Site • Residential Build</p>
+                    <p class="text-xs text-slate-500 font-medium">${getSiteName('lugarno')} • Residential Build</p>
                 </div>
                 <div class="text-right">
                     <span class="text-2xl font-black text-emerald-700">32.0<span class="text-xs text-slate-400 font-bold"> / 40h</span></span>

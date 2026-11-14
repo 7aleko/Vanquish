@@ -50,11 +50,13 @@
 }
 #app-top-bar[data-mode="nav"] .nav-inline-title { font-variant-numeric: tabular-nums; }
 
-/* ---------- Day strip (Apple Fitness): six weeks in one horizontally scrolling row, seven days in view.
-   Full-bleed (the screen's own 16px gutter becomes the strip's padding); each day snaps to the centre. ---------- */
+/* ---------- Day strip (Apple Fitness): six weeks in one horizontally scrolling row, paged by week.
+   Full-bleed (the screen's own 16px gutter becomes the strip's padding). Each page is one Monday-Sunday
+   exactly as wide as the content box; the 16px gap between pages equals the gutter, so a neighbouring week
+   never peeks in, and a swipe always lands on a whole week (snap-stop: one week per swipe). ---------- */
 .ts-week-strip {
     display: flex;
-    gap: 8px;
+    gap: 16px;
     margin-left: -16px;
     margin-right: -16px;
     padding: 8px 16px;
@@ -67,9 +69,15 @@
     scrollbar-width: none;
 }
 .ts-week-strip::-webkit-scrollbar { display: none; }
+.ts-week-page {
+    flex: 0 0 100%;
+    display: flex;
+    gap: 8px;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
 .ts-day {
-    flex: 0 0 calc((100% - 48px) / 7);         /* seven equal cells across the visible width */
-    scroll-snap-align: center;
+    flex: 1 1 0;                               /* seven equal cells across the week */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -401,6 +409,8 @@
 }
 .ts-site-badge.is-rostered { background: rgba(52, 211, 153, 0.14); color: var(--ts-emerald); }
 .ts-site-badge.is-manual { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.6); }
+/* A different site from the roster's (transferred or a split day): sky, so it reads as information, not a warning */
+.ts-site-badge.is-override { background: rgba(125, 211, 252, 0.14); color: #7DD3FC; white-space: nowrap; }
 .ts-inline-error { margin: 6px 2px 0 !important; font-size: 12px; font-weight: 600; color: var(--ts-amber); }
 
 /* Inline drawers (site picker, crew logs): grow in place from 0 height */

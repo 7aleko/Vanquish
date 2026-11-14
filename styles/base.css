@@ -22,10 +22,6 @@ html {
 @media (min-width: 640px) {
     html, body { background-color: #08080a !important; }
 }
-html.drawer-open, body.drawer-open {
-    background-color: #064e3b !important;
-    background: radial-gradient(ellipse 110% 85% at 85% 0%, rgba(16, 185, 129, 0.45) 0%, rgba(4, 60, 44, 0.8) 42%, #022c22 75%, #011d16 100%) !important;
-}
 * {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;       /* no 300ms double-tap-zoom delay */
@@ -188,4 +184,36 @@ button, [role="button"], [role="tab"], .nav-btn {
                 border-color 0.5s var(--ease-drawer),
                 box-shadow 0.5s var(--ease-drawer),
                 transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- App frame (moved from the retired 3D-menu stylesheet; the menu is now the account sheet) ---- */
+#app-container { background-color: #08080a !important; }
+#app-main-stage {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+/* Mobile: fill the entire screen edge-to-edge with 100vw/100vh, no bottom padding or white gap */
+@media (max-width: 639px) {
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow-x: hidden;
+    }
+    #app-container {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        margin: 0;
+        padding-bottom: 0;
+        width: 100vw;
+        height: 100vh;
+    }
+}
+/* The top bar is the first child of #app-main-stage and keeps its own colours */
+#app-top-bar {
+    position: relative;
+    z-index: 40 !important;
+    pointer-events: auto !important;
+    background-color: #08080a;                 /* Home's dark; status-bar.js sets each screen's surface */
 }

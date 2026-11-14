@@ -28,3 +28,10 @@
 .role-avatar--md { width: 30px; height: 30px; font-size: 11px; letter-spacing: -0.02em; }
 /* Roster crew pills */
 .role-avatar--sm { width: 24px; height: 24px; font-size: 10.5px; letter-spacing: 0; }
+/* Top-bar account button */
+.role-avatar--top { width: 34px; height: 34px; font-size: 12.5px; letter-spacing: -0.01em; }
+/* Account sheet identity */
+.role-avatar--xl { width: 76px; height: 76px; font-size: 26px; letter-spacing: -0.02em; }
+/* A chosen profile photo takes the avatar's place, same circle */
+.role-avatar--photo { overflow: hidden; background: #18181b; }
+.role-avatar--photo img { width: 100%; height: 100%; object-fit: cover; }

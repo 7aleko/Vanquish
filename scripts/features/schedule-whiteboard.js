@@ -657,3 +657,16 @@ function openSharedMaterialsModal() {
         </div>
     `);
 }
+
+// The schedule's site picker: the active sites (SITES), today's rostered site selected. Keeps the current
+// choice across a redraw while that site is still active.
+function renderScheduleSiteSelect() {
+    const select = document.getElementById('schedule-site-select');
+    if (!select) return;
+    const today = (typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date();
+    const current = select.value || getRosteredSiteId(today);
+    const sites = getActiveSites();
+    select.innerHTML = sites.map(s => `<option value="${s.id}">${s.shortName}</option>`).join('');
+    select.value = sites.some(s => s.id === current) ? current : (sites[0] ? sites[0].id : '');
+}
+subscribeSites(renderScheduleSiteSelect);

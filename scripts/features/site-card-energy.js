@@ -1,21 +1,22 @@
 /**
- * Home site card: live "energy" surface driven by the real clock.
+ * Home site card: liquid-glass light driven by the real clock.
  *
- * Sets two CSS custom properties on #site-hero-card (styles/site-card.css reads them):
+ * Sets three CSS custom properties on #site-hero-card (styles/site-card.css reads them):
  *   --p   0..1  progress through today's shift (SITE_SHIFT_START -> SITE_SHIFT_END, local time)
  *   --on  0..1  signed-in amount, eased from isSiteSignedIn (scripts/features/attendance.js)
- * and renders a WebGL shader behind the card's frosted glass: a faint ember while signed out,
- * a lime/mint energy edge that tracks the shift once signed in.
+ *   --pp        p * on: how much light is in the card (the light front, edge light and rim)
+ * toggles .sc-on while signed in, and draws a flowing emerald plasma into .sc-flowgl, covering only the
+ * worked part of the shift.
  *
  * Cost control (keeps the GPU light enough for iOS Safari to open a blurred sheet on top):
- *   - renders at a fixed 0.3x of the card's CSS size, whatever the devicePixelRatio (~7k pixels);
- *     the browser's upscale is the soft blur, so the frost needs no backdrop-filter
- *   - low-power context, no antialias / alpha / depth / stencil buffers
- *   - 3-octave noise and an early-out ahead of the energy edge (most of the card early in the shift)
- *   - the plasma only drifts while signed in; otherwise it draws while values ease, then sleeps
+ *   - the canvas covers only the filled part of the card (+ a 44px feather), resized in 8px steps
+ *   - renders at 0.22x of its CSS size, whatever the devicePixelRatio; the upscale is the softness
+ *   - noise comes from a 64x64 texture made once: one texture read per noise octave
+ *   - low-power context, no antialias / depth / stencil buffers
+ *   - the plasma flows only while signed in; otherwise it draws while values ease, then sleeps
  *   - 120Hz screens draw every 2nd refresh (an even 60fps)
  *   - pauses off-screen, in a hidden tab, or under a sheet (setSiteCardEnergyPaused)
- * With reduced motion the plasma holds still. Without WebGL the card keeps its track, dot and times.
+ * With reduced motion the plasma holds still. Without WebGL the card keeps its glass, track, dot and times.
  */
 
 const SITE_SHIFT_START = 7 * 60;        // 7:00 AM, minutes since midnight
@@ -23,11 +24,14 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
 
 (function initSiteCardEnergy() {
     const card = document.getElementById('site-hero-card');
-    const canvas = card && card.querySelector('.sc-energy-canvas');
-    if (!card || !canvas) return;
+    if (!card) return;
+    const canvas = card.querySelector('.sc-flowgl');
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const RENDER_SCALE = 0.3;          // CSS px -> shader px; upscaling = free soft blur
+    const RENDER_SCALE = 0.22;         // CSS px -> shader px
+    const FEATHER = 44;                // CSS px drawn past the light front for the soft fade
+    const WIDTH_STEP = 8;              // resize the canvas in 8px steps, not every easing frame
+    const PAD = 20;                    // the card's padding: the light front lines up with the track's dot
 
     const signedIn = () => (typeof isSiteSignedIn !== 'undefined' && isSiteSignedIn) ? 1 : 0;
     const realProgress = () => {
@@ -41,6 +45,7 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
 
     // Ease the shown values toward the real ones (time-based, so it feels the same at any frame rate).
     // Returns true while still moving.
+    let lastP = '', lastOn = '', lastPP = '';
     function updateState(dt) {
         const targetP = realProgress();
         const targetOn = signedIn();
@@ -49,99 +54,64 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
         if (Math.abs(targetP - shownP) < 0.0005) shownP = targetP;
         if (Math.abs(targetOn - shownOn) < 0.001) shownOn = targetOn;
 
-        card.style.setProperty('--p', shownP.toFixed(4));
-        card.style.setProperty('--on', shownOn.toFixed(4));
+        // Write to the DOM only when a value actually changes
+        const p = shownP.toFixed(4), on = shownOn.toFixed(4), pp = (shownP * shownOn).toFixed(4);
+        if (p !== lastP) { card.style.setProperty('--p', p); lastP = p; }
+        if (on !== lastOn) { card.style.setProperty('--on', on); lastOn = on; }
+        if (pp !== lastPP) { card.style.setProperty('--pp', pp); lastPP = pp; }
+        card.classList.toggle('sc-on', targetOn === 1);
         // "Signed In" -> "Shift Completed" once the clock passes the shift end (no-op unless it changes)
         if (typeof renderSiteSignedInStatus === 'function') renderSiteSignedInStatus();
         return shownP !== targetP || shownOn !== targetOn;
     }
 
-    // ---------------- Shader ----------------
-    const gl = canvas.getContext('webgl', {
-        antialias: false, alpha: false, depth: false, stencil: false,
+    // ---------------- Plasma (WebGL) ----------------
+    let draw = null, fitCanvas = () => {};
+    const gl = canvas && canvas.getContext('webgl', {
+        premultipliedAlpha: true, alpha: true, antialias: false, depth: false, stencil: false,
         preserveDrawingBuffer: false, powerPreference: 'low-power'
     });
-    let draw = null;
 
     if (gl) {
-        const vert = `attribute vec2 a; varying vec2 vUv;
-            void main(){ vUv = a*.5+.5; gl_Position = vec4(a,0.,1.); }`;
-
-        // Emerald/jade energy filling left -> right with shift progress; lime only at the leading edge.
+        const vert = `attribute vec2 a; varying vec2 vUv; void main(){ vUv = a*.5+.5; gl_Position = vec4(a,0.,1.); }`;
         const frag = `
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
             precision highp float;
+            #else
+            precision mediump float;
+            #endif
             varying vec2 vUv;
-            uniform float uTime, uProgress, uOn;
-            uniform vec2 uRes;
-
-            float hash(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
+            uniform sampler2D uNoise;
+            uniform float uTime, uEdge, uAmt, uSpan, uAspect;
             float noise(vec2 p){
-                vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
-                return mix(mix(hash(i),hash(i+vec2(1,0)),u.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x), u.y);
+                vec2 i = floor(p), f = fract(p);
+                f = f*f*(3.-2.*f);                                  // smooth (Hermite) interpolation
+                return texture2D(uNoise, (i + f + .5) / 64.).r;     // one fetch, hardware bilinear does the rest
             }
             float fbm(vec2 p){
-                float v = 0., a = .5; mat2 r = mat2(.8,-.6,.6,.8);
-                for(int i=0;i<3;i++){ v += a*noise(p); p = r*p*2.03; a *= .5; }
+                float v = .5*noise(p);
+                p = mat2(.8,-.6,.6,.8)*p*2.03; v += .25*noise(p);
+                p = mat2(.8,-.6,.6,.8)*p*2.03; v += .125*noise(p);
                 return v;
             }
-
             void main(){
-                vec2 uv = vUv;
-                float aspect = uRes.x / uRes.y;
-                vec2 p = vec2(uv.x * aspect, uv.y);
-                float t = mod(uTime, 600.) * .6;    // wrapped so float precision never degrades
-
-                // Signed out: a faint ember in the bottom-left. Signed in: the edge tracks shift progress.
-                float level = mix(.1, mix(.02, 1.04, uProgress), uOn);
-
-                float edge = level
-                           + (fbm(vec2(uv.y*3. + t*.35, t*.25)) - .5) * .08
-                           + sin(uv.y*7. + t*1.4) * .006;
-                edge -= (1. - uOn) * uv.y * .12;
-
-                float d = (uv.x - edge) * aspect;   // <0 = inside the energy
-                float haze = exp(-max(d, 0.) * 7.) * .35;
-
-                // Early-out: far ahead of the edge there is only the base colour and a faint haze,
-                // so skip the domain-warped plasma there
-                if (d > .55) {
-                    vec3 base = vec3(.02, .05, .045) + vec3(.184, .878, .627) * haze * .75 * mix(.4, 1., uOn);
-                    gl_FragColor = vec4(base + (hash(gl_FragCoord.xy) - .5) / 255., 1.);
-                    return;
-                }
-
-                vec2 q = vec2(fbm(p*1.1 + vec2(-t*.25, 0.)), fbm(p*1.1 + vec2(5.2, t*.12)));
-                vec2 r = vec2(fbm(p*1.3 + 2.*q + vec2(1.7,9.2) - t*.08), fbm(p*1.3 + 2.*q + vec2(8.3,2.8) + t*.06));
+                vec2 uv = vec2(vUv.x * uSpan, vUv.y);                // canvas covers only the fill: map back to card space
+                float d = (uv.x - uEdge) * uAspect;
+                vec2 p = vec2(uv.x * uAspect, uv.y);
+                float t = uTime * .5;
+                vec2 q = vec2(fbm(p*1.2 + vec2(-t*.3, 0.)), fbm(p*1.2 + vec2(5.2, t*.15)));
+                vec2 r = vec2(fbm(p*1.4 + 2.*q + vec2(1.7,9.2) - t*.1), fbm(p*1.4 + 2.*q + vec2(8.3,2.8) + t*.08));
                 float n = fbm(p*1.1 + 1.8*r);
-
-                float body = smoothstep(.25, -.35, d);
-                float rim  = exp(-abs(d) * 9.);     // softer rim: stands in for the old frost blur
-
-                // Orb palette (ties the card to Poppy): emerald body, deep teal pockets, jade highlights,
-                // pale mint in the hottest spots, lime only as a touch at the leading edge
-                vec3 c0 = vec3(.024, .165, .149);   // deep teal      #062A26
-                vec3 c1 = vec3(.055, .478, .369);   // mid emerald    #0E7A5E
-                vec3 c2 = vec3(.184, .878, .627);   // bright jade    #2FE0A0
-                vec3 c3 = vec3(.62, 1.00, .84);     // pale mint
-                vec3 lime = vec3(.58, .96, .12);    // orb lime #94F51F, leading edge only
-
+                vec3 c1 = vec3(.055,.478,.369), c2 = vec3(.184,.878,.627), c3 = vec3(.62,1.,.84);
                 float dens = n*1.2 + r.y*.35;
-                vec3 energy = mix(c1, c2, smoothstep(.55, .85, dens));
-                energy = mix(c0, energy, smoothstep(.28, .52, dens));
-
-                float crease = pow(clamp(n * rim * 1.5, 0., 1.), 2.5);
-                energy = mix(energy, c3, crease * .6);
-
-                float bright = .85 + .35*exp(d * 4.5);
-                bright *= mix(.7, 1., uOn);
-
-                vec3 col = vec3(.02, .05, .045);    // faint deep-teal base
-                col = mix(col, energy * bright, body * (.75 + .25*n));
-                col += c2 * haze * (.5 + .5*n) * mix(.4, 1., uOn);
-                col += mix(lime, c3, .3) * rim * (.45 + .6*n) * smoothstep(.0, .03, level) * mix(.6, 1., uOn);
-                col = min(col, vec3(1.));
-                col += (hash(gl_FragCoord.xy) - .5) / 255.;
-                gl_FragColor = vec4(col, 1.);
+                vec3 col = mix(c1*1.2, c2, smoothstep(.3,.62,dens));
+                col = mix(col, c3, smoothstep(.58,.8,dens)*.55);
+                col = mix(col, c3, pow(clamp(n*exp(-abs(d)*7.)*1.4,0.,1.),2.5)*.6);
+                float mask  = 1. - smoothstep(-.04, .2, d);
+                float build = .3 + .7*exp(min(d,0.)*2.2);
+                float low   = .6 + .4*(1. - uv.y);
+                float a = min(mask * build * low * (.3 + .7*smoothstep(.22,.6,dens)) * 1.05 * uAmt, .9);
+                gl_FragColor = vec4(col*a, a);
             }`;
 
         const compile = (type, src) => {
@@ -163,40 +133,67 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
             const aLoc = gl.getAttribLocation(prog, 'a');
             gl.enableVertexAttribArray(aLoc);
             gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
-            const uTime = gl.getUniformLocation(prog, 'uTime');
-            const uProgress = gl.getUniformLocation(prog, 'uProgress');
-            const uOn = gl.getUniformLocation(prog, 'uOn');
-            const uRes = gl.getUniformLocation(prog, 'uRes');
 
-            const resize = () => {
-                // Fixed fraction of the CSS size, independent of devicePixelRatio
-                const w = Math.max(1, Math.round(card.clientWidth * RENDER_SCALE));
-                const h = Math.max(1, Math.round(card.clientHeight * RENDER_SCALE));
-                if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-                gl.viewport(0, 0, w, h);
-                gl.uniform2f(uRes, w, h);
+            // 64x64 tiling noise texture, made once (4 KB), from the same hash a per-pixel shader would use
+            // (32-bit float maths, matching how the GPU evaluates it)
+            const N = 64, data = new Uint8Array(N * N), F = Math.fround, fr = x => F(x - Math.floor(x));
+            for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+                let px = fr(F(x * F(123.34))), py = fr(F(y * F(456.21)));
+                const dd = F(F(px * F(px + F(45.32))) + F(py * F(py + F(45.32))));
+                px = F(px + dd); py = F(py + dd);
+                data[y * N + x] = Math.round(fr(F(px * py)) * 255);
+            }
+            gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, N, N, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            const U = {};
+            ['uNoise', 'uTime', 'uEdge', 'uAmt', 'uSpan', 'uAspect'].forEach(n => { U[n] = gl.getUniformLocation(prog, n); });
+            gl.uniform1i(U.uNoise, 0);
+            gl.clearColor(0, 0, 0, 0);
+
+            // The canvas covers only the filled part of the card (+ feather)
+            let cardW = card.clientWidth, cardH = card.clientHeight, cssW = -1;
+            const edgePx = () => PAD + shownP * shownOn * (cardW - 2 * PAD);
+            fitCanvas = (force) => {
+                const want = Math.max(WIDTH_STEP, Math.min(cardW, Math.ceil((edgePx() + FEATHER) / WIDTH_STEP) * WIDTH_STEP));
+                if (want === cssW && !force) return;
+                cssW = want;
+                canvas.style.width = want + 'px';
+                canvas.width = Math.max(1, Math.round(want * RENDER_SCALE));
+                canvas.height = Math.max(1, Math.round(cardH * RENDER_SCALE));
+                gl.viewport(0, 0, canvas.width, canvas.height);
             };
-            new ResizeObserver(() => { resize(); kick(); }).observe(card);
-            resize();
+            new ResizeObserver(() => {
+                cardW = card.clientWidth; cardH = card.clientHeight;
+                fitCanvas(true);
+                kick();
+            }).observe(card);
 
             draw = (time) => {
-                gl.uniform1f(uTime, time);
-                gl.uniform1f(uProgress, shownP);
-                gl.uniform1f(uOn, shownOn);
-                gl.drawArrays(gl.TRIANGLES, 0, 3);
+                if (!cardW || !cardH) return;
+                gl.uniform1f(U.uTime, time % 12800);   // 12800s: every drift offset is a whole number of noise tiles, so the wrap is seamless
+                gl.uniform1f(U.uEdge, edgePx() / cardW);
+                gl.uniform1f(U.uAmt, shownOn);
+                gl.uniform1f(U.uSpan, cssW / cardW);
+                gl.uniform1f(U.uAspect, cardW / cardH);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                if (shownOn > 0.005) gl.drawArrays(gl.TRIANGLES, 0, 3);
             };
         }
     }
 
     // ---------------- Loop ----------------
-    // Continuous only while the plasma drifts (signed in) or values ease; otherwise one frame, then a
+    // Continuous only while the plasma flows (signed in) or values ease; otherwise one frame, then a
     // slow tick so the progress and the status label keep up with the clock.
     let visible = true;
     let paused = false;                        // a sheet covers the card (scripts/core/modal.js)
     let raf = 0;
     let idleTimer = 0;
     let last = 0, lastDraw = 0, lastVsync = 0, refreshMs = 16.7;
-    let animTime = 12;                         // plasma clock; frozen while not animating
+    let animTime = 12;                         // plasma clock; frozen while not flowing
 
     function frame(now) {
         raf = 0;
@@ -212,12 +209,13 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
         last = now;
         lastDraw = now;
 
-        const animating = !!draw && signedIn() === 1 && !reducedMotion.matches;
+        const flowing = !!draw && signedIn() === 1 && !reducedMotion.matches;
         const moving = updateState(dt);
-        if (animating) animTime += dt;
+        fitCanvas();
+        if (flowing) animTime += dt;
         if (draw) draw(animTime);
 
-        if (animating || moving) raf = requestAnimationFrame(frame);
+        if (flowing || moving) raf = requestAnimationFrame(frame);
         else idleTimer = setTimeout(kick, 15000);
     }
     function kick() {
@@ -240,5 +238,6 @@ const SITE_SHIFT_END = 15 * 60 + 30;    // 3:30 PM
     };
 
     updateState(1);
+    fitCanvas(true);
     kick();
 })();

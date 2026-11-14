@@ -617,7 +617,7 @@ function renderRosterCards() {
                         <!-- Right: Fixed-Header Card that Smoothly Expands Downward -->
                         <div class="flex-1 min-w-0 z-10">
                             <div class="roster-card-surface relative flex flex-col ${cardSurfaceBaseClass} ${cardRainClass} rounded-inset overflow-hidden">
-                                ${isToday ? '<div class="absolute -top-12 -left-12 w-36 h-36 bg-emerald-500/20 rounded-full blur-[40px] pointer-events-none z-0"></div><div class="absolute -bottom-12 -right-12 w-36 h-36 bg-blue-600/15 rounded-full blur-[40px] pointer-events-none z-0"></div>' : ''}
+                                ${isToday ? '<div class="roster-today-light" aria-hidden="true"><div class="rtl-pool rtl-pool-a"></div><div class="rtl-pool rtl-pool-b"></div><div class="rtl-pool rtl-pool-c"></div><div class="rtl-channel"></div><div class="rtl-edges"></div><div class="rtl-glass"></div></div>' : ''}
                                 ${rainBackdropHtml}
                                 
                                 <!-- Fixed 72px Header (1:1 height match with Date Tile when closed) -->

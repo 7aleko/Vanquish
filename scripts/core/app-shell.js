@@ -364,6 +364,8 @@
 
         const modalOverlay = document.getElementById('modal-overlay');
         if (modalOverlay && !modalOverlay.classList.contains('opacity-0')) return;
+        // The Timesheets sheet (timesheets.js) covers the screen: no swipe back underneath it
+        if (document.documentElement.classList.contains('ts-sheet-open')) return;
 
         const touch = e.touches[0];
         const stageRect = stage.getBoundingClientRect();

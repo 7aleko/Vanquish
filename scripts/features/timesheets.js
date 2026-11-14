@@ -1,13 +1,14 @@
 /**
- * Time (Timesheets) screen: week rings, daily ring, pay run stats, monthly gap chart and the inline
- * two-state editor (submitted summary cards / cost-coded time blocks) with the crew logs drawer.
- * Markup lives in #view-time (index.html); styles in styles/timesheets.css; sample data in
- * scripts/data/timesheets.js.
+ * Timesheets screen: week strip, daily ring, the fortnight Pay Run card, the selected day's submitted
+ * cost-coded blocks, a floating action button and a slide-up sheet holding the cost-coded editor, with the
+ * crew logs drawer. Markup lives in #view-time and #ts-sheet-overlay (index.html); styles in
+ * styles/timesheets.css; sample data in scripts/data/timesheets.js.
  *
- * One source of truth: `timesheetState.records` (submitted days, keyed by ISO date). Each record holds its
- * time blocks; every figure on screen (rings, bars, 8/10 DONE, fortnight hours, gaps) is summed from them.
- * Edits live in `timesheetState.drafts[iso]` until submitted, so switching days never leaks or loses
- * input. Replace the sample seeding in buildTimesheetState() with an API call to persist for real.
+ * One source of truth: `timesheetState.records` (submitted days, keyed by ISO date) and
+ * `timesheetState.selected` (the one selected date; the strip, ring, Pay Run chart, day card, button and
+ * sheet all read it). Every figure on screen is summed from the records. Edits live in
+ * `timesheetState.drafts[iso]` until submitted, so closing the sheet or switching days never loses input.
+ * Replace the sample seeding in buildTimesheetState() with an API call to persist for real.
  */
 
 const TS_DAY_MS = 86400000;
@@ -123,9 +124,15 @@ function tsRosterSite(d) {
 function buildTimesheetState() {
     const today = tsToday();
     const workdays = tsPayRunWorkdays(today);
+    const prevStart = tsAddDays(tsPayRunStart(today), -TIMESHEET_CONFIG.payRunLengthDays);
+    const prevWorkdays = tsPayRunWorkdays(prevStart);
     const records = {};
-    TIMESHEET_SAMPLE_RECORDS.forEach(r => {
-        const date = workdays[r.workday];
+    const seed = [
+        ...(typeof TIMESHEET_PREVIOUS_RUN_RECORDS !== 'undefined' ? TIMESHEET_PREVIOUS_RUN_RECORDS : []).map(r => ({ ...r, days: prevWorkdays })),
+        ...TIMESHEET_SAMPLE_RECORDS.map(r => ({ ...r, days: workdays }))
+    ];
+    seed.forEach(r => {
+        const date = r.days[r.workday];
         if (!date || tsDayDiff(date, today) < 0) return;            // never seed a future day
         const iso = tsIso(date);
         const blocks = r.blocks.map(tsStoredBlock);
@@ -137,10 +144,12 @@ function buildTimesheetState() {
         records,
         drafts: {},              // iso -> { siteId, blocks } while a day is being edited
         showErrors: {},          // iso -> true after a failed submit, so errors then update live
-        historyStart: tsPayRunStart(today),   // no records exist before this, so earlier days are not "gaps"
+        historyStart: prevStart,  // no records exist before this, so earlier days are not "gaps"
         selected: tsIso(today),
         crewOpen: false,
-        sitePickerOpen: false
+        sitePickerOpen: false,
+        sheetOpen: false,
+        editingIndex: -1          // the block the sheet was opened for (highlighted)
     };
 }
 const timesheetState = buildTimesheetState();
@@ -155,11 +164,6 @@ function tsDayStatus(d) {
     if (diff === 0) return 'today';
     if (tsDayDiff(timesheetState.historyStart, d) < 0) return 'none';
     return 'missing';
-}
-
-// Submitted days open read-only (state A) unless an edit is under way; everything else opens in edit mode (B)
-function tsMode(iso) {
-    return (timesheetState.records[iso] && !timesheetState.drafts[iso]) ? 'submitted' : 'edit';
 }
 
 // The draft for a day, created on first need: from the submitted record, else one block at the roster site
@@ -191,42 +195,36 @@ function tsCurrentSiteId(iso) {
 }
 
 // ---------- Derived figures ----------
-function tsPayRunSummary() {
+// The pay run shown on the Pay Run card is always the one holding the selected day
+function tsSelectedRunStart() { return tsPayRunStart(tsSelectedDate()); }
+function tsRunWorkdays(start) { return tsPayRunWorkdays(start); }
+// Workdays of a run that count: started (today or earlier) and inside the history we hold
+function tsRunEligible(start) {
     const today = tsToday();
-    const workdays = tsPayRunWorkdays(today);
-    const done = workdays.filter(d => tsDayDiff(d, today) >= 0 && timesheetState.records[tsIso(d)]).length;
-    const start = tsPayRunStart(today);
+    return tsRunWorkdays(start).filter(d => tsDayDiff(d, today) >= 0 && tsDayDiff(timesheetState.historyStart, d) >= 0);
+}
+// Started workdays with nothing submitted, earliest first (today included: it still needs logging)
+function tsRunUnlogged(start) { return tsRunEligible(start).filter(d => !timesheetState.records[tsIso(d)]); }
+// Gaps: past workdays with nothing submitted (today is still in progress, so it isn't a gap yet)
+function tsRunGaps(start) { return tsRunUnlogged(start).filter(d => tsDayStatus(d) === 'missing'); }
+function tsRunSummary(start) {
+    const eligible = tsRunEligible(start);
+    const logged = eligible.filter(d => timesheetState.records[tsIso(d)]).length;
     let hours = 0;
     for (let i = 0; i < TIMESHEET_CONFIG.payRunLengthDays; i++) {
         const rec = timesheetState.records[tsIso(tsAddDays(start, i))];
         if (rec) hours += rec.totalHours;
     }
-    return { done, total: workdays.length, hours };
+    return { eligible: eligible.length, workdays: tsRunWorkdays(start).length, logged, hours, gaps: tsRunGaps(start) };
 }
-
-// Four Mon-Fri weeks for the chart: from the week of the month's first weekday, moved later if needed so
-// the selected day is always on it
-function tsChartWeeks(selected) {
-    let first = new Date(selected.getFullYear(), selected.getMonth(), 1);
-    while (tsIsWeekend(first)) first = tsAddDays(first, 1);
-    let monday = getMondayForDate(first);
-    const selMonday = getMondayForDate(tsIsWeekend(selected) ? tsAddDays(selected, -2) : selected);
-    if (Math.floor(tsDayDiff(monday, selMonday) / 7) > 3) monday = tsAddDays(selMonday, -21);
-    return [0, 1, 2, 3].map(w => [0, 1, 2, 3, 4].map(i => tsAddDays(monday, w * 7 + i)));
+// Fortnight navigation: from the first run we hold to the one after the current run
+function tsRunBounds() {
+    return { min: tsPayRunStart(timesheetState.historyStart), max: tsAddDays(tsPayRunStart(tsToday()), TIMESHEET_CONFIG.payRunLengthDays) };
 }
-
-function tsGapLabel(weeks) {
-    const gaps = weeks.flat().filter(d => tsDayStatus(d) === 'missing');
-    if (!gaps.length) return '';
-    const thisMonday = getMondayForDate(tsToday());
-    const weeksAgo = new Set(gaps.map(d => Math.floor(tsDayDiff(getMondayForDate(d), thisMonday) / 7)));
-    const n = gaps.length, noun = n === 1 ? 'GAP' : 'GAPS';
-    if (weeksAgo.size === 1) {
-        const w = [...weeksAgo][0];
-        if (w === 0) return `${n} ${noun} THIS WEEK`;
-        if (w === 1) return `${n} ${noun} LAST WEEK`;
-    }
-    return `${n} ${noun} THIS MONTH`;
+function tsRangeLabel(start) {
+    const end = tsAddDays(start, TIMESHEET_CONFIG.payRunLengthDays - 1);
+    const fmt = d => `${d.getDate()} ${d.toLocaleDateString('en-AU', { month: 'short' })}`.toUpperCase();
+    return `${fmt(start)} – ${fmt(end)}`;
 }
 
 // Crew logs for a day and site (same block structure as the worker's own), only for days that have started
@@ -252,7 +250,7 @@ function tsPolar(cx, cy, r, lapFraction) {
 // A week-strip ring (static: the strip re-renders on each change). Arcs are rotated to start at 12 o'clock.
 function tsMiniRing(d, status) {
     const r = 15.5, circ = 2 * Math.PI * r, rec = timesheetState.records[tsIso(d)];
-    const laps = rec ? tsLaps(rec.totalHours) : (status === 'missing' ? 1 : 0);
+    const laps = rec ? tsLaps(rec.totalHours) : 0;      // no hours, no arc: a gap shows as an amber track (CSS)
     const lap1 = Math.min(1, laps), lap2 = Math.max(0, laps - 1);
     let out = `<circle class="ts-day-track" cx="20" cy="20" r="${r}"/>`;
     if (lap1 > 0) {
@@ -328,47 +326,58 @@ function tsEscape(s) {
 }
 function tsSelectedDate() { return tsFromIso(timesheetState.selected); }
 
+// The bar's title is fixed ("Timesheets", data-bar-title); the date lives in the strip and the day card
 function renderTimesheetTitle() {
     const view = document.getElementById('view-time');
-    if (!view) return;
-    const d = tsSelectedDate();
-    view.dataset.barTitle = tsTitleFor(d);
-    if (currentActiveViewName === 'time') {
-        const el = document.getElementById('nav-inline-title');
-        if (el) el.textContent = view.dataset.barTitle;
-        tsFitBarTitle(d);
-    }
+    if (view) view.dataset.barTitle = 'Timesheets';
 }
-// "Wednesday 11 Nov 2026" can run into the Crew pill on a narrow phone: fall back to "Wed 11 Nov 2026"
-function tsFitBarTitle(d) {
-    const view = document.getElementById('view-time');
-    const el = document.getElementById('nav-inline-title');
-    const crew = document.getElementById('ts-nav-crew');
-    if (!view || !el || !crew || !crew.offsetWidth) return;
-    const overlaps = () => el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > crew.getBoundingClientRect().left - 6;
-    if (overlaps()) {
-        view.dataset.barTitle = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).replace(/,/g, '');
-        el.textContent = view.dataset.barTitle;
-    }
-}
+// Called by top-bar.js when the screen opens; the fixed title always fits beside the Crew pill
+function tsFitBarTitle() {}
 
+// The strip: every calendar day the Pay Run arrows can reach (the first run we hold to the run after the
+// current one), in one horizontally scrolling row. Built once; each render only updates the cells, so the
+// user's own scroll position is kept. Cells are keyed by date (data-iso), never by index.
+function tsStripRange() {
+    const b = tsRunBounds();
+    const days = [], len = tsDayDiff(b.min, b.max) + TIMESHEET_CONFIG.payRunLengthDays;
+    for (let i = 0; i < len; i++) days.push(tsAddDays(b.min, i));
+    return days;
+}
+let tsStripKey = '';
 function renderTimesheetStrip() {
     const strip = document.getElementById('ts-week-strip');
     if (!strip) return;
-    const monday = getMondayForDate(tsSelectedDate());
+    const days = tsStripRange();
+    const key = tsIso(days[0]) + '/' + days.length;
+    if (key !== tsStripKey) {
+        tsStripKey = key;
+        strip.innerHTML = days.map(d => `<button type="button" class="ts-day" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}', { fromStrip: true })">
+                    <span class="ts-day-initial">${TS_WEEKDAY_INITIALS[(d.getDay() + 6) % 7]}</span>
+                    <svg class="ts-day-ring" viewBox="0 0 40 40" aria-hidden="true"></svg>
+                    <span class="ts-day-num">${d.getDate()}</span>
+                </button>`).join('');
+    }
     const todayIso = tsIso(tsToday());
-    strip.innerHTML = TS_WEEKDAY_INITIALS.map((initial, i) => {
-        const d = tsAddDays(monday, i), iso = tsIso(d), status = tsDayStatus(d);
+    strip.querySelectorAll('.ts-day').forEach(btn => {
+        const iso = btn.dataset.iso, d = tsFromIso(iso), status = tsDayStatus(d);
         const isSel = iso === timesheetState.selected;
         const rec = timesheetState.records[iso];
+        btn.className = `ts-day is-${status}${isSel ? ' is-selected' : ''}${iso === todayIso ? ' is-today' : ''}`;
+        btn.querySelector('.ts-day-ring').innerHTML = tsMiniRing(d, status);
         const label = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
         const statusText = rec ? `${tsFormatHours(rec.totalHours)} logged` : { missing: 'missing', today: 'today, not logged', upcoming: 'upcoming', weekend: 'weekend', none: '' }[status];
-        return `<button type="button" class="ts-day is-${status}${isSel ? ' is-selected' : ''}${iso === todayIso ? ' is-today' : ''}" onclick="selectTimesheetDate('${iso}')"
-                        aria-label="${label}${statusText ? ', ' + statusText : ''}" aria-pressed="${isSel}">
-                    <span class="ts-day-initial">${initial}</span>
-                    <svg class="ts-day-ring" viewBox="0 0 40 40" aria-hidden="true">${tsMiniRing(d, status)}</svg>
-                </button>`;
-    }).join('');
+        btn.setAttribute('aria-label', `${label}${statusText ? ', ' + statusText : ''}`);
+        btn.setAttribute('aria-pressed', String(isSel));
+    });
+}
+// Centre a day in the strip. Scrolls only the strip (scrollIntoView would also scroll the page and the
+// clipped stage that holds every screen).
+function tsCenterStripDay(iso, behavior = 'smooth') {
+    const strip = document.getElementById('ts-week-strip');
+    const cell = strip && strip.querySelector(`.ts-day[data-iso="${iso}"]`);
+    if (!cell || !strip.clientWidth) return;
+    const left = cell.offsetLeft + cell.offsetWidth / 2 - strip.clientWidth / 2;
+    strip.scrollTo({ left: Math.max(0, left), behavior });
 }
 
 function renderTimesheetHero() {
@@ -402,111 +411,182 @@ function renderTimesheetHero() {
     }
 }
 
-function renderTimesheetStats() {
-    const s = tsPayRunSummary();
-    document.getElementById('ts-payrun-done').textContent = `${s.done}/${s.total}`;
-    document.getElementById('ts-fortnight-hours').textContent = (Math.round(s.hours * 10) / 10).toFixed(1);
-}
-
-let tsChartKey = '';
-function renderTimesheetChart() {
-    const chart = document.getElementById('ts-chart');
+// ----- Pay Run card -----
+let tsRunKey = '';
+function renderTimesheetPayRun() {
+    const chart = document.getElementById('ts-run-chart');
     if (!chart) return;
-    const sel = tsSelectedDate();
-    const weeks = tsChartWeeks(sel);
-    const key = tsIso(weeks[0][0]);
-    const month = sel.getMonth();
+    const start = tsSelectedRunStart();
+    const workdays = tsRunWorkdays(start);
+    const sum = tsRunSummary(start);
+    const bounds = tsRunBounds();
 
-    // Rebuild only when the four weeks change, so bars keep their elements and animate between values
-    if (key !== tsChartKey) {
-        tsChartKey = key;
-        chart.innerHTML = weeks.map((week, w) => `
-            <div class="ts-chart-week">
-                <div class="ts-chart-bars">
-                    ${week.map(d => `<button type="button" class="ts-bar" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}', { fromChart: true })">
-                        <span class="ts-bar-fill"></span></button>`).join('')}
+    document.getElementById('ts-run-range').textContent = tsRangeLabel(start);
+    document.getElementById('ts-run-range').setAttribute('aria-label', `Pay run ${tsRangeLabel(start)}`);
+    document.getElementById('ts-run-prev').disabled = tsDayDiff(bounds.min, start) <= 0;
+    document.getElementById('ts-run-next').disabled = tsDayDiff(start, bounds.max) <= 0;
+
+    // Badge: gaps (amber, tap jumps to the earliest) / complete (lime) / nothing due yet
+    const badge = document.getElementById('ts-run-badge');
+    const n = sum.gaps.length;
+    if (n) {
+        badge.className = 'ts-run-badge is-gap';
+        badge.disabled = false;
+        badge.innerHTML = `<i class="ph-fill ph-warning" aria-hidden="true"></i>${n} ${n === 1 ? 'GAP' : 'GAPS'}`;
+        badge.setAttribute('aria-label', `${n} ${n === 1 ? 'day' : 'days'} missing. Show the earliest`);
+    } else if (!sum.eligible) {
+        badge.className = 'ts-run-badge is-idle';
+        badge.disabled = true;
+        badge.textContent = 'UPCOMING';
+        badge.removeAttribute('aria-label');
+    } else if (sum.logged === sum.eligible) {
+        badge.className = 'ts-run-badge is-complete';
+        badge.disabled = true;
+        badge.innerHTML = `<i class="ph-fill ph-check-circle" aria-hidden="true"></i>${sum.logged}/${sum.eligible} COMPLETE`;
+        badge.removeAttribute('aria-label');
+    } else {
+        badge.className = 'ts-run-badge is-ok';                  // only today still to log
+        badge.disabled = true;
+        badge.textContent = 'NO GAPS';
+        badge.removeAttribute('aria-label');
+    }
+
+    // Bars: rebuilt only when the run changes, so heights animate between values
+    const key = tsIso(start);
+    if (key !== tsRunKey) {
+        tsRunKey = key;
+        const weeks = [workdays.slice(0, 5), workdays.slice(5, 10)];
+        chart.innerHTML = `<span class="ts-run-target" aria-hidden="true"><span>8h</span></span>` + weeks.map(week => `
+            <div class="ts-run-week">
+                <div class="ts-run-bars">
+                    ${week.map(d => `<button type="button" class="ts-bar" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}')"><span class="ts-bar-fill"></span></button>`).join('')}
                 </div>
-                <span class="ts-chart-label">WK ${w + 1}</span>
+                <span class="ts-run-label" data-iso="${tsIso(week[0])}">${tsRangeLabel(week[0]).split(' – ')[0]}</span>
             </div>`).join('');
     }
+    // Scale: the top is 10h, or the longest day if longer, so overtime days are never clipped
+    const maxHours = Math.max(10, ...workdays.map(d => (timesheetState.records[tsIso(d)] || {}).totalHours || 0));
+    chart.style.setProperty('--target', (TIMESHEET_CONFIG.targetHours / maxHours).toFixed(3));
     chart.querySelectorAll('.ts-bar').forEach(bar => {
-        const d = tsFromIso(bar.dataset.iso), status = tsDayStatus(d), rec = timesheetState.records[bar.dataset.iso];
-        bar.className = `ts-bar is-${status}${bar.dataset.iso === timesheetState.selected ? ' is-selected' : ''}${d.getMonth() !== month ? ' is-other-month' : ''}`;
-        // Height: 4h at the floor, 10h at the top, so the usual 7.5-9.5h day still shows its differences
-        const h = rec ? Math.max(0.14, Math.min(1, (rec.totalHours - 4) / 6)) : 0;
-        bar.style.setProperty('--h', h.toFixed(3));
+        const iso = bar.dataset.iso, d = tsFromIso(iso), status = tsDayStatus(d), rec = timesheetState.records[iso];
+        const isSel = iso === timesheetState.selected;
+        bar.className = `ts-bar is-${status}${isSel ? ' is-selected' : ''}`;
+        bar.style.setProperty('--h', rec ? Math.max(0.06, rec.totalHours / maxHours).toFixed(3) : '0');
         bar.setAttribute('aria-label', `${tsShortDate(d)}: ${rec ? tsFormatHours(rec.totalHours) : status === 'missing' ? 'missing' : status}`);
-        bar.setAttribute('aria-pressed', String(bar.dataset.iso === timesheetState.selected));
+        bar.setAttribute('aria-pressed', String(isSel));
     });
+    // The week holding the selected day is labelled in white
+    const selMonday = tsIso(getMondayForDate(tsSelectedDate()));
+    chart.querySelectorAll('.ts-run-label').forEach(l => l.classList.toggle('is-active', l.dataset.iso === selMonday));
 
-    const gap = tsGapLabel(weeks);
-    document.getElementById('ts-gap').hidden = !gap;
-    document.getElementById('ts-gap-label').textContent = gap;
-    document.getElementById('ts-chart-month').textContent = sel.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' });
+    const hrs = (Math.round(sum.hours * 10) / 10).toFixed(1);
+    document.getElementById('ts-run-foot').innerHTML = sum.eligible
+        ? `<b>${sum.logged} / ${sum.eligible}</b> days logged · <b>${hrs}</b> hrs total`
+        : `<b>${sum.workdays}</b> workdays ahead · <b>${hrs}</b> hrs logged`;
 }
 
-// ----- Editor -----
-function renderTimesheetEditor() {
+// ----- Day card: the selected day's site, status and submitted blocks -----
+const TS_STATUS_LABELS = { missing: 'MISSING', upcoming: 'UPCOMING', today: 'TODAY', weekend: 'WEEKEND', none: 'NOT LOGGED' };
+function tsSiteBadge(el, siteId, iso) {
+    const roster = tsRosterSite(tsFromIso(iso));
+    // ROSTERED only when the site really is this day's roster assignment; a site picked by hand says so
+    if (TIMESHEET_SITES[siteId] && roster === siteId) { el.hidden = false; el.textContent = 'ROSTERED'; el.className = 'ts-site-badge is-rostered'; }
+    else if (TIMESHEET_SITES[siteId]) { el.hidden = false; el.textContent = 'MANUAL'; el.className = 'ts-site-badge is-manual'; }
+    else el.hidden = true;
+}
+function renderTimesheetDay() {
     const iso = timesheetState.selected, d = tsFromIso(iso);
-    const status = tsDayStatus(d), mode = tsMode(iso);
-    document.getElementById('ts-editor').dataset.mode = mode;
+    const status = tsDayStatus(d), rec = timesheetState.records[iso];
+    document.getElementById('ts-day-date').textContent = tsShortDate(d).toUpperCase();
 
-    document.getElementById('ts-editor-title').textContent = tsShortDate(d);
+    const pill = document.getElementById('ts-day-status');
+    if (rec) {
+        pill.textContent = rec.approval === 'approved' ? 'APPROVED' : 'AWAITING SIGN-OFF';
+        pill.className = `ts-status-pill is-${rec.approval === 'approved' ? 'approved' : 'awaiting'}`;
+    } else {
+        pill.textContent = TS_STATUS_LABELS[status];
+        pill.className = `ts-status-pill is-${status}`;
+    }
+
+    const siteId = rec ? rec.siteId : tsCurrentSiteId(iso), site = TIMESHEET_SITES[siteId];
+    document.getElementById('ts-day-site-name').textContent = site ? site.name : 'No site';
+    document.getElementById('ts-day-site-address').textContent = site ? site.short : 'Not rostered this day';
+    document.getElementById('ts-day-site-name').classList.toggle('is-empty', !site);
+    tsSiteBadge(document.getElementById('ts-day-site-badge'), siteId, iso);
+
+    document.getElementById('ts-day-draft').hidden = !tsIsDirty(iso);
+
+    const list = document.getElementById('ts-summary-list');
+    const empty = document.getElementById('ts-day-empty');
+    if (rec) {
+        list.innerHTML = rec.blocks.map((b, i) => `
+            <button type="button" class="ts-sum-row" onclick="openTimesheetSheet({ blockIndex: ${i} })" aria-label="${tsEscape(b.code)} ${tsEscape(b.title)}, ${tsFormatHours(b.netHours)}, ${tsBlockTimes(b, true)}. Edit">
+                <span class="ts-sum-top">
+                    <span class="ts-sum-code"><b>${tsEscape(b.code)}</b> · ${tsEscape(b.title.replace(/ · PS$/, ''))}</span>
+                    <span class="ts-sum-hours">${tsFormatHours(b.netHours)}</span>
+                </span>
+                <span class="ts-sum-times">${tsBlockTimes(b, true)}</span>
+                ${b.task ? `<span class="ts-sum-task">${tsEscape(b.task)}</span>` : ''}
+            </button>`).join('');
+        list.hidden = false;
+        empty.hidden = true;
+        document.getElementById('ts-summary-total').textContent = tsFormatHours(rec.totalHours);
+        document.getElementById('ts-day-total-row').hidden = false;
+    } else {
+        list.innerHTML = '';
+        list.hidden = true;
+        empty.hidden = false;
+        empty.textContent = status === 'upcoming' ? 'This day hasn\'t started yet'
+            : status === 'weekend' ? 'No hours logged · weekend'
+            : 'No hours logged for this day';
+        document.getElementById('ts-day-total-row').hidden = true;
+    }
+    renderTimesheetCrew();
+}
+
+// ----- Floating button -----
+function renderTimesheetCta() {
+    const iso = timesheetState.selected, rec = timesheetState.records[iso];
+    const btn = document.getElementById('ts-cta');
+    if (!btn) return;
+    const dirty = tsIsDirty(iso);
+    btn.classList.toggle('is-primary', !rec);
+    btn.classList.toggle('is-glass', !!rec);
+    // Logged day: Edit Hours (pencil). Unlogged day: Log Hours for <date> (plus). A day with unsaved
+    // changes keeps Continue Editing.
+    document.getElementById('ts-cta-icon').className = (dirty || rec) ? 'ph-bold ph-pencil' : 'ph-bold ph-plus';
+    document.getElementById('ts-cta-label').textContent = dirty ? 'Continue Editing'
+        : rec ? 'Edit Hours' : `Log Hours for ${tsShortDate(tsFromIso(iso))}`;
+}
+
+// ----- Sheet (the editor) -----
+function renderTimesheetEditor() {
+    if (!timesheetState.sheetOpen) return;
+    const iso = timesheetState.selected, d = tsFromIso(iso), rec = timesheetState.records[iso];
+    const site = TIMESHEET_SITES[tsCurrentSiteId(iso)];
+    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.name : ''}`;
     const pill = document.getElementById('ts-editor-status');
-    const editingSubmitted = mode === 'edit' && !!timesheetState.records[iso];
-    pill.textContent = editingSubmitted ? 'EDITING' : { logged: 'SUBMITTED', missing: 'MISSING', upcoming: 'UPCOMING', today: 'TODAY', weekend: 'WEEKEND', none: 'NOT LOGGED' }[status];
-    pill.className = `ts-status-pill is-${editingSubmitted ? 'editing' : status}`;
-
+    const status = tsDayStatus(d);
+    pill.textContent = rec ? 'EDITING' : (status === 'missing' ? 'MISSING' : 'NEW');
+    pill.className = `ts-status-pill is-${rec ? 'editing' : status === 'missing' ? 'missing' : 'today'}`;
     renderTimesheetSiteRow();
     renderTimesheetCrew();
-
-    document.getElementById('ts-submitted').hidden = mode !== 'submitted';
-    document.getElementById('ts-edit').hidden = mode !== 'edit';
-    if (mode === 'submitted') renderTimesheetSummary();
-    else renderTimesheetBlocks();
+    renderTimesheetBlocks();
 }
 
 function renderTimesheetSiteRow() {
-    const iso = timesheetState.selected, mode = tsMode(iso);
+    const iso = timesheetState.selected;
     const siteId = tsCurrentSiteId(iso), site = TIMESHEET_SITES[siteId];
-    const roster = tsRosterSite(tsFromIso(iso));
     const row = document.getElementById('ts-site-row');
-    row.disabled = mode !== 'edit';
     row.classList.toggle('is-empty', !site);
     document.getElementById('ts-site-name').textContent = site ? site.name : 'Choose a site';
     document.getElementById('ts-site-address').textContent = site ? site.short : 'Not rostered this day';
-    const badge = document.getElementById('ts-site-badge');
-    // ROSTERED only when the site really is this day's roster assignment; a site picked by hand says so
-    if (site && roster === siteId) { badge.hidden = false; badge.textContent = 'ROSTERED'; badge.className = 'ts-site-badge is-rostered'; }
-    else if (site) { badge.hidden = false; badge.textContent = 'MANUAL'; badge.className = 'ts-site-badge is-manual'; }
-    else badge.hidden = true;
-    if (mode !== 'edit') timesheetState.sitePickerOpen = false;
+    tsSiteBadge(document.getElementById('ts-site-badge'), siteId, iso);
     syncTimesheetSitePicker();
 }
 
-function tsApprovalBadge(approval) {
-    return approval === 'approved'
-        ? '<span class="ts-approval is-approved"><i class="ph-fill ph-check-circle" aria-hidden="true"></i>Approved</span>'
-        : '<span class="ts-approval is-awaiting"><i class="ph-fill ph-clock" aria-hidden="true"></i>Awaiting Sign-Off</span>';
-}
 function tsBlockTimes(b, pad) {
     return `${tsFormatClock(b.start, pad)} – ${tsFormatClock(b.finish, pad)}${Number(b.breakMins) ? ` · ${b.breakMins}m lunch` : ''}`;
-}
-
-// State A: one read-only card per block
-function renderTimesheetSummary() {
-    const rec = timesheetState.records[timesheetState.selected];
-    document.getElementById('ts-summary-list').innerHTML = rec.blocks.map((b, i) => `
-        <button type="button" class="ts-sum-card" onclick="editTimesheetDay(${i})" aria-label="${tsEscape(b.code)} ${tsEscape(b.title)}, ${tsFormatHours(b.netHours)}. Edit">
-            <span class="ts-sum-top">
-                <span class="ts-sum-code"><b>${tsEscape(b.code)}</b> · ${tsEscape(b.title)}</span>
-                <span class="ts-sum-hours">${tsFormatHours(b.netHours)}</span>
-            </span>
-            <span class="ts-sum-times">${tsBlockTimes(b, true)}</span>
-            ${b.task ? `<span class="ts-sum-task">${tsEscape(b.task)}</span>` : ''}
-            <span class="ts-sum-foot">${tsApprovalBadge(rec.approval)}<span class="ts-sum-edit"><i class="ph-bold ph-pencil-simple" aria-hidden="true"></i>Edit</span></span>
-        </button>`).join('');
-    document.getElementById('ts-summary-total').textContent = tsFormatHours(rec.totalHours);
 }
 
 function tsCodeOptions(selected) {
@@ -518,7 +598,8 @@ function tsCodeOptions(selected) {
 function renderTimesheetBlocks() {
     const draft = tsDraft(timesheetState.selected);
     document.getElementById('ts-block-list').innerHTML = draft.blocks.map((b, i) => `
-        <div class="ts-block" data-id="${b.id}">
+        <div class="ts-block${i === timesheetState.editingIndex ? ' is-editing' : ''}" data-id="${b.id}">
+            ${i === timesheetState.editingIndex ? '<span class="ts-block-editing"><i class="ph-bold ph-pencil-simple" aria-hidden="true"></i>Editing this line</span>' : ''}
             <div class="ts-block-head">
                 <span class="ts-block-num">${i + 1}</span>
                 <label class="ts-code-wrap">
@@ -584,13 +665,19 @@ function updateTimesheetEditComputed() {
     document.getElementById('ts-total').textContent = tsFormatHours(tsSumHours(draft.blocks));
     document.getElementById('ts-site-error').textContent = (showErrors && !draft.siteId) ? 'Choose the site you worked at' : '';
 
-    document.getElementById('ts-draft-note').hidden = !tsIsDirty(iso);
+    const dirty = tsIsDirty(iso);
+    document.getElementById('ts-draft-note').hidden = !dirty;
+    document.getElementById('ts-discard').hidden = !dirty;
     const rec = timesheetState.records[iso];
-    document.getElementById('ts-cancel').hidden = !rec;
     const future = tsIsFuture(tsFromIso(iso));
     document.getElementById('ts-submit').disabled = future;
-    document.getElementById('ts-submit-label').textContent = rec ? 'Resubmit Timesheet' : 'Submit Timesheet';
+    document.getElementById('ts-submit-label').textContent = rec ? 'Update Timesheet' : 'Submit Hours';
     document.getElementById('ts-submit-hint').textContent = future ? 'You can submit this day once it starts' : '';
+    // Save & Next Gap: only for a day not yet logged, and only when another unlogged workday is waiting
+    const next = !rec && !future && tsNextUnlogged(iso);
+    const saveNext = document.getElementById('ts-save-next');
+    saveNext.hidden = !next;
+    if (next) saveNext.setAttribute('aria-label', `Save and go to ${tsShortDate(next)}`);
     return firstError;
 }
 
@@ -615,7 +702,6 @@ function syncTimesheetSitePicker() {
     document.getElementById('ts-site-row').setAttribute('aria-expanded', String(open));
 }
 function toggleTimesheetSitePicker() {
-    if (tsMode(timesheetState.selected) !== 'edit') return;
     triggerHaptic('light');
     timesheetState.sitePickerOpen = !timesheetState.sitePickerOpen;
     if (timesheetState.sitePickerOpen) {
@@ -635,6 +721,10 @@ function chooseTimesheetSite(siteId) {
     renderTimesheetSiteRow();
     renderTimesheetCrew();                                 // crew logs follow the site
     updateTimesheetEditComputed();
+    const site = TIMESHEET_SITES[siteId], d = tsSelectedDate();
+    document.getElementById('ts-sheet-title').textContent = `${tsShortDate(d)}${site ? ' · ' + site.name : ''}`;
+    renderTimesheetDay();
+    renderTimesheetCta();
 }
 
 // ----- Crew drawer -----
@@ -690,30 +780,37 @@ function syncTimesheetCrewDrawer() {
     }
 }
 
+// The crew drawer is one element: in the day card, or inside the sheet while it is open
+function tsPlaceCrewSection() {
+    const section = document.getElementById('ts-crew-section');
+    const slot = document.getElementById(timesheetState.sheetOpen ? 'ts-sheet-crew-slot' : 'ts-day-crew-slot');
+    if (section && slot && section.parentElement !== slot) slot.appendChild(section);
+}
+
 function renderTimesheets() {
     renderTimesheetTitle();
     renderTimesheetStrip();
     renderTimesheetHero();
-    renderTimesheetStats();
-    renderTimesheetChart();
+    renderTimesheetPayRun();
+    renderTimesheetDay();
+    renderTimesheetCta();
     renderTimesheetEditor();
 }
 
 // ---------- Actions ----------
+// opts.fromStrip: tapped in the strip itself, so the strip stays where the user scrolled it; a date chosen
+// anywhere else (chart, gap badge, pay run arrows, Save & Next) is centred in the strip
 function selectTimesheetDate(iso, opts = {}) {
-    if (iso !== timesheetState.selected) {
-        triggerHaptic('light');
-        tsDropCleanDraft(timesheetState.selected);
-        timesheetState.selected = iso;     // unsaved edits stay in drafts[] for when the day is reopened
-        timesheetState.sitePickerOpen = false;
-        tsRestartHeroRing();
-        renderTimesheets();
-    }
-    if (opts.fromChart) {
-        const editor = document.getElementById('ts-editor');
-        const view = document.getElementById('view-time');
-        if (editor && view && editor.getBoundingClientRect().top > view.getBoundingClientRect().bottom - 160) tsScrollViewTo(editor);
-    }
+    if (iso === timesheetState.selected) return;
+    triggerHaptic('light');
+    tsDropCleanDraft(timesheetState.selected);
+    timesheetState.selected = iso;     // unsaved edits stay in drafts[] for when the day is reopened
+    timesheetState.sitePickerOpen = false;
+    timesheetState.editingIndex = -1;
+    document.getElementById('ts-submitted-note').hidden = true;
+    tsRestartHeroRing();
+    renderTimesheets();
+    if (!opts.fromStrip) tsCenterStripDay(iso);
 }
 // A day opened for editing but left unchanged goes back to how it was (its summary, or a fresh form)
 function tsDropCleanDraft(iso) {
@@ -721,6 +818,25 @@ function tsDropCleanDraft(iso) {
         delete timesheetState.drafts[iso];
         delete timesheetState.showErrors[iso];
     }
+}
+
+// Previous / next fortnight: select today if it is in that run, else the run's first workday
+function shiftTimesheetPayRun(dir) {
+    const start = tsAddDays(tsSelectedRunStart(), dir * TIMESHEET_CONFIG.payRunLengthDays);
+    const b = tsRunBounds();
+    if (tsDayDiff(b.min, start) < 0 || tsDayDiff(start, b.max) < 0) return;
+    const today = tsToday();
+    const inRun = tsDayDiff(start, today) >= 0 && tsDayDiff(start, today) < TIMESHEET_CONFIG.payRunLengthDays;
+    selectTimesheetDate(tsIso(inRun ? today : tsRunWorkdays(start)[0]));
+}
+// The gap badge: jump to the earliest missing workday of the shown run
+function jumpToTimesheetGap() {
+    const gap = tsRunGaps(tsSelectedRunStart())[0];
+    if (gap) selectTimesheetDate(tsIso(gap));
+}
+// The next started workday with nothing submitted in the same run, other than `iso` (earliest first)
+function tsNextUnlogged(iso) {
+    return tsRunUnlogged(tsPayRunStart(tsFromIso(iso))).find(d => tsIso(d) !== iso) || null;
 }
 
 // Scroll only the Time screen (scrollIntoView would also scroll the clipped stage that holds every screen)
@@ -732,29 +848,105 @@ function tsScrollViewTo(el, behavior = 'smooth') {
     const top = view.scrollTop + el.getBoundingClientRect().top - barBottom - 8;
     view.scrollTo({ top: Math.max(0, top), behavior });
 }
+// Scroll the sheet's body so `el` sits near its top
+function tsScrollSheetTo(el, behavior = 'smooth') {
+    const body = document.getElementById('ts-sheet-body');
+    if (!body || !el) return;
+    const top = body.scrollTop + el.getBoundingClientRect().top - body.getBoundingClientRect().top - 12;
+    body.scrollTo({ top: Math.max(0, top), behavior });
+}
 
-// State A -> B, keeping every block; a tapped card's line is brought into view
-function editTimesheetDay(blockIndex) {
-    triggerHaptic('light');
-    tsDraft(timesheetState.selected);
+// ----- Opening / closing the sheet -----
+let tsSheetSnapshot = null;          // what the draft looked like right after opening, to tell real edits apart
+function tsDraftJson(iso) {
+    const d = timesheetState.drafts[iso];
+    return d ? JSON.stringify({ s: d.siteId, b: d.blocks.map(b => [b.code, b.start, b.finish, b.breakMins, b.task]) }) : '';
+}
+// opts.blockIndex: open on that submitted block; opts.addBlock: append a new line to a logged day
+function openTimesheetSheet(opts = {}) {
+    const iso = timesheetState.selected;
+    const hadDraft = tsIsDirty(iso);
+    const draft = tsDraft(iso);
+    timesheetState.editingIndex = typeof opts.blockIndex === 'number' ? opts.blockIndex : -1;
+    if (opts.addBlock && !hadDraft) {
+        tsAppendBlock(draft);
+        timesheetState.editingIndex = -1;
+    }
+    tsSheetSnapshot = { iso, hadDraft, json: tsDraftJson(iso) };
+    timesheetState.sheetOpen = true;
+    timesheetState.sitePickerOpen = false;
+    document.getElementById('ts-sheet-note').hidden = true;
+    tsPlaceCrewSection();
     renderTimesheetEditor();
-    if (typeof blockIndex === 'number') {
-        const el = document.querySelectorAll('#ts-block-list .ts-block')[blockIndex];
-        if (el) {
-            tsScrollViewTo(el);
-            el.classList.add('is-flash');
-            setTimeout(() => el.classList.remove('is-flash'), 900);
-        }
+    tsShowSheet(true);
+    triggerHaptic('light');
+
+    // Bring the line being edited / just added into view
+    const blocks = document.querySelectorAll('#ts-block-list .ts-block');
+    const focus = timesheetState.editingIndex >= 0 ? blocks[timesheetState.editingIndex] : (opts.addBlock ? blocks[blocks.length - 1] : null);
+    const body = document.getElementById('ts-sheet-body');
+    body.scrollTop = 0;
+    if (focus) {
+        requestAnimationFrame(() => tsScrollSheetTo(focus, 'auto'));
+        if (opts.addBlock) focus.classList.add('is-new');
     }
 }
-function cancelTimesheetEdit() {
+function closeTimesheetSheet() {
+    if (!timesheetState.sheetOpen) return;
     const iso = timesheetState.selected;
-    if (!timesheetState.records[iso]) return;
+    // Opening alone (or adding a line and leaving it untouched) isn't an edit: drop that draft again.
+    // Anything actually changed stays as an unsaved draft (the day card offers Resume / Discard).
+    if (tsSheetSnapshot && tsSheetSnapshot.iso === iso && !tsSheetSnapshot.hadDraft && tsDraftJson(iso) === tsSheetSnapshot.json) {
+        delete timesheetState.drafts[iso];
+        delete timesheetState.showErrors[iso];
+    }
+    tsDropCleanDraft(iso);
+    tsSheetSnapshot = null;
+    timesheetState.sheetOpen = false;
+    timesheetState.sitePickerOpen = false;
+    timesheetState.editingIndex = -1;
+    tsPlaceCrewSection();
+    tsShowSheet(false);
+    renderTimesheetDay();
+    renderTimesheetCta();
+}
+function tsShowSheet(open, instant) {
+    const overlay = document.getElementById('ts-sheet-overlay');
+    const sheet = document.getElementById('ts-sheet');
+    if (!overlay) return;
+    sheet.style.transform = '';
+    sheet.style.transition = '';
+    if (instant) {
+        overlay.classList.add('no-anim');
+        requestAnimationFrame(() => overlay.classList.remove('no-anim'));
+    }
+    overlay.classList.toggle('is-open', open);
+    overlay.setAttribute('aria-hidden', String(!open));
+    overlay.inert = !open;
+    document.documentElement.classList.toggle('ts-sheet-open', open);   // app-shell.js: no edge-swipe back
+    if (open) setTimeout(() => { if (timesheetState.sheetOpen) document.getElementById('ts-sheet').focus({ preventScroll: true }); }, 60);
+}
+
+// The floating button: log an unlogged day, or edit a logged day's existing blocks (a draft carries on as is)
+function onTimesheetCta() {
+    openTimesheetSheet();
+}
+
+// Throw away the selected day's unsaved changes (its record, if any, is untouched)
+function discardTimesheetDraft() {
+    const iso = timesheetState.selected;
     triggerHaptic('light');
     delete timesheetState.drafts[iso];
     delete timesheetState.showErrors[iso];
-    timesheetState.sitePickerOpen = false;
-    renderTimesheetEditor();
+    if (timesheetState.sheetOpen) {
+        if (timesheetState.records[iso]) { closeTimesheetSheet(); return; }
+        tsDraft(iso);                                  // a fresh form for a day not yet logged
+        tsSheetSnapshot = { iso, hadDraft: false, json: tsDraftJson(iso) };
+        timesheetState.editingIndex = -1;
+        renderTimesheetEditor();
+    }
+    renderTimesheetDay();
+    renderTimesheetCta();
 }
 
 function tsFindBlock(id) {
@@ -779,7 +971,18 @@ function onTimesheetBlockInput(input) {
             if (nextEl) nextEl.value = next.start;
         }
     }
+    tsAfterDraftChange();
+}
+// The day card's "Unsaved changes" note and the button label follow the draft
+function tsAfterDraftChange() {
     updateTimesheetEditComputed();
+    const iso = timesheetState.selected;
+    const dirty = tsIsDirty(iso);
+    if (dirty !== tsAfterDraftChange.last) {
+        tsAfterDraftChange.last = dirty;
+        document.getElementById('ts-day-draft').hidden = !dirty;
+        renderTimesheetCta();
+    }
 }
 
 function setTimesheetBlockLunch(id, mins) {
@@ -792,25 +995,28 @@ function setTimesheetBlockLunch(id, mins) {
         seg.classList.toggle('is-active', on);
         seg.setAttribute('aria-checked', String(on));
     });
-    updateTimesheetEditComputed();
+    tsAfterDraftChange();
 }
 
 // + Add Line: starts where the last line finishes, runs 30 minutes, no lunch
-function addTimesheetBlock() {
-    const draft = tsDraft(timesheetState.selected);
+function tsAppendBlock(draft) {
     const last = draft.blocks[draft.blocks.length - 1];
     const start = last ? last.finish : TIMESHEET_CONFIG.defaultStart;
     const startMins = tsMinutes(start);
     const finish = startMins === null ? '' : tsFromMinutes(startMins + 30);
-    triggerHaptic('light');
     draft.blocks.push(tsNewBlock({ start, finish, breakMins: 0, chained: true }));
+}
+function addTimesheetBlock() {
+    tsAppendBlock(tsDraft(timesheetState.selected));
+    triggerHaptic('light');
     renderTimesheetBlocks();
+    tsAfterDraftChange();
     const blocks = document.querySelectorAll('#ts-block-list .ts-block');
     const added = blocks[blocks.length - 1];
     if (added) {
         added.classList.add('is-new');
-        const r = added.getBoundingClientRect(), vr = document.getElementById('view-time').getBoundingClientRect();
-        if (r.bottom > vr.bottom - 140) tsScrollViewTo(added);
+        const body = document.getElementById('ts-sheet-body');
+        if (added.getBoundingClientRect().bottom > body.getBoundingClientRect().bottom - 20) tsScrollSheetTo(added);
     }
 }
 
@@ -818,15 +1024,21 @@ function deleteTimesheetBlock(id) {
     const { draft, index } = tsFindBlock(id);
     if (index <= 0 || draft.blocks.length < 2) return;   // the first line stays
     triggerHaptic('light');
+    if (timesheetState.editingIndex === index) timesheetState.editingIndex = -1;
+    else if (timesheetState.editingIndex > index) timesheetState.editingIndex--;
     draft.blocks.splice(index, 1);
     renderTimesheetBlocks();
+    tsAfterDraftChange();
 }
 
 function toggleTimesheetCrew(fromNav) {
     triggerHaptic('light');
     timesheetState.crewOpen = !timesheetState.crewOpen;
     syncTimesheetCrewDrawer();
-    if (timesheetState.crewOpen && fromNav) setTimeout(() => tsScrollViewTo(document.getElementById('ts-crew-link')), 60);
+    if (timesheetState.crewOpen && fromNav) {
+        const link = document.getElementById('ts-crew-link');
+        setTimeout(() => (timesheetState.sheetOpen ? tsScrollSheetTo(link) : tsScrollViewTo(link)), 60);
+    }
 }
 
 // Copy a crew member's blocks into this day's draft (never submitted, never touching their record)
@@ -837,7 +1049,15 @@ function copyTimesheetCrewFormat(index) {
     triggerHaptic('success');
     const draft = tsDraft(iso);
     draft.blocks = c.blocks.map(b => tsNewBlock({ code: b.code, start: b.start, finish: b.finish, breakMins: b.breakMins, task: b.task }));
-    renderTimesheetEditor();
+    timesheetState.editingIndex = -1;
+    if (timesheetState.sheetOpen) {
+        renderTimesheetEditor();
+        tsAfterDraftChange();
+    } else {
+        openTimesheetSheet();                          // copying switches straight into editing (never submits)
+    }
+    renderTimesheetDay();
+    renderTimesheetCta();
 
     // The drawer re-rendered: mark the new copy of the button
     const btn = document.querySelectorAll('#ts-crew-list .ts-copy-btn')[index];
@@ -855,7 +1075,8 @@ function copyTimesheetCrewFormat(index) {
 }
 
 let tsSubmittedTimer = null;
-function submitTimesheet() {
+// Submit Hours / Update Timesheet (andNext = false), or Save & Next Gap (andNext = true)
+function submitTimesheet(andNext) {
     const iso = timesheetState.selected, d = tsFromIso(iso);
     if (tsIsFuture(d)) return;
     const draft = tsDraft(iso);
@@ -863,7 +1084,7 @@ function submitTimesheet() {
         timesheetState.showErrors[iso] = true;
         triggerHaptic('error');
         const firstError = updateTimesheetEditComputed();
-        tsScrollViewTo(!draft.siteId ? document.getElementById('ts-site-row') : firstError);
+        tsScrollSheetTo(!draft.siteId ? document.getElementById('ts-site-row') : firstError);
         return;
     }
 
@@ -875,13 +1096,32 @@ function submitTimesheet() {
     delete timesheetState.drafts[iso];
     delete timesheetState.showErrors[iso];
     timesheetState.sitePickerOpen = false;
+    timesheetState.editingIndex = -1;
+    tsSheetSnapshot = null;
     triggerHaptic('success');
 
+    const next = andNext ? tsNextUnlogged(iso) : null;
+    if (next) {
+        // Straight on to the next unlogged day, in the same sheet, with its roster site and default block
+        timesheetState.selected = tsIso(next);
+        tsRestartHeroRing();
+        renderTimesheets();
+        tsCenterStripDay(timesheetState.selected);
+        openTimesheetSheet();
+        const note = document.getElementById('ts-sheet-note');
+        note.innerHTML = `<i class="ph-fill ph-check-circle" aria-hidden="true"></i>${tsShortDate(d)} saved`;
+        note.hidden = false;
+        clearTimeout(tsSubmittedTimer);
+        tsSubmittedTimer = setTimeout(() => { note.hidden = true; }, 2400);
+        return;
+    }
+
+    closeTimesheetSheet();
     renderTimesheetStrip();
     renderTimesheetHero();
-    renderTimesheetStats();
-    renderTimesheetChart();
-    renderTimesheetEditor();
+    renderTimesheetPayRun();
+    renderTimesheetDay();
+    renderTimesheetCta();
     document.getElementById('view-time').scrollTo({ top: 0, behavior: 'smooth' });   // watch the rings update
 
     const note = document.getElementById('ts-submitted-note');
@@ -892,12 +1132,20 @@ function submitTimesheet() {
 
 // A fresh open (navigation.js) starts on today with the drawers shut; edits in progress are kept
 function resetTimeView() {
+    if (timesheetState.sheetOpen) {
+        timesheetState.sheetOpen = false;
+        tsPlaceCrewSection();
+        tsShowSheet(false, true);
+    }
     Object.keys(timesheetState.drafts).forEach(tsDropCleanDraft);
     timesheetState.selected = tsIso(tsToday());
     timesheetState.crewOpen = false;
     timesheetState.sitePickerOpen = false;
+    timesheetState.editingIndex = -1;
+    document.getElementById('ts-submitted-note').hidden = true;
     tsRestartHeroRing();
     renderTimesheets();
+    requestAnimationFrame(() => tsCenterStripDay(timesheetState.selected, 'auto'));   // once the screen shows
 }
 
 function openTimeView() {
@@ -914,6 +1162,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const search = document.getElementById('ts-site-search');
     search.addEventListener('input', renderTimesheetSiteList);
-    search.addEventListener('keydown', e => { if (e.key === 'Escape') closeTimesheetSitePicker(); });
+    search.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeTimesheetSitePicker(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && timesheetState.sheetOpen) closeTimesheetSheet(); });
+    tsInitSheetDrag();
     renderTimesheets();
 });
+
+// Drag the sheet down by its handle / header to dismiss it (follows the finger; a flick or a long drag
+// closes, anything else springs back)
+function tsInitSheetDrag() {
+    const grab = document.getElementById('ts-sheet-grab');
+    const sheet = document.getElementById('ts-sheet');
+    if (!grab || !sheet) return;
+    let y0 = 0, dy = 0, lastY = 0, lastT = 0, v = 0, dragging = false, id = null;
+    grab.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return;
+        id = e.pointerId; dragging = true; y0 = lastY = e.clientY; lastT = performance.now(); dy = 0; v = 0;
+        grab.setPointerCapture(id);
+        sheet.style.transition = 'none';
+    });
+    grab.addEventListener('pointermove', e => {
+        if (!dragging || e.pointerId !== id) return;
+        const now = performance.now();
+        v = (e.clientY - lastY) / Math.max(1, now - lastT);
+        lastY = e.clientY; lastT = now;
+        const raw = e.clientY - y0;
+        dy = raw > 0 ? raw : -Math.sqrt(-raw) * 2;              // a little resistance upwards
+        sheet.style.transform = `translateY(${dy}px)`;
+    });
+    const end = e => {
+        if (!dragging || e.pointerId !== id) return;
+        dragging = false;
+        sheet.style.transition = '';
+        if (dy > 120 || (dy > 24 && v > 0.5)) closeTimesheetSheet();
+        else sheet.style.transform = '';
+    };
+    grab.addEventListener('pointerup', end);
+    grab.addEventListener('pointercancel', end);
+}

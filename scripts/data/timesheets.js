@@ -81,6 +81,13 @@ const TIMESHEET_SAMPLE_RECORDS = [
         { code: '009-3', start: '12:00', finish: '15:30', breakMins: 30, task: 'Set out door openings, fixed jamb studs' } ] }
 ];
 
+// The previous pay run, all approved, so the Pay Run card's fortnight navigation has history to show.
+// Each workday reuses a typical day from above at that day's roster site (Castlecrag when unrostered).
+const TIMESHEET_PREVIOUS_RUN_RECORDS = [0, 1, 2, 3, 4, 5, 6, 7, 1, 2].map((src, workday) => ({
+    workday, site: TIMESHEET_ROSTER[workday] || 'castlecrag', approval: 'approved',
+    blocks: TIMESHEET_SAMPLE_RECORDS[src].blocks
+}));
+
 // What the rest of the crew submitted at each site. Each person has a few typical days ("plans"); a day's
 // plan is picked by its workday number, so logs change from day to day. Crew logs show for days that have
 // started. Sites missing here have no crew logs.

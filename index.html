@@ -431,10 +431,20 @@
                 <div id="site-hero-card" onclick="switchTab('week')" role="button" tabindex="0" aria-label="Today's rostered site: Lugarno at 935 Forest Road. Work shift 7:00 AM to 3:30 PM. Tap to view full schedule." 
                     class="site-card-energy relative rounded-[24px] p-5 transition-all duration-300 cursor-pointer group/site active:scale-[0.98] overflow-hidden flex flex-col justify-between">
 
-                <!-- Card surface (styles/site-card.css, scripts/features/site-card-energy.js): live energy shader that
-                     fills with real shift progress, frosted tint, fine grain. Purely decorative. -->
-                <canvas class="sc-energy-canvas" aria-hidden="true"></canvas>
-                <div class="sc-frost" aria-hidden="true"></div>
+                <!-- Card surface (styles/site-card.css, scripts/features/site-card-energy.js): liquid-glass light in
+                     CSS gradients (emerald pools, a dark channel behind the text, thick-glass edge light), a flowing
+                     WebGL plasma that fills only the worked part of the shift, a glowing band at the current time,
+                     glass depth and fine grain. Purely decorative. -->
+                <div class="sc-light" aria-hidden="true">
+                    <div class="sc-pool sc-pool-a"></div>
+                    <div class="sc-pool sc-pool-b"></div>
+                    <div class="sc-pool sc-pool-c"></div>
+                    <div class="sc-channel"></div>
+                    <canvas class="sc-flowgl"></canvas>
+                    <div class="sc-glowfill sc-front-only"><i></i></div>
+                    <div class="sc-edges"></div>
+                </div>
+                <div class="sc-glass" aria-hidden="true"></div>
                 <div class="sc-grain" aria-hidden="true"></div>
 
                 <!-- ================= DYNAMIC AMBIENT BOTTOM GRADIENT EFFECT ================= -->
@@ -1007,9 +1017,9 @@
 
         <!-- ================= VIEW: TIME (TIMESHEETS) - scripts/features/timesheets.js, styles/timesheets.css ================= -->
         <!-- No large title: the selected date is the bar's title (data-bar-title, top-bar.js) -->
-        <main id="view-time" data-bar-title="" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full">
+        <main id="view-time" data-bar-title="Timesheets" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full">
 
-            <!-- 7-day strip: the week of the selected day -->
+            <!-- 7-day strip: the week of the selected day (weekday, ring, date) -->
             <div id="ts-week-strip" class="ts-week-strip" role="group" aria-label="Choose a day this week"></div>
 
             <!-- Daily progress: net hours against the 8h day -->
@@ -1032,99 +1042,72 @@
                 </div>
             </section>
 
-            <!-- Pay run -->
-            <section class="ts-card ts-stats" aria-label="Pay run">
-                <div class="ts-stat">
-                    <span class="ts-eyebrow">Current pay run</span>
-                    <span class="ts-stat-value is-lime"><span id="ts-payrun-done">0/10</span><small>DONE</small></span>
-                </div>
-                <div class="ts-stat">
-                    <span class="ts-eyebrow">Fortnight total</span>
-                    <span class="ts-stat-value"><span id="ts-fortnight-hours">0.0</span><small>HRS</small></span>
-                </div>
-            </section>
-
-            <!-- Monthly overview: gaps stand out in amber -->
-            <section class="ts-card ts-month" aria-labelledby="ts-month-heading">
-                <div class="ts-month-head">
-                    <div>
-                        <h3 id="ts-month-heading" class="ts-eyebrow">Monthly overview</h3>
-                        <span id="ts-chart-month" class="ts-month-name"></span>
-                    </div>
-                    <span id="ts-gap" class="ts-gap" hidden><i class="ph-bold ph-warning" aria-hidden="true"></i><span id="ts-gap-label"></span></span>
-                </div>
-                <div id="ts-chart" class="ts-chart"></div>
-            </section>
-
-            <!-- Inline editor -->
-            <section id="ts-editor" class="ts-card ts-editor" data-mode="edit" aria-labelledby="ts-editor-title">
-                <div class="ts-editor-head">
-                    <h3 id="ts-editor-title" class="ts-editor-title"></h3>
-                    <span id="ts-editor-status" class="ts-status-pill"></span>
-                </div>
-
-                <!-- Site: the day's roster site, preselected; tap to search all sites -->
-                <button type="button" id="ts-site-row" class="ts-site-row" onclick="toggleTimesheetSitePicker()" aria-controls="ts-site-picker" aria-expanded="false">
-                    <i class="fa-solid fa-location-dot ts-site-pin" aria-hidden="true"></i>
-                    <span class="ts-site-text">
-                        <span class="ts-site-line"><span id="ts-site-name" class="ts-site-name"></span><span id="ts-site-badge" class="ts-site-badge" hidden></span></span>
-                        <span id="ts-site-address" class="ts-site-address"></span>
-                    </span>
-                    <i class="ph-bold ph-caret-down ts-site-caret" aria-hidden="true"></i>
-                </button>
-                <p id="ts-site-error" class="ts-inline-error" aria-live="polite"></p>
-                <div id="ts-site-picker" class="ts-drawer ts-site-picker">
-                    <div id="ts-site-picker-inner" class="ts-drawer-inner" inert>
-                        <div class="ts-site-search-wrap">
-                            <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
-                            <input id="ts-site-search" type="search" class="ts-site-search" placeholder="Search sites" aria-label="Search sites" autocomplete="off" enterkeyhint="search">
+            <!-- Pay run: the fortnight at a glance (10 workday bars against the 8h target) -->
+            <section class="ts-card ts-run" aria-label="Pay run">
+                <div class="ts-run-head">
+                    <div class="ts-run-id">
+                        <span class="ts-eyebrow">Pay run</span>
+                        <div class="ts-run-nav">
+                            <button type="button" id="ts-run-prev" class="ts-run-chev" onclick="shiftTimesheetPayRun(-1)" aria-label="Previous pay run"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button>
+                            <h3 id="ts-run-range" class="ts-run-range"></h3>
+                            <button type="button" id="ts-run-next" class="ts-run-chev" onclick="shiftTimesheetPayRun(1)" aria-label="Next pay run"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
                         </div>
-                        <div id="ts-site-list" class="ts-site-list" role="listbox" aria-label="Sites"></div>
                     </div>
+                    <button type="button" id="ts-run-badge" class="ts-run-badge" onclick="jumpToTimesheetGap()"></button>
                 </div>
+                <div id="ts-run-chart" class="ts-run-chart"></div>
+                <p id="ts-run-foot" class="ts-run-foot"></p>
+            </section>
 
-                <!-- Crew reference: the same drawer the bar's Crew button opens -->
-                <button type="button" id="ts-crew-link" class="ts-crew-link" onclick="toggleTimesheetCrew(false)" aria-controls="ts-crew-drawer" aria-expanded="false">
-                    <i class="ph-bold ph-users-three" aria-hidden="true"></i>
-                    <span class="ts-crew-link-text"><span id="ts-crew-link-label">See crew logs for this day</span> <span id="ts-crew-link-count" class="ts-crew-count"></span></span>
-                    <i class="ph-bold ph-caret-down ts-crew-caret" aria-hidden="true"></i>
-                </button>
-                <div id="ts-crew-drawer" class="ts-drawer ts-crew-drawer" aria-hidden="true">
-                    <div id="ts-crew-drawer-inner" class="ts-drawer-inner" inert>
-                        <p id="ts-crew-context" class="ts-crew-context"></p>
-                        <div id="ts-crew-list" class="ts-crew-list"></div>
+            <!-- The selected day: site, status and its submitted cost-coded blocks (tap one to edit) -->
+            <section id="ts-day" class="ts-card ts-day-card" aria-labelledby="ts-day-date">
+                <div class="ts-day-head">
+                    <div class="ts-day-id">
+                        <h3 id="ts-day-date" class="ts-day-date"></h3>
+                        <span class="ts-day-site">
+                            <span id="ts-day-site-name" class="ts-day-site-name"></span>
+                            <span id="ts-day-site-badge" class="ts-site-badge" hidden></span>
+                        </span>
+                        <span id="ts-day-site-address" class="ts-day-site-address"></span>
                     </div>
+                    <span id="ts-day-status" class="ts-status-pill"></span>
                 </div>
-
-                <!-- State A: submitted, read-only cards (one per cost-coded block) -->
-                <div id="ts-submitted" class="ts-submitted" hidden>
-                    <p id="ts-submitted-note" class="ts-submitted-note" role="status" hidden><i class="ph-fill ph-check-circle" aria-hidden="true"></i>Timesheet submitted</p>
-                    <div id="ts-summary-list" class="ts-summary-list"></div>
-                    <div class="ts-summary-total"><span class="ts-eyebrow">Day total</span><span id="ts-summary-total" class="ts-summary-total-value"></span></div>
+                <p id="ts-submitted-note" class="ts-submitted-note" role="status" hidden><i class="ph-fill ph-check-circle" aria-hidden="true"></i>Timesheet submitted</p>
+                <div id="ts-day-draft" class="ts-day-draft" hidden>
+                    <span class="ts-day-draft-text"><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</span>
+                    <button type="button" class="ts-day-draft-btn" onclick="discardTimesheetDraft()">Discard</button>
+                    <button type="button" class="ts-day-draft-btn is-primary" onclick="openTimesheetSheet()">Resume</button>
                 </div>
+                <div id="ts-summary-list" class="ts-summary-list"></div>
+                <p id="ts-day-empty" class="ts-day-empty" hidden></p>
+                <div id="ts-day-total-row" class="ts-summary-total"><span class="ts-eyebrow">Day total</span><span id="ts-summary-total" class="ts-summary-total-value"></span></div>
 
-                <!-- State B: editable time blocks -->
-                <div id="ts-edit" class="ts-edit">
-                    <p id="ts-draft-note" class="ts-draft-note" hidden><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</p>
-                    <div id="ts-block-list" class="ts-block-list"></div>
-                    <button type="button" class="ts-add-line" onclick="addTimesheetBlock()"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add Line</button>
-
-                    <div class="ts-total-box">
-                        <div class="ts-total-row">
-                            <span class="ts-eyebrow">Total net hours</span>
-                            <span id="ts-total" class="ts-total">0.0h</span>
+                <!-- Crew reference: one drawer, opened by the bar's Crew button or this link. While the timesheet
+                     sheet is open it moves into the sheet (timesheets.js, tsPlaceCrewSection) -->
+                <div id="ts-day-crew-slot">
+                    <div id="ts-crew-section" class="ts-crew-section">
+                        <button type="button" id="ts-crew-link" class="ts-crew-link" onclick="toggleTimesheetCrew(false)" aria-controls="ts-crew-drawer" aria-expanded="false">
+                            <i class="ph-bold ph-users-three" aria-hidden="true"></i>
+                            <span class="ts-crew-link-text"><span id="ts-crew-link-label">See crew logs for this day</span> <span id="ts-crew-link-count" class="ts-crew-count"></span></span>
+                            <i class="ph-bold ph-caret-down ts-crew-caret" aria-hidden="true"></i>
+                        </button>
+                        <div id="ts-crew-drawer" class="ts-drawer ts-crew-drawer" aria-hidden="true">
+                            <div id="ts-crew-drawer-inner" class="ts-drawer-inner" inert>
+                                <p id="ts-crew-context" class="ts-crew-context"></p>
+                                <div id="ts-crew-list" class="ts-crew-list"></div>
+                            </div>
                         </div>
-                        <span class="ts-total-sub">Combined across all time blocks</span>
                     </div>
-
-                    <button type="button" id="ts-submit" class="ts-save" onclick="submitTimesheet()">
-                        <i id="ts-submit-icon" class="ph-bold ph-paper-plane-tilt" aria-hidden="true"></i>
-                        <span id="ts-submit-label">Submit Timesheet</span>
-                    </button>
-                    <p id="ts-submit-hint" class="ts-save-hint" aria-live="polite"></p>
-                    <button type="button" id="ts-cancel" class="ts-cancel" onclick="cancelTimesheetEdit()" hidden>Cancel editing</button>
                 </div>
             </section>
+
+            <!-- Primary action: floats at the bottom of the screen (sticky, so it travels with the page) -->
+            <div class="ts-cta-wrap">
+                <button type="button" id="ts-cta" class="ts-cta" onclick="onTimesheetCta()">
+                    <i id="ts-cta-icon" class="ph-bold ph-plus" aria-hidden="true"></i>
+                    <span id="ts-cta-label"></span>
+                </button>
+            </div>
         </main>
 
         <!-- ================= VIEW 10: NOTIFICATIONS & ACTIVITY (APPLE STYLE) ================= -->
@@ -1171,6 +1154,72 @@
         <div id="drawer-dismiss-overlay" onclick="handleDrawerDismissOverlayClick(event)" class="absolute inset-0 z-50 cursor-pointer pointer-events-none opacity-0 bg-slate-950/20"></div>
     </div> <!-- /#app-main-stage -->
     </div> <!-- /#app-stage-wrapper -->
+
+        <!-- Timesheet sheet (scripts/features/timesheets.js): the cost-coded editor for the selected day -->
+        <div id="ts-sheet-overlay" class="ts-sheet-overlay" aria-hidden="true" inert onclick="if (event.target === this) closeTimesheetSheet()">
+            <div id="ts-sheet" class="ts-sheet" role="dialog" aria-modal="true" aria-labelledby="ts-sheet-title">
+                <div id="ts-sheet-grab" class="ts-sheet-grab">
+                    <span class="ts-sheet-handle" aria-hidden="true"></span>
+                    <div class="ts-sheet-head">
+                        <div class="ts-sheet-head-text">
+                            <h2 id="ts-sheet-title" class="ts-sheet-title"></h2>
+                            <span id="ts-editor-status" class="ts-status-pill"></span>
+                        </div>
+                        <button type="button" class="ts-sheet-close" onclick="closeTimesheetSheet()" aria-label="Close timesheet"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+
+                <div id="ts-sheet-body" class="ts-sheet-body">
+                    <p id="ts-sheet-note" class="ts-submitted-note" role="status" hidden></p>
+
+                    <!-- Site: the day's roster site, preselected; tap to search all sites -->
+                    <button type="button" id="ts-site-row" class="ts-site-row" onclick="toggleTimesheetSitePicker()" aria-controls="ts-site-picker" aria-expanded="false">
+                        <i class="fa-solid fa-location-dot ts-site-pin" aria-hidden="true"></i>
+                        <span class="ts-site-text">
+                            <span class="ts-site-line"><span id="ts-site-name" class="ts-site-name"></span><span id="ts-site-badge" class="ts-site-badge" hidden></span></span>
+                            <span id="ts-site-address" class="ts-site-address"></span>
+                        </span>
+                        <i class="ph-bold ph-caret-down ts-site-caret" aria-hidden="true"></i>
+                    </button>
+                    <p id="ts-site-error" class="ts-inline-error" aria-live="polite"></p>
+                    <div id="ts-site-picker" class="ts-drawer ts-site-picker">
+                        <div id="ts-site-picker-inner" class="ts-drawer-inner" inert>
+                            <div class="ts-site-search-wrap">
+                                <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
+                                <input id="ts-site-search" type="search" class="ts-site-search" placeholder="Search sites" aria-label="Search sites" autocomplete="off" enterkeyhint="search">
+                            </div>
+                            <div id="ts-site-list" class="ts-site-list" role="listbox" aria-label="Sites"></div>
+                        </div>
+                    </div>
+
+                    <div id="ts-sheet-crew-slot"></div>
+
+                    <p id="ts-draft-note" class="ts-draft-note" hidden><i class="ph-fill ph-circle" aria-hidden="true"></i>Unsaved changes</p>
+                    <div id="ts-block-list" class="ts-block-list"></div>
+                    <button type="button" class="ts-add-line" onclick="addTimesheetBlock()"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add Line</button>
+
+                    <div class="ts-total-box">
+                        <div class="ts-total-row">
+                            <span class="ts-eyebrow">Total net hours</span>
+                            <span id="ts-total" class="ts-total">0.0h</span>
+                        </div>
+                        <span class="ts-total-sub">Combined across all time blocks</span>
+                    </div>
+                </div>
+
+                <div class="ts-sheet-foot">
+                    <button type="button" id="ts-submit" class="ts-save" onclick="submitTimesheet(false)">
+                        <i id="ts-submit-icon" class="ph-bold ph-paper-plane-tilt" aria-hidden="true"></i>
+                        <span id="ts-submit-label">Submit Hours</span>
+                    </button>
+                    <button type="button" id="ts-save-next" class="ts-save-next" onclick="submitTimesheet(true)" hidden>
+                        <span id="ts-save-next-label">Save &amp; Next Gap</span><i class="ph-bold ph-arrow-right" aria-hidden="true"></i>
+                    </button>
+                    <p id="ts-submit-hint" class="ts-save-hint" aria-live="polite"></p>
+                    <button type="button" id="ts-discard" class="ts-cancel" onclick="discardTimesheetDraft()" hidden>Discard changes</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Universal Modal Overlay with Apple Bottom Sheet (Light Frosted Backdrop) -->
         <div id="modal-overlay" aria-hidden="true" class="absolute inset-0 bg-slate-400/20 backdrop-blur-md z-50 flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-0 sm:p-4">

@@ -28,7 +28,6 @@
 const TS_WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const TS_HERO_C = 107;                                       // hero ring centre (viewBox 214)
 const TS_RING_RADIUS = 87;                                   // (214 - 40) / 2
-const TS_RING_CIRC = 2 * Math.PI * TS_RING_RADIUS;
 const TS_MAX_LAPS = 2;
 let tsBlockSeq = 0;
 
@@ -230,45 +229,70 @@ function tsPolar(cx, cy, r, lapFraction) {
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a), deg: lapFraction * 360 };
 }
 
-// A week-strip ring (static: the strip re-renders on each change). Arcs are rotated to start at 12 o'clock.
+// Ring colours (the Pay Run bars use the same pairs, in timesheets.css): an angular gradient from the start colour at 12 o'clock to the end colour at the leading tip
+// (stretched over however far the ring has run, as on the Fitness rings)
+const TS_RING_COLOURS = {
+    done: ['#32D74B', '#A8FF35'],        // a full day (and the daily ring): vibrant green -> electric lime
+    partial: ['#FF9F0A', '#FFD60A']      // a strip day with some hours but short of the target: amber -> gold
+};
+function tsHexRgb(hex) { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function tsMixColour(from, to, t) {
+    const a = tsHexRgb(from), b = tsHexRgb(to);
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+}
+// SVG has no conic gradient, so an arc is drawn as short butt-capped segments, each a step further along the
+// gradient, overlapping slightly so no seams show, with round caps as discs at both ends. Laps past one run
+// over the first from 12 o'clock. A blurred shadow disc sits under the leading tip: segments within its blur
+// are drawn after it, so the shadow only shows ahead of the tip (on the track, or on lap one in overtime).
+// o: { cx, cy, r, width, laps, colours: [from, to], step (laps per segment), shadowClass, shadowReach (laps) }
+function tsConicRing(o) {
+    const { cx, cy, r, width, laps, colours, step, shadowClass, shadowReach } = o;
+    if (laps <= 0.001) return '';
+    const at = p => tsMixColour(colours[0], colours[1], Math.min(1, p / laps));
+    const pt = p => tsPolar(cx, cy, r, p);
+    const disc = (p, fill, cls = '') => { const q = pt(p); return `<circle${cls ? ` class="${cls}"` : ''} cx="${q.x.toFixed(2)}" cy="${q.y.toFixed(2)}" r="${(width / 2).toFixed(2)}" fill="${fill}"/>`; };
+    const overlap = 0.004;
+    const segs = [];
+    for (let lapStart = 0; lapStart < laps; lapStart += 1) {
+        const lapEnd = Math.min(laps, lapStart + 1);
+        for (let a = lapStart; a < lapEnd - 1e-6; a += step) {
+            const b = Math.min(lapEnd, a + step);
+            const bb = b < laps ? Math.min(b + overlap, lapStart + 1) : b;   // overlap into the next segment
+            const p0 = pt(a), p1 = pt(bb);
+            segs.push({ end: b, svg: `<path d="M${p0.x.toFixed(2)} ${p0.y.toFixed(2)}A${r} ${r} 0 0 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}" stroke="${at((a + b) / 2)}" stroke-width="${width}"/>` });
+        }
+    }
+    const tipFrom = laps - shadowReach;
+    let out = disc(0, colours[0]);
+    let shadowDone = false;
+    segs.forEach(s => {
+        if (!shadowDone && s.end > tipFrom) { out += disc(laps, colours[1], shadowClass); shadowDone = true; }
+        out += s.svg;
+    });
+    return `<g class="ts-arc">${out}${disc(laps, colours[1])}</g>`;
+}
+
+// A week-strip ring (static: the strip re-renders on each change)
 function tsMiniRing(d, status) {
-    const r = 15.5, circ = 2 * Math.PI * r, rec = timesheetState.records[tsIso(d)];
+    const r = 15.5, rec = timesheetState.records[tsIso(d)];
     const laps = rec ? tsLaps(rec.totalHours) : 0;      // no hours, no arc: a gap shows as an amber track (CSS)
-    const lap1 = Math.min(1, laps), lap2 = Math.max(0, laps - 1);
-    let out = `<circle class="ts-day-track" cx="20" cy="20" r="${r}"/>`;
-    if (lap1 > 0) {
-        out += `<circle class="ts-day-fill" cx="20" cy="20" r="${r}" transform="rotate(-90 20 20)"
-                        stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${(circ * (1 - lap1)).toFixed(2)}"/>`;
-    }
-    if (lap2 > 0.001) {
-        const tip = tsPolar(20, 20, r, lap2);
-        out += `<circle class="ts-ring-tip ts-ring-tip--mini" cx="${tip.x.toFixed(2)}" cy="${tip.y.toFixed(2)}" r="4.25"/>
-                <circle class="ts-day-lap2" cx="20" cy="20" r="${r}" transform="rotate(-90 20 20)"
-                        stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${(circ * (1 - lap2)).toFixed(2)}"/>`;
-    }
-    return out;
+    const colours = laps >= 1 ? TS_RING_COLOURS.done : TS_RING_COLOURS.partial;
+    return `<circle class="ts-day-track" cx="20" cy="20" r="${r}"/>` +
+        tsConicRing({ cx: 20, cy: 20, r, width: 8.5, laps, colours, step: 1 / 72, shadowClass: 'ts-ring-tip ts-ring-tip--mini', shadowReach: 0.09 });
 }
 
 // Hero ring: one progress value in laps, eased with rAF so lap 1 fills and then lap 2 wraps on past
-// 12 o'clock, in order, from wherever the ring is right now
+// 12 o'clock, in order, from wherever the ring is right now. Always green -> lime.
 let tsHeroLaps = 0;
 let tsHeroAnim = 0;
 function tsDrawHeroLaps(laps) {
-    const lap1 = Math.min(1, laps), lap2 = Math.max(0, laps - 1);
-    document.getElementById('ts-hero-fill').style.strokeDashoffset = (TS_RING_CIRC * (1 - lap1)).toFixed(2);
-    document.getElementById('ts-hero-lap2').style.strokeDashoffset = (TS_RING_CIRC * (1 - lap2)).toFixed(2);
-    const tipEl = document.getElementById('ts-hero-tip');
-    if (lap2 > 0.001) {
-        const tip = tsPolar(TS_HERO_C, TS_HERO_C, TS_RING_RADIUS, lap2);
-        tipEl.setAttribute('cx', tip.x.toFixed(2));
-        tipEl.setAttribute('cy', tip.y.toFixed(2));
-        tipEl.setAttribute('opacity', '1');
-    } else {
-        tipEl.setAttribute('opacity', '0');
-    }
+    document.getElementById('ts-hero-arcs').innerHTML = tsConicRing({
+        cx: TS_HERO_C, cy: TS_HERO_C, r: TS_RING_RADIUS, width: 40, laps,
+        colours: TS_RING_COLOURS.done, step: 1 / 120, shadowClass: 'ts-ring-tip', shadowReach: 0.075
+    });
     // Direction arrow on the leading end, as on the Fitness rings
     const arrow = document.getElementById('ts-hero-arrow');
-    const lead = lap2 > 0.001 ? lap2 : lap1;
+    const lead = laps > 1 ? laps - 1 : laps;
     if (laps > 0.06) {
         const p = tsPolar(TS_HERO_C, TS_HERO_C, TS_RING_RADIUS, lead - 0.03);
         arrow.setAttribute('transform', `translate(${p.x.toFixed(2)} ${p.y.toFixed(2)}) rotate(${p.deg.toFixed(1)})`);
@@ -289,7 +313,7 @@ function tsAnimateHeroTo(target) {
     const duration = 520 + 380 * Math.min(1.5, Math.abs(delta));   // a second lap doesn't rush
     const t0 = performance.now();
     const step = now => {
-        const t = Math.min(1, (now - t0) / duration);
+        const t = Math.max(0, Math.min(1, (now - t0) / duration));   // a frame can be stamped before t0
         tsHeroLaps = from + delta * (1 - Math.pow(1 - t, 3));       // ease-out cubic
         tsDrawHeroLaps(tsHeroLaps);
         if (t < 1) tsHeroAnim = requestAnimationFrame(step);
@@ -342,20 +366,47 @@ function renderTimesheetStrip() {
                 </button>`;
         const weeks = [];
         for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
-        strip.innerHTML = weeks.map(w => `<div class="ts-week-page">${w.map(cell).join('')}</div>`).join('');
+        strip.innerHTML = `<span class="ts-strip-pill is-instant" aria-hidden="true"></span>` +
+            weeks.map(w => `<div class="ts-week-page">${w.map(cell).join('')}</div>`).join('');
     }
     const todayIso = tsIso(tsToday());
     strip.querySelectorAll('.ts-day').forEach(btn => {
         const iso = btn.dataset.iso, d = tsFromIso(iso), status = tsDayStatus(d);
         const isSel = iso === timesheetState.selected;
         const rec = timesheetState.records[iso];
-        btn.className = `ts-day is-${status}${isSel ? ' is-selected' : ''}${iso === todayIso ? ' is-today' : ''}`;
+        const partial = rec && rec.totalHours < TIMESHEET_CONFIG.targetHours;
+        btn.className = `ts-day is-${status}${partial ? ' is-partial' : ''}${isSel ? ' is-selected' : ''}${iso === todayIso ? ' is-today' : ''}`;
         btn.querySelector('.ts-day-ring').innerHTML = tsMiniRing(d, status);
         const label = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
         const statusText = rec ? `${tsFormatHours(rec.totalHours)} logged` : { missing: 'missing', today: 'today, not logged', upcoming: 'upcoming', weekend: 'weekend', none: '' }[status];
         btn.setAttribute('aria-label', `${label}${statusText ? ', ' + statusText : ''}`);
         btn.setAttribute('aria-pressed', String(isSel));
     });
+    tsPlaceStripPill();
+}
+// Layout offset of `el` within `ancestor` (offsets, so a pressed, scaled cell doesn't skew it)
+function tsOffsetWithin(el, ancestor) {
+    let x = 0, y = 0, n = el;
+    while (n && n !== ancestor) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return n === ancestor ? { x, y } : null;
+}
+// Glide the one selected-day pill to the selected day's letter. `instant` places it without motion (a
+// rebuilt strip, the screen appearing, a resize); it is instant anyway until it has been placed once.
+// While a transition runs it heads for the target day (gliding over the days between without selecting
+// them); `ms` matches its timing to the carousel's.
+function tsPlaceStripPill(instant = false, ms = 0) {
+    const strip = document.getElementById('ts-week-strip');
+    const pill = strip && strip.querySelector('.ts-strip-pill');
+    const iso = tsCarousel.isTransitioning ? tsCarousel.targetDay : timesheetState.selected;
+    const letter = strip && strip.querySelector(`.ts-day[data-iso="${iso}"] .ts-day-initial`);
+    if (!pill || !letter || !strip.clientWidth) return;
+    const at = tsOffsetWithin(letter, strip);
+    if (!at) return;
+    strip.querySelectorAll('.ts-day').forEach(c => c.classList.toggle('has-pill', c.dataset.iso === iso));
+    if (instant) pill.classList.add('is-instant');
+    pill.style.transitionDuration = ms ? ms + 'ms' : '';
+    pill.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    if (pill.classList.contains('is-instant')) { pill.getBoundingClientRect(); pill.classList.remove('is-instant'); }
 }
 // Bring a day's week into view in the strip. Scrolls only the strip (scrollIntoView would also scroll the
 // page and the clipped stage that holds every screen). The name is kept for its callers.
@@ -445,7 +496,7 @@ function renderTimesheetPayRun() {
     if (key !== tsRunKey) {
         tsRunKey = key;
         const weeks = [workdays.slice(0, 5), workdays.slice(5, 10)];
-        chart.innerHTML = `<span class="ts-run-target" aria-hidden="true"><span>8h</span></span>` + weeks.map(week => `
+        chart.innerHTML = `<span class="ts-run-target" aria-hidden="true"><span>8h</span></span><span class="ts-run-sel is-instant" aria-hidden="true"></span>` + weeks.map(week => `
             <div class="ts-run-week">
                 <div class="ts-run-bars">
                     ${week.map(d => `<button type="button" class="ts-bar" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}')"><span class="ts-bar-fill"></span></button>`).join('')}
@@ -459,11 +510,13 @@ function renderTimesheetPayRun() {
     chart.querySelectorAll('.ts-bar').forEach(bar => {
         const iso = bar.dataset.iso, d = tsFromIso(iso), status = tsDayStatus(d), rec = timesheetState.records[iso];
         const isSel = iso === timesheetState.selected;
-        bar.className = `ts-bar is-${status}${isSel ? ' is-selected' : ''}`;
+        const partial = rec && rec.totalHours < TIMESHEET_CONFIG.targetHours;
+        bar.className = `ts-bar is-${status}${partial ? ' is-partial' : ''}${isSel ? ' is-selected' : ''}`;
         bar.style.setProperty('--h', rec ? Math.max(0.06, rec.totalHours / maxHours).toFixed(3) : '0');
         bar.setAttribute('aria-label', `${tsShortDate(d)}: ${rec ? tsFormatHours(rec.totalHours) : status === 'missing' ? 'missing' : status}`);
         bar.setAttribute('aria-pressed', String(isSel));
     });
+    tsPlaceRunOutline();
     // The week holding the selected day is labelled in white
     const selMonday = tsIso(getMondayForDate(tsSelectedDate()));
     chart.querySelectorAll('.ts-run-label').forEach(l => l.classList.toggle('is-active', l.dataset.iso === selMonday));
@@ -546,6 +599,22 @@ function renderTimesheetDay() {
         document.getElementById('ts-day-total-row').hidden = true;
     }
     renderTimesheetCrew();
+}
+
+// Glide the white outline to the selected day's bar (hidden on a weekend, which has no bar)
+function tsPlaceRunOutline(instant = false) {
+    const chart = document.getElementById('ts-run-chart');
+    const sel = chart && chart.querySelector('.ts-run-sel');
+    if (!sel || !chart.clientWidth) return;
+    const bar = chart.querySelector(`.ts-bar[data-iso="${timesheetState.selected}"]`);
+    const at = bar && tsOffsetWithin(bar, chart);
+    if (!at) { sel.style.opacity = '0'; return; }
+    if (instant) sel.classList.add('is-instant');
+    sel.style.width = bar.offsetWidth + 'px';
+    sel.style.height = bar.offsetHeight + 'px';
+    sel.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    sel.style.opacity = '1';
+    if (sel.classList.contains('is-instant')) { sel.getBoundingClientRect(); sel.classList.remove('is-instant'); }
 }
 
 // ----- Floating button -----
@@ -811,18 +880,28 @@ function renderTimesheets() {
 function tsClearSubmitErrors() {
     ['ts-submit', 'ts-save-next'].forEach(id => setUiActionError(document.getElementById(id), '', ''));
 }
+// The one way the user changes day. `timesheetState.selected` is the committed day, and every view of the
+// selection (strip letter, ring, card, Pay Run outline) follows it. A change first runs a carousel transition
+// (tsStartTransition): the ring and card slide through the days in between and only once the destination has
+// landed is it committed (tsCommitDay), updating everything together. Without motion it commits at once.
 function selectTimesheetDate(iso, opts = {}) {
-    if (iso === timesheetState.selected) return;
+    const heading = tsCarousel.isTransitioning ? tsCarousel.targetDay : timesheetState.selected;
+    if (iso === heading) return;
     triggerHaptic('light');
+    if (!opts.fromStrip) tsCenterStripDay(iso);
+    if (tsCanSlideDays()) tsStartTransition(iso);
+    else { tsAbortTransition(); tsCommitDay(iso); }
+}
+// Make `iso` the selected day and render it (the ring eases on from the previous day's value)
+function tsCommitDay(iso) {
+    if (iso === timesheetState.selected) { renderTimesheetStrip(); return; }
     tsClearSubmitErrors();
     tsDropCleanDraft(timesheetState.selected);
     timesheetState.selected = iso;     // unsaved edits stay in drafts[] for when the day is reopened
     timesheetState.sitePickerOpen = false;
     timesheetState.editingIndex = -1;
     document.getElementById('ts-submitted-note').hidden = true;
-    tsRestartHeroRing();
     renderTimesheets();
-    if (!opts.fromStrip) tsCenterStripDay(iso);
 }
 // A day opened for editing but left unchanged goes back to how it was (its summary, or a fresh form)
 function tsDropCleanDraft(iso) {
@@ -876,6 +955,7 @@ function tsDraftJson(iso) {
 }
 // opts.blockIndex: open on that submitted block; opts.addBlock: append a new line to a logged day
 function openTimesheetSheet(opts = {}) {
+    tsCompleteTransition();            // the sheet is for the day being landed on
     const iso = timesheetState.selected;
     const hadDraft = tsIsDirty(iso);
     const draft = tsDraft(iso);
@@ -1132,6 +1212,7 @@ async function submitTimesheet(andNext) {
     const next = andNext ? tsNextUnlogged(iso) : null;
     if (next) {
         // Straight on to the next unlogged day, in the same sheet, with its roster site and default block
+        tsAbortTransition();
         timesheetState.selected = tsIso(next);
         tsRestartHeroRing();
         renderTimesheets();
@@ -1167,6 +1248,7 @@ function resetTimeView() {
         tsShowSheet(false, true);
     }
     Object.keys(timesheetState.drafts).forEach(tsDropCleanDraft);
+    tsAbortTransition();
     timesheetState.selected = tsIso(tsToday());
     timesheetState.crewOpen = false;
     timesheetState.sitePickerOpen = false;
@@ -1183,19 +1265,242 @@ function openTimeView() {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('view-time')) return;
-    const circ = TS_RING_CIRC.toFixed(2);
-    ['ts-hero-fill', 'ts-hero-lap2'].forEach(id => {
-        const arc = document.getElementById(id);
-        arc.setAttribute('stroke-dasharray', circ);
-        arc.style.strokeDashoffset = circ;
-    });
     const search = document.getElementById('ts-site-search');
     search.addEventListener('input', renderTimesheetSiteList);
     search.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeTimesheetSitePicker(); } });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && timesheetState.sheetOpen) closeTimesheetSheet(); });
     tsInitSheetDrag();
+    tsInitDaySwipe();
     renderTimesheets();
 });
+
+// ---------- Day carousel (Apple Fitness) ----------
+// The ring and the day card each sit in a pager (.ts-pager > .ts-pager-track). At rest a track holds only
+// its real section, which always shows the committed day. A transition lays out pages for the days between
+// the committed day and the target in date order - clones rendered with each day's own data, the real
+// section at the committed day's place - in both tracks, and slides both with one shared transform (one
+// state, one direction, one timing). The pages in between are only content: nothing is selected until the
+// target lands, when the clones go, the tracks return to rest and the target is committed in one step.
+// Every page sliding in shows an empty ring; the ring only fills once its day has landed and is committed.
+// A far jump (the Pay Run arrows) shows at most TS_SLIDE_MAX_BETWEEN days between.
+const TS_SLIDE_MAX_BETWEEN = 6;
+const TS_SLIDE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+// committed day: timesheetState.selected. run: the laid-out pages (a transition's or a drag's).
+const tsCarousel = { targetDay: null, isTransitioning: false, run: null, timer: 0 };
+function tsTracks() { return [...document.querySelectorAll('#view-time .ts-pager-track')]; }
+function tsCanSlideDays() {
+    const view = document.getElementById('view-time');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return !!view && !view.classList.contains('hidden') && view.clientWidth > 0 && !reduce;
+}
+// The pages for a run: every day from the earliest to the latest of `must` (date order), or for a far jump
+// an even sample of the days between plus every day in `must`
+function tsPageDays(must) {
+    const sorted = [...new Set(must)].sort();
+    const a = tsFromIso(sorted[0]), n = tsDayDiff(a, tsFromIso(sorted[sorted.length - 1]));
+    const steps = new Set([0, n]);
+    if (n - 1 <= TS_SLIDE_MAX_BETWEEN) for (let i = 1; i < n; i++) steps.add(i);
+    else for (let k = 1; k <= TS_SLIDE_MAX_BETWEEN; k++) steps.add(Math.round(k * n / (TS_SLIDE_MAX_BETWEEN + 1)));
+    sorted.forEach(iso => steps.add(tsDayDiff(a, tsFromIso(iso))));
+    return [...steps].sort((x, y) => x - y).map(i => tsIso(tsAddDays(a, i)));
+}
+function tsLapsFor(iso) { const rec = timesheetState.records[iso]; return rec ? tsLaps(rec.totalHours) : 0; }
+// Pages for `isos`: each track's real section rendered for that day, with an empty ring, and cloned (ids and
+// live regions stripped, inert). The committed day's sections and ring are put back afterwards (a ring still
+// filling carries on).
+function tsRenderDayPages(isos) {
+    const keep = timesheetState.selected, keepLaps = tsHeroLaps;
+    const clone = el => {
+        const c = el.cloneNode(true);
+        ['id', 'aria-live', 'aria-labelledby'].forEach(a => c.removeAttribute(a));
+        c.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+        c.setAttribute('aria-hidden', 'true');
+        c.inert = true;
+        return c;
+    };
+    const pages = {};
+    isos.forEach(iso => {
+        timesheetState.selected = iso;
+        cancelAnimationFrame(tsHeroAnim);
+        tsHeroLaps = 0;                                       // empty until it lands
+        renderTimesheetHero();                                // (starts a fill animation: stop it, draw empty)
+        cancelAnimationFrame(tsHeroAnim);
+        tsHeroLaps = 0;
+        tsDrawHeroLaps(0);
+        renderTimesheetDay();
+        pages[iso] = [clone(document.getElementById('ts-hero')), clone(document.getElementById('ts-day'))];
+    });
+    timesheetState.selected = keep;
+    renderTimesheetHero();
+    renderTimesheetDay();
+    cancelAnimationFrame(tsHeroAnim);
+    tsHeroLaps = keepLaps;
+    tsDrawHeroLaps(keepLaps);
+    tsAnimateHeroTo(tsLapsFor(keep));
+    return pages;
+}
+// Lay out a run: pages for `isos` round the real sections (at the committed day), the tracks placed at
+// page index `at` (fractional: between two pages)
+function tsLayRun(isos, at) {
+    const committed = timesheetState.selected;
+    const pages = tsRenderDayPages(isos.filter(i => i !== committed));
+    const tracks = tsTracks(), clones = [], realAt = isos.indexOf(committed);
+    tracks.forEach((track, k) => {
+        const real = track.firstElementChild;
+        isos.forEach((iso, i) => {
+            if (iso === committed) return;
+            const page = pages[iso][k];
+            clones.push(page);
+            if (i < realAt) track.insertBefore(page, real);
+            else track.appendChild(page);
+        });
+        track.style.willChange = 'transform';
+    });
+    const run = { isos, tracks, clones, stride: tracks[0] ? tracks[0].parentElement.clientWidth : 0 };
+    tsMoveRun(run, at, 0);
+    return run;
+}
+// Place a run's tracks at page index `at` (over `ms`)
+function tsMoveRun(run, at, ms) {
+    run.tracks.forEach(t => {
+        t.style.transition = ms ? `transform ${ms}ms ${TS_SLIDE_EASE}` : 'none';
+        t.style.transform = `translate3d(${(-at * run.stride).toFixed(2)}px, 0, 0)`;
+    });
+}
+// Where a run's tracks are right now, as a page index (mid-transition included)
+function tsRunPosition(run) {
+    const t = run.tracks[0];
+    if (!t || !run.stride) return 0;
+    const m = getComputedStyle(t).transform;
+    const x = m && m !== 'none' ? new DOMMatrixReadOnly(m).m41 : 0;
+    return -x / run.stride;
+}
+// Remove a run's pages and put the tracks back at rest on the real sections
+function tsClearRun() {
+    const run = tsCarousel.run;
+    clearTimeout(tsCarousel.timer);
+    tsCarousel.run = null;
+    if (!run) return;
+    run.clones.forEach(c => c.remove());
+    run.tracks.forEach(t => { t.style.transition = ''; t.style.transform = ''; t.style.willChange = ''; });
+}
+// Start (or restart) a transition to `target`. A running one is replaced by a fresh one that starts from
+// wherever the pages are now, so nothing jumps; the committed day is unchanged until the new target lands.
+function tsStartTransition(target) {
+    const committed = timesheetState.selected;
+    let fromIso = committed, frac = 0;
+    if (tsCarousel.run) {
+        const old = tsCarousel.run, p = tsRunPosition(old);
+        const i = Math.max(0, Math.min(old.isos.length - 1, Math.round(p)));
+        fromIso = old.isos[i]; frac = p - i;
+    }
+    tsClearRun();
+    const isos = tsPageDays([committed, fromIso, target]);
+    const run = tsLayRun(isos, isos.indexOf(fromIso) + frac);
+    tsCarousel.run = run;
+    tsCarousel.targetDay = target;
+    tsCarousel.isTransitioning = true;
+    const to = isos.indexOf(target), dist = Math.abs(to - (isos.indexOf(fromIso) + frac));
+    const ms = Math.round(dist < 1 ? Math.max(200, 320 * dist + 60) : Math.min(440, 320 + 30 * (dist - 1)));
+    run.tracks[0] && run.tracks[0].getBoundingClientRect();           // commit the start position
+    tsMoveRun(run, to, ms);
+    tsPlaceStripPill(false, ms);                                        // heads for the target, selects nothing
+    tsCarousel.timer = setTimeout(tsLand, ms + 20);
+}
+// The target has landed: back to rest and commit it, all in one frame
+function tsLand() {
+    if (!tsCarousel.isTransitioning) return;
+    const target = tsCarousel.targetDay;
+    tsClearRun();
+    tsCarousel.isTransitioning = false;
+    tsCarousel.targetDay = null;
+    if (target !== timesheetState.selected) tsRestartHeroRing();   // as its page was: empty, then it fills
+    tsCommitDay(target);
+}
+// Land a running transition now (the sheet opening, a drag grabbing the pages)
+function tsCompleteTransition() { if (tsCarousel.isTransitioning) tsLand(); }
+// Drop a running transition or drag without committing (the day is being set directly)
+function tsAbortTransition() {
+    tsClearRun();
+    tsCarousel.isTransitioning = false;
+    tsCarousel.targetDay = null;
+}
+
+// Swipe the ring or the day card to page a day back / forward. The neighbouring days' pages ride along with
+// the finger (nothing is selected while dragging); a flick or a drag past a third of the width starts the
+// transition from exactly where the finger let go, anything less springs back. Pointer events, so touch, pen
+// and mouse all work; the pagers are touch-action: pan-y, so vertical scrolling stays native. Not from the
+// left edge (the shell's back gesture) or while the sheet is open. Grabbing a sliding carousel lands it.
+function tsInitDaySwipe() {
+    const pagers = [...document.querySelectorAll('#view-time .ts-pager')];
+    if (!pagers.length) return;
+    const range = () => { const days = tsStripRange(); return { first: tsIso(days[0]), last: tsIso(days[days.length - 1]) }; };
+    let drag = null, suppressClick = false;
+
+    const begin = (e, pager) => {
+        if (drag || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        if (timesheetState.sheetOpen || (e.pointerType === 'touch' && e.clientX <= 30)) return;
+        drag = { pager, id: e.pointerId, x0: e.clientX, y0: e.clientY, lastX: e.clientX, lastT: performance.now(), v: 0, dx: 0, state: 'pending' };
+    };
+    const move = e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const mx = e.clientX - drag.x0, my = e.clientY - drag.y0;
+        if (drag.state === 'pending') {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            if (Math.abs(mx) <= Math.abs(my) * 1.2 || !tsCanSlideDays()) { drag = null; return; }   // vertical
+            drag.state = 'dragging';
+            drag.x0 = e.clientX;                                                  // no jump at the lock point
+            try { drag.pager.setPointerCapture(e.pointerId); } catch (_) {}
+            drag.pager.classList.add('is-dragging');
+            tsCompleteTransition();
+            tsClearRun();
+            const sel = timesheetState.selected, r = range(), d = tsFromIso(sel);
+            const prev = tsIso(tsAddDays(d, -1)), next = tsIso(tsAddDays(d, 1));
+            drag.isos = [...(prev >= r.first ? [prev] : []), sel, ...(next <= r.last ? [next] : [])];
+            drag.run = tsCarousel.run = tsLayRun(drag.isos, drag.isos.indexOf(sel));
+        }
+        if (e.cancelable) e.preventDefault();
+        const now = performance.now();
+        drag.v = (e.clientX - drag.lastX) / Math.max(1, now - drag.lastT);
+        drag.lastX = e.clientX; drag.lastT = now;
+        const raw = e.clientX - drag.x0, i = drag.isos.indexOf(timesheetState.selected);
+        const atEnd = (raw > 0 && i === 0) || (raw < 0 && i === drag.isos.length - 1);
+        drag.dx = atEnd ? Math.sign(raw) * Math.sqrt(Math.abs(raw)) * 3 : raw;   // rubber-band past the ends
+        tsMoveRun(drag.run, i - drag.dx / drag.run.stride, 0);
+    };
+    const end = e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const g = drag; drag = null;
+        g.pager.classList.remove('is-dragging');
+        if (g.state !== 'dragging') return;
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 350);
+        if (tsCarousel.run !== g.run) return;                                     // ended elsewhere already
+        const w = g.run.stride, dir = g.dx < 0 ? 1 : -1;                          // swipe left = next day
+        const i = g.isos.indexOf(timesheetState.selected), target = g.isos[i + dir];
+        const commit = !!target && e.type !== 'pointercancel' &&
+            (Math.abs(g.dx) > w / 3 || (Math.abs(g.dx) > 30 && Math.abs(g.v) > 0.35 && Math.sign(g.v) === -dir));
+        if (commit) selectTimesheetDate(target, { fromStrip: false });      // carries on from the drag's spot
+        else {
+            tsMoveRun(g.run, i, 260);
+            tsCarousel.timer = setTimeout(tsClearRun, 290);
+        }
+    };
+    pagers.forEach(pager => {
+        pager.addEventListener('pointerdown', e => begin(e, pager));
+        pager.addEventListener('pointermove', move, { passive: false });
+        pager.addEventListener('pointerup', end);
+        pager.addEventListener('pointercancel', end);
+        // A swipe that ended over a button (a block row, the crew link) isn't a tap on it
+        pager.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+    });
+    // The strip pill and Pay Run outline are placed by layout: re-place them (without motion) when the
+    // screen appears or its width changes
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => { tsPlaceStripPill(true); tsPlaceRunOutline(true); });
+        ['ts-week-strip', 'ts-run-chart'].forEach(id => { const el = document.getElementById(id); if (el) ro.observe(el); });
+    }
+}
 
 // Drag the sheet down by its handle / header to dismiss it (follows the finger; a flick or a long drag
 // closes, anything else springs back)

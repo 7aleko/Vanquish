@@ -901,15 +901,16 @@
             <div id="ts-week-strip" class="ts-week-strip" role="group" aria-label="Choose a day this week"></div>
 
             <!-- Daily progress: net hours against the 8h day -->
+            <!-- The ring and the day card are each a pager: a row of day pages that slides as one carousel
+                 (timesheets.js, tsStartTransition). At rest it holds only the real section. -->
+            <div class="ts-pager" data-pager="hero"><div class="ts-pager-track">
             <section id="ts-hero" class="ts-hero" aria-live="polite">
                 <div class="ts-hero-ring">
-                    <!-- Activity ring (Apple Fitness): thick tinted track, first lap, then an overtime lap over it
-                         led by a shadowed tip; the arrow rides the leading end -->
+                    <!-- Activity ring (Apple Fitness): thick tinted track, then the green -> lime arc (drawn by
+                         tsConicRing: lap one, any overtime lap over it, a shadowed tip); the arrow rides the leading end -->
                     <svg viewBox="0 0 214 214" aria-hidden="true">
                         <circle class="ts-hero-track" cx="107" cy="107" r="87"/>
-                        <circle id="ts-hero-fill" class="ts-hero-fill" cx="107" cy="107" r="87" transform="rotate(-90 107 107)"/>
-                        <circle id="ts-hero-tip" class="ts-ring-tip" cx="107" cy="20" r="20" opacity="0"/>
-                        <circle id="ts-hero-lap2" class="ts-hero-lap2" cx="107" cy="107" r="87" transform="rotate(-90 107 107)"/>
+                        <g id="ts-hero-arcs"></g>
                         <path id="ts-hero-arrow" class="ts-hero-arrow" d="M-7 0 H6 M0 -6 L6 0 L0 6" opacity="0"/>
                     </svg>
                     <div class="ts-hero-centre">
@@ -919,6 +920,7 @@
                     </div>
                 </div>
             </section>
+            </div></div>
 
             <!-- Pay run: the fortnight at a glance (10 workday bars against the 8h target) -->
             <section class="ts-card ts-run" aria-label="Pay run">
@@ -938,6 +940,7 @@
             </section>
 
             <!-- The selected day: site, status and its submitted cost-coded blocks (tap one to edit) -->
+            <div class="ts-pager" data-pager="day"><div class="ts-pager-track">
             <section id="ts-day" class="ts-card ts-day-card" aria-labelledby="ts-day-date">
                 <div class="ts-day-head">
                     <div class="ts-day-id">
@@ -978,6 +981,7 @@
                     </div>
                 </div>
             </section>
+            </div></div>
 
             <!-- Primary action: floats at the bottom of the screen (sticky, so it travels with the page) -->
             <div class="ts-cta-wrap">

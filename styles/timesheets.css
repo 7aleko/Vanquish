@@ -7,9 +7,9 @@
 #view-time,
 .ts-sheet-overlay {
     --ts-lime: #A3E635;
-    --ts-ring: #A3E635;              /* rings: first lap (the 8h day) */
-    --ts-ring-ot: #BEF264;           /* rings: the overtime lap over it */
-    --ts-ring-track: rgba(163, 230, 53, 0.16);
+    --ts-ring-ot: #BEF264;           /* the overtime pill's ink (ring arc colours live in TS_RING_COLOURS) */
+    --ts-ring-track: rgba(50, 215, 75, 0.17);
+    --ts-ring-track-partial: rgba(255, 159, 10, 0.17);
     --ts-amber: #FBBF24;
     --ts-emerald: #34D399;
     --ts-card: #111216;
@@ -29,6 +29,14 @@
 #view-time:not(.hidden) { display: flex; flex-direction: column; }
 #view-time > * { flex-shrink: 0; }
 #view-time > * + * { margin-top: 12px; }
+/* Day pagers (timesheets.js, tsStartTransition): full-bleed so pages slide in from the screen edges; each page is
+   the content width and the 32px gap (two gutters) keeps a neighbour from peeking in at rest. Clipped
+   sideways only, so nothing vertical (shadows, the ring's tip) is cut. pan-y: the browser keeps vertical
+   scrolling and hands horizontal drags to the swipe. */
+.ts-pager { margin-left: -16px; margin-right: -16px; overflow-x: clip; overflow-y: visible; touch-action: pan-y; }
+.ts-pager-track { display: flex; align-items: flex-start; gap: 32px; padding: 0 16px; }
+.ts-pager-track > * { flex: 0 0 100%; min-width: 0; }
+.ts-pager.is-dragging { user-select: none; -webkit-user-select: none; }
 #view-time [hidden],
 .ts-sheet-overlay [hidden] { display: none !important; }
 
@@ -69,42 +77,77 @@
     scrollbar-width: none;
 }
 .ts-week-strip::-webkit-scrollbar { display: none; }
+.ts-week-strip { position: relative; }      /* the pill is placed in the strip's scrolling content */
+/* The selected day's pill: one element that glides from day to day (timesheets.js, tsPlaceStripPill) */
+.ts-strip-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    background: #8E8E93;
+    pointer-events: none;
+    transition: transform 420ms cubic-bezier(0.3, 1.2, 0.5, 1);   /* a spring with a whisper of overshoot */
+}
+.ts-strip-pill.is-instant { transition: none; }
 .ts-week-page {
     flex: 0 0 100%;
     display: flex;
-    gap: 8px;
+    gap: 2px;
     scroll-snap-align: start;
     scroll-snap-stop: always;
 }
+/* Letter, ring, date: no box around the column; the selected day is the round pill on its letter */
 .ts-day {
     flex: 1 1 0;                               /* seven equal cells across the week */
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 6px 0;                            /* py-1.5; the side padding is the cell's own width */
+    gap: 6px;
+    padding: 2px 0 4px;
     min-width: 0;
     min-height: 44px;
-    background: transparent;
-    border: 1px solid transparent;            /* the pill's border, so selecting never shifts the layout */
-    border-radius: 16px;
+    background: none;
+    border: 0;
     color: #fff;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: scale var(--dur-press) var(--ease-out), background-color 180ms ease, border-color 180ms ease;
+    transition: scale var(--dur-press) var(--ease-out);
 }
 .ts-day:active { scale: 0.92; }
-.ts-day:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; }
-.ts-day.is-selected { background: rgba(255, 255, 255, 0.10); border-color: rgba(255, 255, 255, 0.25); }
-.ts-day-initial { font-size: 11px; font-weight: 600; line-height: 1; color: var(--ts-muted); }
+.ts-day:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 0; border-radius: 12px; }
+.ts-day-initial {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ts-muted);
+    position: relative;
+    z-index: 1;                                /* over the gliding pill */
+    transition: color 160ms ease;
+}
 .ts-day.is-today .ts-day-initial { color: var(--ts-lime); }
 .ts-day.is-selected .ts-day-initial { color: #fff; }
-.ts-day-num { font-size: 11px; font-weight: 500; line-height: 1; color: rgba(255, 255, 255, 0.6); }
-.ts-day.is-selected .ts-day-num { color: #fff; font-weight: 600; }
-.ts-day.is-today .ts-day-num { color: var(--ts-lime); }
-.ts-day-ring { width: 30px; height: 30px; overflow: visible; }
+.ts-day.has-pill .ts-day-initial { color: #fff; }       /* legible on the pill while it glides in */
+.ts-day-num {
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ts-muted);
+}
+.ts-day.is-selected .ts-day-num { color: #fff; }
+.ts-day-ring { width: 42px; height: 42px; overflow: visible; }
 .ts-day-track { fill: none; stroke: var(--ts-ring-track); stroke-width: 8.5; }
-.ts-day-fill { fill: none; stroke: var(--ts-ring); stroke-width: 8.5; stroke-linecap: round; }
+/* Arcs: segments of an angular gradient, coloured in timesheets.js (tsConicRing) */
+.ts-arc path { fill: none; stroke-linecap: butt; }
 /* A gap (past workday, nothing logged): an amber ring, no progress arc */
 .ts-day.is-missing .ts-day-track { stroke: #F59E0B; opacity: 0.85; }
 .ts-day.is-upcoming .ts-day-track,
@@ -112,18 +155,16 @@
 .ts-day.is-today .ts-day-track,
 .ts-day.is-none .ts-day-track { stroke: rgba(255, 255, 255, 0.09); }
 .ts-day.is-logged .ts-day-track { stroke: var(--ts-ring-track); }
-.ts-day-lap2 { fill: none; stroke: var(--ts-ring-ot); stroke-width: 8.5; stroke-linecap: round; }
+.ts-day.is-logged.is-partial .ts-day-track { stroke: var(--ts-ring-track-partial); }
 
 /* ---------- Daily ring ---------- */
 .ts-hero { display: flex; justify-content: center; padding: 0; }
 .ts-hero-ring { position: relative; width: 196px; height: 196px; }
 .ts-hero-ring svg { width: 100%; height: 100%; overflow: visible; }
 .ts-hero-track { fill: none; stroke: var(--ts-ring-track); stroke-width: 40; }
-.ts-hero-fill { fill: none; stroke: var(--ts-ring); stroke-width: 40; stroke-linecap: round; }
-.ts-hero-lap2 { fill: none; stroke: var(--ts-ring-ot); stroke-width: 40; stroke-linecap: round; }
-/* Overtime: the tip sits under the second lap's round end cap with a dark blur, so the shadow only shows
-   ahead of the tip, where it falls on the first lap (as on the Fitness rings) */
-.ts-ring-tip { fill: var(--ts-ring-ot); filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.6)); }
+/* The leading tip's shadow: a blurred disc under the tip's round cap, so it only shows ahead of the tip, on the
+   track or (in overtime) on the first lap, as on the Fitness rings */
+.ts-ring-tip { filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.5)); }
 .ts-ring-tip--mini { filter: drop-shadow(0 0 1.6px rgba(0, 0, 0, 0.9)); }
 .ts-hero-arrow {
     fill: none;
@@ -291,7 +332,10 @@
     background: var(--ts-lime);
     transition: height 500ms var(--ease-out);
 }
-.ts-bar.is-logged .ts-bar-fill { background: linear-gradient(180deg, #BEF264 0%, #84CC16 100%); }
+/* Same colours as the rings (TS_RING_COLOURS in timesheets.js): the ring's start colour at the base rising to
+   its tip colour at the top; a full day green -> lime, a short day amber -> gold */
+.ts-bar.is-logged .ts-bar-fill { background: linear-gradient(0deg, #32D74B 0%, #A8FF35 100%); }
+.ts-bar.is-logged.is-partial .ts-bar-fill { background: linear-gradient(0deg, #FF9F0A 0%, #FFD60A 100%); }
 /* Missed: a dashed amber baseline marker that can't be mistaken for a short logged day */
 .ts-bar.is-missing .ts-bar-fill {
     height: 18%;
@@ -299,7 +343,18 @@
     border: 1.5px dashed var(--ts-amber);
 }
 .ts-bar.is-upcoming, .ts-bar.is-none, .ts-bar.is-weekend, .ts-bar.is-today { background: rgba(255, 255, 255, 0.035); }
-.ts-bar.is-selected { box-shadow: 0 0 0 1.5px #fff; background-color: rgba(255, 255, 255, 0.1); }
+.ts-bar.is-selected { background-color: rgba(255, 255, 255, 0.1); }
+/* The selected bar's white outline: one element that glides from bar to bar (tsPlaceRunOutline) */
+.ts-run-sel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 7px;
+    box-shadow: 0 0 0 1.5px #fff;
+    pointer-events: none;
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+}
+.ts-run-sel.is-instant { transition: none; }
 
 /* ---------- Day card: the selected day's work record ---------- */
 .ts-day-card { padding: 14px; }
@@ -923,7 +978,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ts-bar-fill, .ts-drawer, .ts-run-target { transition-duration: 0.01ms; }
+    .ts-bar-fill, .ts-drawer, .ts-run-target, .ts-strip-pill, .ts-run-sel { transition-duration: 0.01ms; }
     .ts-sheet { transition: opacity 200ms ease; transform: none; opacity: 0; }
     .ts-sheet-overlay.is-open .ts-sheet { opacity: 1; }
     .ts-block.is-new { animation: none; }

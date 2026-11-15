@@ -89,6 +89,11 @@ function createAssistantOrb(canvas, options = {}) {
     // canvas must be sized to the sphere (93% of the old box) and be border-radius: 50%. Plain
     // border-radius, not clip-path: a clip-path on a WebGL canvas was costly on iOS under the sheet's blur.
     const crispEdge = !!options.crispEdge;
+    // observe: false skips the on-screen check (a detached source canvas is never "on screen"; its owner
+    // pauses it instead). onFrame(canvas) runs right after each frame is drawn, while the drawing buffer is
+    // still readable, so the frame can be copied (the Poppy avatars below).
+    const observe = options.observe !== false;
+    const onFrame = typeof options.onFrame === 'function' ? options.onFrame : null;
     const FPS = options.fps ?? 30;
     const STATE_SPEED = { idle: 1.0, listening: 1.5, thinking: 2.1 };
 
@@ -250,7 +255,7 @@ function createAssistantOrb(canvas, options = {}) {
 
     // Backing store: min(CSS px x DPR, maxBuffer)
     function sizeCanvas() {
-        const css = canvas.clientWidth || 26;
+        const css = canvas.clientWidth || options.cssSize || 26;
         const px = Math.max(1, Math.min(Math.round(css * (window.devicePixelRatio || 1)), maxBuffer));
         if (canvas.width !== px || canvas.height !== px) {
             canvas.width = canvas.height = px;
@@ -280,6 +285,7 @@ function createAssistantOrb(canvas, options = {}) {
         gl.uniform1f(u.t, clock.phase);
         gl.uniform1f(u.state, config.state === 'thinking' ? 2.0 : (config.state === 'listening' ? 1.0 : 0.0));
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+        if (onFrame) onFrame(canvas);
     }
 
     function frame(now) {
@@ -307,7 +313,7 @@ function createAssistantOrb(canvas, options = {}) {
     }
     function halt() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
 
-    const io = ('IntersectionObserver' in window)
+    const io = (observe && 'IntersectionObserver' in window)
         ? new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; onScreen ? resume() : halt(); })
         : null;
     if (io) io.observe(canvas);
@@ -328,6 +334,7 @@ function createAssistantOrb(canvas, options = {}) {
         canvas,
         isLost: () => isLost,
         setState: (newState) => { config.state = newState; resume(); },
+        drawNow: () => { if (!isDestroyed) draw(); },
         setSpeed: (val) => { config.speed = val; },
         setScale: (val) => { config.scale = val; uploadStyle(); },
         setWhiteIntensity: (val) => { config.whiteIntensity = val; uploadStyle(); },
@@ -366,6 +373,7 @@ function setPoppyOrbState(newState) {
     _poppyOrbState = newState;
     if (dockOrbInstance) dockOrbInstance.setState(newState);
     if (modalOrbInstance) modalOrbInstance.setState(newState);
+    if (poppyAvatars.orb) poppyAvatars.orb.setState(newState);
 
     const ping = document.getElementById('poppy-status-ping');
     const dot = document.getElementById('poppy-status-dot');
@@ -440,4 +448,78 @@ function handlePoppyOrbClick(e) {
         setPoppyOrbState('listening');
         openPoppyBotChat();
     }
+}
+
+// ---------- Poppy avatars ----------
+// Poppy's profile picture wherever people's avatars appear (chat list, new-conversation sheet): the real orb,
+// small. One hidden orb (one WebGL context, whatever the number of avatars) renders off-screen and each frame
+// is copied into every visible avatar canvas (2D). It only runs while an avatar is on screen and not hidden
+// behind a sheet. Markup: renderPoppyAvatar() (scripts/components/role-avatar.js); after inserting it, call
+// mountPoppyAvatars(container).
+const poppyAvatars = { orb: null, canvases: new Set(), visible: new Set(), io: null };
+const POPPY_AVATAR_BUFFER = 128;
+function poppyAvatarShown(c) {
+    if (!c.isConnected) return false;
+    const covered = document.documentElement.classList.contains('sheet-covers-page');
+    return !covered || !!c.closest('#modal-content');
+}
+function poppyAvatarPrune() {
+    poppyAvatars.canvases.forEach(c => {
+        if (c.isConnected) return;
+        poppyAvatars.canvases.delete(c);
+        poppyAvatars.visible.delete(c);
+        if (poppyAvatars.io) poppyAvatars.io.unobserve(c);
+    });
+}
+function poppyAvatarPaint(src) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    poppyAvatars.visible.forEach(c => {
+        if (!poppyAvatarShown(c)) return;
+        const px = Math.max(1, Math.round((c.clientWidth || 44) * dpr));
+        if (c.width !== px || c.height !== px) { c.width = c.height = px; }
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, px, px);
+        ctx.drawImage(src, 0, 0, px, px);
+    });
+}
+// Run the hidden orb only while some avatar is visible
+function syncPoppyAvatars() {
+    poppyAvatarPrune();
+    const active = [...poppyAvatars.visible].some(poppyAvatarShown);
+    if (poppyAvatars.orb && poppyAvatars.orb.isLost()) {
+        try { poppyAvatars.orb.destroy(); } catch (_) {}
+        poppyAvatars.orb = null;
+    }
+    if (active && !poppyAvatars.orb && typeof createAssistantOrb === 'function') {
+        const src = document.createElement('canvas');
+        src.width = src.height = POPPY_AVATAR_BUFFER;
+        poppyAvatars.orb = createAssistantOrb(src, {
+            ...POPPY_ORB_LOOK,
+            state: _poppyOrbState,
+            observe: false,
+            cssSize: POPPY_AVATAR_BUFFER,
+            maxBuffer: POPPY_AVATAR_BUFFER,
+            onFrame: poppyAvatarPaint
+        });
+    }
+    if (poppyAvatars.orb) {
+        poppyAvatars.orb.setPaused(!active);
+        if (active) poppyAvatars.orb.drawNow();          // new avatars get a frame at once (and when held still)
+    }
+}
+function mountPoppyAvatars(root = document) {
+    if (!root || !root.querySelectorAll) return;
+    if (!poppyAvatars.io && 'IntersectionObserver' in window) {
+        poppyAvatars.io = new IntersectionObserver(entries => {
+            entries.forEach(e => (e.isIntersecting ? poppyAvatars.visible.add(e.target) : poppyAvatars.visible.delete(e.target)));
+            syncPoppyAvatars();
+        });
+    }
+    root.querySelectorAll('canvas.poppy-avatar-canvas').forEach(c => {
+        if (poppyAvatars.canvases.has(c)) return;
+        poppyAvatars.canvases.add(c);
+        if (poppyAvatars.io) poppyAvatars.io.observe(c);
+        else poppyAvatars.visible.add(c);
+    });
+    syncPoppyAvatars();
 }

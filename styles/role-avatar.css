@@ -1,5 +1,7 @@
-/* Role avatars (scripts/components/role-avatar.js): small dark-glass orbs lit from below in the role's
-   colour, with a top specular highlight and white initials. Circular; one component in three sizes. */
+/* Avatars (scripts/components/role-avatar.js): the one stylesheet for every profile picture in the app.
+   People: small dark-glass orbs lit from below in the role's colour, with a top specular highlight and white
+   initials. Poppy: her live orb. Channels and sites: an icon in the same circle. Every kind uses the same
+   sizes and the same presence dot. */
 
 .role-avatar {
     display: inline-flex;
@@ -23,17 +25,55 @@
 }
 
 /* Team directory */
-.role-avatar--lg { width: 44px; height: 44px; font-size: 14px; }
+.role-avatar--lg { width: 44px; height: 44px; font-size: 14px; --avatar-icon: 20px; }
 /* Home site card crew stack */
-.role-avatar--md { width: 30px; height: 30px; font-size: 11px; letter-spacing: -0.02em; }
+.role-avatar--md { width: 30px; height: 30px; font-size: 11px; letter-spacing: -0.02em; --avatar-icon: 14px; }
 /* Roster crew pills */
-.role-avatar--sm { width: 24px; height: 24px; font-size: 10.5px; letter-spacing: 0; }
+.role-avatar--sm { width: 24px; height: 24px; font-size: 10.5px; letter-spacing: 0; --avatar-icon: 12px; }
 /* Top-bar account button */
-.role-avatar--top { width: 34px; height: 34px; font-size: 12.5px; letter-spacing: -0.01em; }
+.role-avatar--top { width: 34px; height: 34px; font-size: 12.5px; letter-spacing: -0.01em; --avatar-icon: 16px; }
+/* Conversation header */
+.role-avatar--head { width: 36px; height: 36px; font-size: 13px; letter-spacing: -0.01em; --avatar-icon: 17px; }
+/* Beside a message in a conversation */
+.role-avatar--msg { width: 28px; height: 28px; font-size: 10.5px; letter-spacing: 0; --avatar-icon: 13px; }
 /* Account sheet identity */
-.role-avatar--xl { width: 76px; height: 76px; font-size: 26px; letter-spacing: -0.02em; }
+.role-avatar--xl { width: 76px; height: 76px; font-size: 26px; letter-spacing: -0.02em; --avatar-icon: 32px; }
 /* Account sheet: Personal Details page header */
-.role-avatar--page { width: 64px; height: 64px; font-size: 22px; letter-spacing: -0.02em; }
+.role-avatar--page { width: 64px; height: 64px; font-size: 22px; letter-spacing: -0.02em; --avatar-icon: 28px; }
 /* A chosen profile photo takes the avatar's place, same circle */
 .role-avatar--photo { overflow: hidden; background: #18181b; }
 .role-avatar--photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Poppy: her orb fills the circle (copied in each frame by mountPoppyAvatars, siri-orb.js) */
+.role-avatar--poppy {
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 60%, #0b2a24 0%, #050708 70%);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), 0 0 12px rgba(94, 230, 168, 0.35);
+}
+.role-avatar--poppy canvas { width: 100%; height: 100%; display: block; border-radius: inherit; }
+
+/* Channels and sites: a muted icon on graphite glass (lime stays for active / primary), in a squircle -
+   groups are squircles, people are circles. 27% = 12px at the 44px list size, in proportion at others. */
+.role-avatar--icon {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #C7CDD6;
+}
+.role-avatar--squircle { border-radius: 27%; }
+.role-avatar--icon i { font-size: var(--avatar-icon, 18px); line-height: 1; }   /* per size, above */
+
+/* Status dot, lower right, ringed in the page colour so it reads on any background. Poppy everywhere; a
+   person only in their conversation header ("Active now"), never in lists. */
+.role-avatar-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.role-avatar-status {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 13px;
+    height: 13px;
+    border-radius: 9999px;
+    border: 2px solid var(--avatar-ring, #0b0c0f);
+    background: #64748B;
+}
+.role-avatar-status.is-online { background: #22C55E; }
+.role-avatar-status.is-ai { background: #A3E635; }

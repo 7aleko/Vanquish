@@ -12,7 +12,7 @@ const TOP_BAR_BACK_LABELS = {
     'sitehub': 'Site',
     'notifications': 'Activity',
     'week': 'My Week',
-    'chat': 'Messages',
+    'chat': 'Chat',
     'team': 'Team',
     'tools': 'Tools',
     'time': 'Time'
@@ -58,7 +58,11 @@ function syncTopBarMode() {
         const large = document.querySelector(`#view-${view} [data-large-title]`);
         // A screen without a large title names itself in the bar (data-bar-title), shown at all times
         const fixedTitle = viewEl && viewEl.dataset.barTitle;
-        document.getElementById('nav-inline-title').textContent = fixedTitle || (large ? large.textContent.trim() : '');
+        // ...or puts richer content there (a conversation's avatar and name) in a <template data-bar-title-html>
+        const titleHtml = viewEl && viewEl.querySelector(':scope > template[data-bar-title-html]');
+        const titleEl = document.getElementById('nav-inline-title');
+        if (titleHtml) titleEl.innerHTML = titleHtml.innerHTML;
+        else titleEl.textContent = fixedTitle || (large ? large.textContent.trim() : '');
 
         bar.querySelectorAll('#nav-actions .nav-actions-group').forEach(g => {
             g.hidden = g.dataset.view !== view;
@@ -67,6 +71,7 @@ function syncTopBarMode() {
         if (view === 'time' && typeof tsFitBarTitle === 'function') tsFitBarTitle(tsSelectedDate());
     }
     topBarView = mode === 'nav' ? view : null;
+    bar.dataset.view = view;               // per-screen bar layouts (e.g. the conversation's left-aligned contact)
 
     updateTopBarInlineTitle();
 }

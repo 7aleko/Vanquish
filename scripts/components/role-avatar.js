@@ -9,6 +9,11 @@
  *   getPersonRole(name)         the person's role from the employees (getEmployeeByName, scripts/application/selectors.js)
  *   sortCrewBySeniority(names)  new array, most senior first; stable within a role; input untouched
  *   renderRoleAvatar(person, size)  HTML for one avatar; sizes in styles/role-avatar.css
+ *   renderPoppyAvatar(size)         Poppy's avatar: her live orb (call mountPoppyAvatars(container) after inserting)
+ *   renderIconAvatar(icon, size)    a channel / site avatar: a Phosphor icon in the same circle
+ *   withAvatarStatus(html, status)  adds a status dot ('online' | 'ai') - Poppy; a person only in their chat header
+ *
+ * Every profile picture in the app comes from these, styled only by styles/role-avatar.css.
  */
 
 // Dark-glass orbs lit from below: obsidian at the top, the role's colour glowing up from the bottom
@@ -70,7 +75,8 @@ const roleAvatarEscape = (s) => String(s).replace(/[&<>"']/g, c => ROLE_AVATAR_E
 
 /**
  * person: a name string, or { name, role?, initials? } (role/initials default to the directory's)
- * size:   'lg' 44px (Team) | 'md' 24px (Home stack) | 'sm' 20px (Roster pills)
+ * size:   'lg' 44px (Team, Chat) | 'head' 36px (conversation header) | 'msg' 28px (beside messages) | 'md' 30px (Home stack, crew logs) | 'sm' 24px (Roster pills) | 'top' 34px |
+ *         'page' 64px | 'xl' 76px (Account sheet, Team profile)
  */
 function renderRoleAvatar(person, size = 'lg', extraClass = '') {
     const p = (typeof person === 'string') ? { name: person } : (person || {});
@@ -78,4 +84,20 @@ function renderRoleAvatar(person, size = 'lg', extraClass = '') {
     const initials = p.initials || getPersonInitials(p.name);
     const category = getRoleCategory(role);
     return `<span class="role-avatar role-avatar--${size} ${extraClass}" data-role="${category}" style="--role-gradient: ${ROLE_CATEGORIES[category].gradient}" aria-hidden="true"><span class="role-avatar-initials">${roleAvatarEscape(initials)}</span></span>`;
+}
+
+// Poppy (the AI assistant): her orb, drawn into the canvas by mountPoppyAvatars (scripts/components/siri-orb.js)
+function renderPoppyAvatar(size = 'lg', extraClass = '') {
+    return `<span class="role-avatar role-avatar--${size} role-avatar--poppy ${extraClass}" aria-hidden="true"><canvas class="poppy-avatar-canvas"></canvas></span>`;
+}
+
+// A channel or site: a Phosphor Fill icon (e.g. 'ph-house', 'ph-hard-hat') in a squircle the same size as a
+// person's circle - groups are squircles, people are circles
+function renderIconAvatar(icon, size = 'lg', extraClass = '') {
+    return `<span class="role-avatar role-avatar--${size} role-avatar--icon role-avatar--squircle ${extraClass}" aria-hidden="true"><i class="ph-fill ${roleAvatarEscape(icon)}"></i></span>`;
+}
+
+// An avatar with a status dot at its lower right (Poppy; a person only in their conversation header)
+function withAvatarStatus(avatarHtml, status = 'online') {
+    return `<span class="role-avatar-wrap">${avatarHtml}<span class="role-avatar-status is-${status}" aria-hidden="true"></span></span>`;
 }

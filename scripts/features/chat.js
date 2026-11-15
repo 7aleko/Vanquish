@@ -15,14 +15,7 @@ function getLifestyleUnreadCount() {
 function updateLifestyleBadges() {
     const totalUnread = getLifestyleUnreadCount();
 
-    // 1. Filter pill badge
-    const chipBadge = document.getElementById('lifestyle-unread-count-chip');
-    if (chipBadge) {
-        chipBadge.textContent = totalUnread;
-        chipBadge.style.display = totalUnread > 0 ? 'inline-flex' : 'none';
-    }
-
-    // 2. Home Quick Actions chat tile badge
+    // Home Quick Actions chat tile badge
     const navBadge = document.getElementById('chat-badge-count');
     if (navBadge) {
         if (totalUnread > 0) {
@@ -34,168 +27,128 @@ function updateLifestyleBadges() {
     }
 }
 
-function getLifestyleChatAvatar(chat) {
-    if (chat.id === 'chat-poppy' || chat.avatarType === 'ai') {
-        return `
-                    <div class="relative shrink-0">
-                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-lime via-emerald-400 to-teal-300 text-slate-950 font-black text-base flex items-center justify-center shadow-md shadow-brand-lime/25 group-hover:scale-105 transition-transform duration-300">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        </div>
-                        <span class="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
-                            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-brand-lime border-2 border-white"></span>
-                        </span>
-                    </div>
-                `;
-    }
-    if (chat.id === 'chat-company' || chat.avatarType === 'company') {
-        return `
-                    <div class="relative shrink-0">
-                        <div class="w-12 h-12 rounded-2xl bg-slate-900 text-[#AEB6C2] font-black text-base flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                            <i class="fa-solid fa-house"></i>
-                        </div>
-                        <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                    </div>
-                `;
-    }
-    if (chat.isSite || chat.avatarType === 'site' || (chat.name && chat.name.includes('Site'))) {
-        return `
-                    <div class="relative shrink-0">
-                        <div class="w-12 h-12 rounded-2xl bg-slate-900 text-[#AEB6C2] font-black text-base flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                            <i class="fa-solid fa-helmet-safety"></i>
-                        </div>
-                        <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                    </div>
-                `;
-    }
-    // Direct message team members — exactly matches the Team Page:
-    return `
-                <div class="relative shrink-0">
-                    <div class="w-12 h-12 rounded-2xl bg-slate-900 text-brand-lime font-black text-sm flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                        ${chat.avatarFallback || 'LB'}
-                    </div>
-                    <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ${chat.isOnline ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white"></span>
-                </div>
-            `;
+// Every chat avatar is the app's one avatar component (scripts/components/role-avatar.js, styled only by
+// styles/role-avatar.css): people get their role avatar (the same as on Team), Poppy her orb, channels and
+// sites an icon in the same circle. Only Poppy shows a status dot.
+function isPoppyChat(chat) { return chat.id === 'chat-poppy' || chat.avatarType === 'ai'; }
+function isSiteChat(chat) { return chat.isSite || chat.avatarType === 'site' || (chat.name && chat.name.includes('Site')); }
+function getLifestyleChatAvatar(chat, size = 'lg') {
+    if (isPoppyChat(chat)) return withAvatarStatus(renderPoppyAvatar(size), 'ai');
+    if (chat.id === 'chat-company' || chat.avatarType === 'company') return renderIconAvatar('ph-house', size);
+    if (isSiteChat(chat)) return renderIconAvatar('ph-hard-hat', size);   // channels and sites: no status
+    const person = { name: chat.name, role: getPersonRole(chat.name) || chat.role, initials: chat.avatarFallback || undefined };
+    return renderRoleAvatar(person, size);                 // people show no activity status
 }
 
-function renderLifestyleChatRow(chat, isPinned = false) {
-    const isUnread = chat.unread > 0;
-    const timeColor = isUnread ? 'text-red-500 font-bold' : (chat.id === 'chat-poppy' ? 'text-emerald-600 font-bold' : 'text-slate-400 font-medium');
+// ---------- Inbox ----------
+// Poppy is pinned in her own card above one feed holding every other conversation (Company All-Hands and
+// the sites included), newest activity first. Filters: All, Sites, Company, DMs.
+const CHAT_FILTERS = {
+    all: () => true,
+    sites: chat => isSiteChat(chat),
+    company: chat => chat.id === 'chat-company' || chat.avatarType === 'company',
+    direct: chat => chat.category === 'direct'
+};
+const CHAT_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-    let roleBadgeClass = 'bg-slate-100 text-slate-600 border border-slate-200/60';
-    if (chat.id === 'chat-poppy' || chat.category === 'ai') {
-        roleBadgeClass = 'bg-brand-lime/20 text-slate-950 border border-brand-lime/30';
-    } else if (chat.isSite || (chat.name && chat.name.includes('Site'))) {
-        roleBadgeClass = 'bg-slate-100 text-slate-700 border border-slate-200/60';
+// A time label from the chat data as a timestamp (ms), or null: "10:42 AM" (today), "Yesterday 4:30 pm",
+// "Oct 12" / "12 Oct 3:30 pm", "Mon", "Now". Used to sort the inbox and to place a thread's time dividers.
+function parseChatTimeLabel(text) {
+    const label = String(text || '').trim().toLowerCase(), now = new Date();
+    if (!label) return null;
+    const at = (d, hm) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), hm ? hm[0] : 12, hm ? hm[1] : 0).getTime();
+    const m = label.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/);
+    const hm = m ? [(+m[1] % 12) + ((m[3] === 'pm' || (!m[3] && +m[1] >= 12)) ? 12 : 0), +m[2]] : null;
+    if (/^(now|just now|online)$/.test(label)) return now.getTime();
+    if (label.startsWith('yesterday')) { const y = new Date(now); y.setDate(y.getDate() - 1); return at(y, hm); }
+    if (hm && /^\d{1,2}:/.test(label)) return at(now, hm);
+    const md = label.match(/^([a-z]{3})[a-z]*\s+(\d{1,2})\b/) || label.match(/^(\d{1,2})\s+([a-z]{3})/);
+    if (md) {
+        const [mon, day] = /^\d/.test(md[1]) ? [md[2], +md[1]] : [md[1], +md[2]];
+        const mi = CHAT_MONTHS.indexOf(mon);
+        if (mi >= 0) {
+            const d = new Date(now.getFullYear(), mi, day);
+            if (d > now) d.setFullYear(d.getFullYear() - 1);
+            return at(d, hm);
+        }
     }
+    const wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(label.slice(0, 3));
+    if (wd >= 0) { const d = new Date(now); d.setDate(d.getDate() - ((((now.getDay() - wd) + 7) % 7) || 7)); return at(d, hm); }
+    const parsed = Date.parse(text);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+// When a conversation last moved, for sorting: a message sent here records it exactly (lastActivity)
+function chatActivityTime(chat) {
+    return chat.lastActivity || parseChatTimeLabel(chat.time) || 0;
+}
 
-    // Messages-style row: the name owns line 1 (time trails it), context and the unread
-    // count live on line 2, so metadata never truncates the person you're looking for.
+// Two lines: name + time, then the latest message + unread count. No role or category tags.
+function renderLifestyleChatRow(chat) {
+    const unread = chat.unread > 0;
+    const label = `${chat.name}, ${chat.time}. ${chat.preview}${unread ? `. ${chat.unread} unread` : ''}`;
     return `
-                <div onclick="openLifestyleConversation('${chat.id}')"
-                     class="px-4 py-3.5 ${isPinned ? 'hover:bg-white/60 active:bg-white/80' : 'hover:bg-slate-50/80 active:bg-slate-100/60'} cursor-pointer transition-colors flex items-center gap-3.5 min-h-[72px]">
-                    ${getLifestyleChatAvatar(chat)}
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-baseline gap-2">
-                            <h4 class="flex-1 min-w-0 text-[15px] leading-5 font-black text-slate-900 tracking-tight truncate">${chat.name}</h4>
-                            <span class="shrink-0 text-[11px] tabular ${timeColor}">${chat.time}</span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="shrink-0 max-w-[45%] truncate text-[11px] leading-4 font-bold px-1.5 py-px rounded-md ${roleBadgeClass}">${chat.role}</span>
-                            <p class="flex-1 min-w-0 text-[13px] leading-[18px] ${isUnread ? 'text-slate-900 font-semibold' : 'text-slate-500 font-medium'} truncate">${chat.preview}</p>
-                            ${isUnread ? `<span class="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center tabular" aria-label="${chat.unread} unread">${chat.unread}</span>` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
+        <button type="button" class="chat-row${unread ? ' is-unread' : ''}" onclick="openLifestyleConversation('${chat.id}')" aria-label="${chatEscape(label)}">
+            ${getLifestyleChatAvatar(chat)}
+            <span class="chat-row-body">
+                <span class="chat-row-line">
+                    <span class="chat-row-title">${chatEscape(chat.name)}</span>
+                    <span class="chat-row-time">${chatEscape(chat.time)}</span>
+                </span>
+                <span class="chat-row-line">
+                    <span class="chat-row-preview">${chatEscape(chat.preview)}</span>
+                    ${unread ? `<span class="chat-row-badge" aria-hidden="true">${chat.unread}</span>` : ''}
+                </span>
+            </span>
+        </button>`;
 }
 
 function renderLifestyleChats(filter = currentLifestyleChatFilter, query = currentLifestyleChatSearchQuery) {
     const container = document.getElementById('lifestyle-chat-list');
     const pinnedContainer = document.getElementById('lifestyle-pinned-container');
     const pinnedList = document.getElementById('lifestyle-pinned-list');
-    const mainFeedCard = document.getElementById('lifestyle-main-feed-card');
+    const feedCard = document.getElementById('lifestyle-main-feed-card');
     if (!container) return;
-
+    if (!CHAT_FILTERS[filter]) filter = 'all';
     currentLifestyleChatFilter = filter;
     currentLifestyleChatSearchQuery = query;
 
-    const isSearching = Boolean(query && query.trim() !== '');
+    const q = String(query || '').trim().toLowerCase();
+    const searching = q !== '';
+    const poppy = LIFESTYLE_CHATS.find(isPoppyChat);
 
-    // 1. Pinned Glass Gradient Card: Poppy Bot & Company All-Hands
+    // Poppy: pinned on All (not while searching - she's then one of the results)
+    const showPinned = filter === 'all' && !searching && !!poppy;
     if (pinnedContainer && pinnedList) {
-        if (filter === 'all' && !isSearching) {
-            pinnedContainer.style.display = 'block';
-            const poppyChat = LIFESTYLE_CHATS.find(c => c.id === 'chat-poppy');
-            const companyChat = LIFESTYLE_CHATS.find(c => c.id === 'chat-company');
-            let pinnedHtml = '';
-            if (poppyChat) pinnedHtml += renderLifestyleChatRow(poppyChat, true);
-            if (companyChat) pinnedHtml += renderLifestyleChatRow(companyChat, true);
-            pinnedList.innerHTML = pinnedHtml;
-        } else {
-            pinnedContainer.style.display = 'none';
-        }
+        pinnedContainer.hidden = !showPinned;
+        pinnedList.innerHTML = showPinned ? renderLifestyleChatRow(poppy) : '';
+        if (showPinned) mountPoppyAvatars(pinnedList);
     }
 
-    // 2. Main List Filtering
-    let filtered = LIFESTYLE_CHATS.filter(chat => {
-        if (isSearching) return true;
-        if (filter === 'all') {
-            // Poppy Bot & Company All-Hands are pinned at the top in their dedicated glass gradient card
-            return chat.id !== 'chat-poppy' && chat.id !== 'chat-company';
-        }
-        if (filter === 'unread') return chat.unread > 0;
-        if (filter === 'channel') return chat.category === 'channel';
-        if (filter === 'direct') return chat.category === 'direct';
-        if (filter === 'ai') return chat.category === 'ai' || chat.id === 'chat-poppy';
-        return true;
-    });
+    const matches = chat => !searching || [chat.name, chat.role, chat.preview].some(v => String(v || '').toLowerCase().includes(q));
+    const feed = LIFESTYLE_CHATS
+        .filter(chat => (searching ? true : !isPoppyChat(chat)))
+        .filter(chat => !isPoppyChat(chat) || filter === 'all')
+        .filter(CHAT_FILTERS[filter])
+        .filter(matches)
+        .map((chat, i) => ({ chat, i, t: chatActivityTime(chat) }))
+        .sort((a, b) => b.t - a.t || a.i - b.i)           // newest first; ties keep their order
+        .map(x => x.chat);
 
-    if (isSearching) {
-        const q = query.toLowerCase().trim();
-        filtered = filtered.filter(chat => 
-            chat.name.toLowerCase().includes(q) ||
-            chat.role.toLowerCase().includes(q) ||
-            chat.preview.toLowerCase().includes(q)
-        );
+    if (!feed.length) {
+        container.innerHTML = searching
+            ? `<div class="chat-empty">
+                   <p class="chat-empty-title">No chats found</p>
+                   <p class="chat-empty-text">Nothing matches "${chatEscape(query.trim())}"</p>
+                   <button type="button" class="chat-empty-action" onclick="openPoppyBotChatWithQuery(${chatEscape(JSON.stringify(query.trim()))})">
+                       <i class="ph-fill ph-sparkle" aria-hidden="true"></i>Ask Poppy
+                   </button>
+               </div>`
+            : `<div class="chat-empty"><p class="chat-empty-title">No chats here yet</p></div>`;
+    } else {
+        container.innerHTML = feed.map(renderLifestyleChatRow).join('');
+        mountPoppyAvatars(container);
     }
-
-    if (mainFeedCard) {
-        mainFeedCard.style.display = (filtered.length === 0 && !isSearching && filter === 'all') ? 'none' : 'block';
-    }
-
-    if (filtered.length === 0) {
-        if (isSearching) {
-            container.innerHTML = `
-                        <div class="py-12 px-6 text-center space-y-3">
-                            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                                <i class="fa-solid fa-magnifying-glass text-lg"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold text-slate-900">No chats found</h4>
-                                <p class="text-xs text-slate-500 mt-0.5 font-medium">No results for "${query}"</p>
-                            </div>
-                            <button onclick="openPoppyBotChatWithQuery('${query.replace(/'/g, "\\'")}')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-brand-lime font-bold text-xs shadow-apple active:scale-95 transition-all">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                                <span>Ask Poppy AI "${query}"</span>
-                            </button>
-                        </div>
-                    `;
-        } else if (filter !== 'all') {
-            container.innerHTML = `
-                        <div class="py-12 px-6 text-center space-y-1">
-                            <p class="text-sm font-bold text-slate-800">No ${filter} messages</p>
-                            <p class="text-xs text-slate-400">You're all caught up!</p>
-                        </div>
-                    `;
-        } else {
-            container.innerHTML = '';
-        }
-        updateLifestyleBadges();
-        return;
-    }
-
-    container.innerHTML = filtered.map(chat => renderLifestyleChatRow(chat, false)).join('');
+    if (feedCard) feedCard.hidden = false;
     updateLifestyleBadges();
 }
 
@@ -228,10 +181,96 @@ function setLifestyleChatFilter(filter) {
 }
 
 // =========================================================================
-// CONVERSATION VIEW (WHATSAPP-INSPIRED SPEECH BUBBLES & THREAD)
+// CONVERSATION (full screen, like a WhatsApp / Instagram thread)
 // =========================================================================
+// Opening a chat pushes the Conversation screen (#view-conversation) over Chat: the bar carries the chat's
+// avatar and name, the thread fills the screen and the reply box sits at the bottom. Back (or the edge
+// swipe) returns to Chat. Poppy keeps her own sheet.
+let currentLifestyleConversationId = null;
+
+function chatEscape(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// ---------- Thread (Instagram-style) ----------
+// Messages from the same sender run together as a cluster: tight spacing, 4px inner corners where bubbles
+// join, the sender's 28px avatar beside the last incoming bubble only. Time lives in centred dividers (a new
+// one when an hour or a day has passed), not in the bubbles. "Seen" sits under your last message when it is
+// the latest in the thread and has been read (a message you send here is unread until then).
+const CONV_DIVIDER_GAP = 60 * 60 * 1000;
+function messageTime(m) { return m.at || parseChatTimeLabel(m.time); }
+function conversationDividerLabel(t, fallback) {
+    if (t == null) return String(fallback || '').toUpperCase();
+    const d = new Date(t), now = new Date();
+    const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((day0(now) - day0(d)) / 86400000);
+    const day = days === 0 ? 'Today' : days === 1 ? 'Yesterday'
+        : days < 7 ? d.toLocaleDateString('en-AU', { weekday: 'short' })
+        : d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    const hasClock = /\d:\d/.test(fallback || '') || fallback === undefined;
+    const clock = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, ' ');
+    return `${day}${hasClock ? ' ' + clock : ''}`.toUpperCase();
+}
+function renderConversationThread(chat) {
+    const msgs = chat.messages;
+    const times = msgs.map(messageTime);
+    // A divider before the first message, and wherever an hour or a day has passed
+    const divider = msgs.map((m, i) => {
+        if (i === 0) return true;
+        const a = times[i - 1], b = times[i];
+        if (a == null || b == null) return false;
+        return b - a > CONV_DIVIDER_GAP || new Date(a).toDateString() !== new Date(b).toDateString();
+    });
+    const sameCluster = (i, j) => j >= 0 && j < msgs.length && !divider[Math.max(i, j)] &&
+        msgs[i].isIncoming === msgs[j].isIncoming && msgs[i].sender === msgs[j].sender;
+    let html = '';
+    msgs.forEach((m, i) => {
+        if (divider[i]) html += `<div class="conv-divider">${chatEscape(conversationDividerLabel(times[i], m.time))}</div>`;
+        const mine = !m.isIncoming, first = !sameCluster(i, i - 1), last = !sameCluster(i, i + 1);
+        const body = m.image
+            ? `<img class="conv-photo" src="${chatEscape(m.image)}" alt="Photo">`
+            : `<p class="conv-text">${chatEscape(m.text)}</p>`;
+        html += `<div class="conv-row ${mine ? 'is-mine' : 'is-theirs'}${first ? ' is-first' : ''}${last ? ' is-last' : ''}">
+            ${chat.isGroup && !mine && first ? `<span class="conv-sender">${chatEscape(m.sender)}</span>` : ''}
+            <div class="conv-row-inner">
+                ${mine ? '' : `<span class="conv-row-avatar">${last ? renderRoleAvatar(chat.isGroup ? m.sender : { name: chat.name, role: getPersonRole(chat.name) || chat.role, initials: chat.avatarFallback || undefined }, 'msg') : ''}</span>`}
+                <div class="conv-bubble${m.image ? ' has-photo' : ''}">${body}</div>
+            </div>
+        </div>`;
+    });
+    const lastMsg = msgs[msgs.length - 1];
+    if (lastMsg && !lastMsg.isIncoming && lastMsg.seen !== false) html += `<div class="conv-seen">Seen</div>`;
+    return html;
+}
+
+function renderLifestyleConversation() {
+    const chat = LIFESTYLE_CHATS.find(c => c.id === currentLifestyleConversationId);
+    const view = document.getElementById('view-conversation');
+    if (!chat || !view) return;
+    // Bar (left-aligned, top-bar.js reads this template): avatar, name, and "Active now" for someone online
+    const isPerson = chat.category === 'direct';
+    const online = isPerson && chat.isOnline;
+    const sub = online ? 'Active now' : (isSiteChat(chat) ? chat.role : '');
+    const avatar = getLifestyleChatAvatar(chat, 'head');
+    view.querySelector('template[data-bar-title-html]').innerHTML = `
+        <span class="conv-bar-id">${online ? withAvatarStatus(avatar, 'online') : avatar}<span class="conv-bar-text"><span class="conv-bar-name">${chatEscape(chat.name)}</span>${sub ? `<span class="conv-bar-sub">${chatEscape(sub)}</span>` : ''}</span></span>`;
+    document.getElementById('conv-messages').innerHTML = renderConversationThread(chat);
+}
+
+// Empty: camera + gallery + voice note. Typing: "Send" takes gallery and voice note's place.
+function syncConversationComposer() {
+    const input = document.getElementById('conv-input');
+    const typing = !!(input && input.value.trim());
+    document.getElementById('conv-pill-idle').hidden = typing;
+    document.getElementById('conv-send').hidden = !typing;
+}
+
+function scrollLifestyleConversationToEnd(behavior = 'auto') {
+    const view = document.getElementById('view-conversation');
+    if (view) view.scrollTo({ top: view.scrollHeight, behavior });
+}
+
 function openLifestyleConversation(chatId) {
-    triggerHaptic('medium');
     const chat = LIFESTYLE_CHATS.find(c => c.id === chatId);
     if (!chat) return;
 
@@ -240,150 +279,70 @@ function openLifestyleConversation(chatId) {
     renderLifestyleChats(currentLifestyleChatFilter, currentLifestyleChatSearchQuery);
 
     if (chat.id === 'chat-poppy') {
+        triggerHaptic('medium');
         openPoppyBotChat();
         return;
     }
+    const overlay = document.getElementById('modal-overlay');   // opened from a sheet: close it first
+    if (overlay && !overlay.classList.contains('opacity-0')) closeModal();
+
+    currentLifestyleConversationId = chat.id;
+    document.getElementById('conv-input').value = '';
+    syncConversationComposer();
+    renderLifestyleConversation();
+    switchTab('conversation');               // pushes it (the bar title comes from the template)
+    scrollLifestyleConversationToEnd();      // the newest message, as a thread opens
 
     if (chat.name === 'Nathan Wild') {
         triggerConfetti();
     }
-
-    const modalHtml = `
-                <div class="flex flex-col h-[70vh] max-h-[550px] -mx-5 -mt-3 -mb-5 select-none">
-                    
-                    <!-- Top Thread Header -->
-                    <div class="bg-white px-4 py-3 border-b border-slate-200/80 flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <button onclick="closeModal()" aria-label="Back to messages" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 flex items-center justify-center text-slate-700 cursor-pointer">
-                                <i class="fa-solid fa-chevron-left text-xs"></i>
-                            </button>
-                            <div class="min-w-0">
-                                <h3 class="text-sm font-black text-slate-900 truncate leading-snug">${chat.name}</h3>
-                                <p class="text-[11px] text-slate-500 font-semibold truncate leading-none mt-0.5">${chat.role} ${chat.isOnline ? '• Online' : ''}</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-2 text-slate-700">
-                            <button onclick="showToast('Call', 'Connecting call...')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 flex items-center justify-center text-xs">
-                                <i class="fa-solid fa-phone"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Messages Scroll Canvas -->
-                    <div id="lifestyle-msg-scroll-area" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/70">
-                        
-                        <!-- Date Badge -->
-                        <div class="text-center my-1">
-                            <span class="inline-block px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-[11px] font-bold text-slate-500 shadow-2xs border border-slate-200/60 uppercase tracking-wider">
-                                Today
-                            </span>
-                        </div>
-
-                        <!-- Message Bubbles -->
-                        <div id="lifestyle-msg-list" class="space-y-2.5">
-                            ${chat.messages.map(m => {
-                        if (m.isIncoming) {
-                            return `
-                                        <div class="flex flex-col items-start max-w-[85%]">
-                                            ${chat.isGroup && m.sender !== chat.name ? `<span class="text-[11px] font-bold text-slate-500 ml-1 mb-0.5">${m.sender}</span>` : ''}
-                                            <div class="bg-white border border-slate-200/80 rounded-2xl rounded-tl-sm p-3 shadow-2xs text-slate-900 text-xs leading-relaxed">
-                                                <p class="break-words">${m.text}</p>
-                                                <div class="text-right mt-1">
-                                                    <span class="text-[11px] text-slate-400 font-medium">${m.time}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                        } else {
-                            return `
-                                        <div class="flex flex-col items-end max-w-[85%] ml-auto">
-                                            <div class="bg-slate-900 text-white rounded-2xl rounded-tr-sm p-3 shadow-2xs text-xs leading-relaxed">
-                                                <p class="break-words">${m.text}</p>
-                                                <div class="flex items-center justify-end gap-1 mt-1 text-slate-400">
-                                                    <span class="text-[11px] text-slate-400 font-medium">${m.time}</span>
-                                                    <i class="fa-solid fa-check-double text-[11px] text-brand-lime"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                        }
-                    }).join('')}
-                        </div>
-                    </div>
-
-                    <!-- Input Bar -->
-                    <div class="bg-white p-3 border-t border-slate-200/80 flex items-center gap-2 shrink-0">
-                        <div class="flex-1 relative flex items-center bg-slate-100 rounded-2xl px-3.5 py-2 border border-slate-200/80 focus-within:bg-white focus-within:border-slate-400 transition-all">
-                            <input id="lifestyle-msg-input" 
-                                   type="text" 
-                                   placeholder="Reply to ${chat.name}..." 
-                                   onkeydown="if(event.key === 'Enter') sendLifestyleMessage('${chat.id}')"
-                                   class="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none">
-                        </div>
-
-                        <button onclick="sendLifestyleMessage('${chat.id}')" 
-                                aria-label="Send message" 
-                                class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-900 hover:bg-black text-brand-lime active:scale-90 flex items-center justify-center shadow-md transition-all shrink-0">
-                            <i class="fa-solid fa-paper-plane text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-
-    openModal("", modalHtml);
-
-    setTimeout(() => {
-        const scroller = document.getElementById('lifestyle-msg-scroll-area');
-        if (scroller) scroller.scrollTop = scroller.scrollHeight;
-    }, 80);
 }
 
-function sendLifestyleMessage(chatId) {
-    const input = document.getElementById('lifestyle-msg-input');
-    if (!input) return;
+// Add a message of yours to the open conversation (unread by them until they see it)
+function pushLifestyleMessage(chat, message, preview) {
+    const now = Date.now();
+    const timeStr = new Date(now).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+    chat.messages.push({ sender: 'You', time: timeStr, at: now, isIncoming: false, seen: false, ...message });
+    chat.preview = preview;
+    chat.time = timeStr;
+    chat.lastActivity = now;               // newest first in the inbox
+    renderLifestyleConversation();
+    scrollLifestyleConversationToEnd('smooth');
+    renderLifestyleChats(currentLifestyleChatFilter, currentLifestyleChatSearchQuery);
+}
+
+function sendLifestyleMessage() {
+    const input = document.getElementById('conv-input');
+    const chat = LIFESTYLE_CHATS.find(c => c.id === currentLifestyleConversationId);
+    if (!input || !chat) return;
     const text = input.value.trim();
     if (!text) return;
-
     triggerHaptic('light');
-    const chat = LIFESTYLE_CHATS.find(c => c.id === chatId);
-    if (!chat) return;
-
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase();
-
-    chat.messages.push({
-        sender: 'You',
-        text: text,
-        time: timeStr,
-        isIncoming: false
-    });
-
-    chat.preview = text;
-    chat.time = timeStr;
-
     input.value = '';
+    syncConversationComposer();
+    pushLifestyleMessage(chat, { text }, text);
+}
 
-    const list = document.getElementById('lifestyle-msg-list');
-    if (list) {
-        const msgEl = document.createElement('div');
-        msgEl.className = "flex flex-col items-end max-w-[85%] ml-auto";
-        msgEl.innerHTML = `
-                    <div class="bg-slate-900 text-white rounded-2xl rounded-tr-sm p-3 shadow-2xs text-xs leading-relaxed">
-                        <p class="break-words">${text}</p>
-                        <div class="flex items-center justify-end gap-1 mt-1 text-slate-400">
-                            <span class="text-[11px] text-slate-400 font-medium">${timeStr}</span>
-                            <i class="fa-solid fa-check-double text-[11px] text-brand-lime"></i>
-                        </div>
-                    </div>
-                `;
-        list.appendChild(msgEl);
-    }
+// Camera (a site photo, straight from the camera where the device offers it) or the photo library
+function pickConversationPhoto(fromCamera) {
+    const picker = document.getElementById('conv-photo-input');
+    if (!picker) return;
+    triggerHaptic('light');
+    if (fromCamera) picker.setAttribute('capture', 'environment');
+    else picker.removeAttribute('capture');
+    picker.click();
+}
+function sendConversationPhoto(picker) {
+    const file = picker.files && picker.files[0];
+    const chat = LIFESTYLE_CHATS.find(c => c.id === currentLifestyleConversationId);
+    picker.value = '';
+    if (!file || !chat || !/^image\//.test(file.type)) return;
+    pushLifestyleMessage(chat, { text: '', image: URL.createObjectURL(file) }, 'Photo');
+}
 
-    const scroller = document.getElementById('lifestyle-msg-scroll-area');
-    if (scroller) scroller.scrollTop = scroller.scrollHeight;
-
-    renderLifestyleChats(currentLifestyleChatFilter, currentLifestyleChatSearchQuery);
+function startConversationVoiceNote() {
+    triggerHaptic('light');
+    showToast('Voice notes', 'Voice notes are coming soon');
 }
 
 // =========================================================================
@@ -399,9 +358,7 @@ function openNewMessageModal() {
                     
                     <div class="divide-y divide-slate-100 py-1">
                         <div onclick="closeModal(); openLifestyleConversation('chat-company');" class="flex items-center gap-3 py-2.5 px-2 hover:bg-slate-50 cursor-pointer rounded-xl">
-                            <div class="w-9 h-9 rounded-xl bg-slate-900 text-[#AEB6C2] flex items-center justify-center font-bold text-sm">
-                                <i class="fa-solid fa-house"></i>
-                            </div>
+                            ${renderIconAvatar('ph-house', 'top')}
                             <div>
                                 <p class="text-sm font-bold text-slate-900">Company All-Hands</p>
                                 <p class="text-xs text-slate-500">General broadcast channel</p>
@@ -409,9 +366,7 @@ function openNewMessageModal() {
                         </div>
 
                         <div onclick="closeModal(); openPoppyBotChat();" class="flex items-center gap-3 py-2.5 px-2 hover:bg-slate-50 cursor-pointer rounded-xl">
-                            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-lime to-emerald-400 text-slate-950 flex items-center justify-center font-bold text-sm shadow-sm">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            </div>
+                            ${renderPoppyAvatar('top')}
                             <div>
                                 <p class="text-sm font-bold text-slate-900">Poppy Bot AI</p>
                                 <p class="text-xs text-slate-500">Automate tasks, look up specs & safety</p>
@@ -425,9 +380,7 @@ function openNewMessageModal() {
                             ${members.map(m => `
                                 <div onclick="closeModal(); openDirectMessage('${m.name}')" class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl cursor-pointer">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 rounded-xl bg-slate-900 text-brand-lime font-black text-xs flex items-center justify-center shadow-xs">
-                                            ${m.initials}
-                                        </div>
+                                        ${renderRoleAvatar(m, 'top')}
                                         <div>
                                             <p class="text-sm font-bold text-slate-900">${m.name}</p>
                                             <p class="text-xs text-slate-500">${m.role}</p>
@@ -440,6 +393,7 @@ function openNewMessageModal() {
                     </div>
                 </div>
             `);
+    mountPoppyAvatars(document.getElementById('modal-body'));
 }
 
 // =========================================================================
@@ -466,9 +420,9 @@ function openDirectMessage(name) {
             isOnline: true,
             preview: 'Start a conversation...',
             time: 'Now',
+            lastActivity: Date.now(),
             unread: 0,
             avatarType: 'text',
-            avatarBg: 'bg-slate-100 text-slate-800',
             avatarFallback: initials,
             messages: [
                 { sender: name, text: `Hey Alexander, touching base regarding our allocation for next week.`, time: '9:00 am', isIncoming: true }

@@ -1,5 +1,6 @@
 /* Horizontal filter pills: one component for every scrolling pill row in the app (Messages, Notifications,
    Team, Tools & Gear, Trade Schedule). Values come from the control tokens in styles/tokens.css.
+   Variants: --inset (inside a card), --wrap (a form picker), --segmented (a few equal-width options).
    Markup: <div class="filter-bar" role="toolbar"> <button class="filter-pill is-active" aria-pressed="true">All</button> ... </div>
    Active state is switched by setActiveFilterPill() (scripts/components/filter-bar.js).
    Inside a pill: an icon (<i>), a count (.filter-pill-count) or an unread badge (.filter-pill-badge). */
@@ -54,24 +55,25 @@
     font-weight: 600;
     letter-spacing: -0.005em;
     white-space: nowrap;
-    color: var(--control-text);
-    background: var(--control-surface);
-    border: 1px solid var(--pill-border);
+    color: var(--pill-text);
+    background: var(--pill-surface);
+    border: 1px solid var(--pill-edge);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 120ms var(--ease-out);
+    transition: background-color 220ms var(--ease-out), color 220ms var(--ease-out), border-color 220ms var(--ease-out), transform 120ms var(--ease-out);
 }
 /* Pressed: immediate, on touch-down */
 .filter-pill:active { transform: scale(0.96); transition-duration: 60ms; }
 .filter-pill:not(.is-active):active { background: var(--btn-pressed-bg); }
+/* Chosen: white with black text, on every pill row (like an iOS segmented control) */
 .filter-pill.is-active {
-    color: #0A0A0A;
-    background: var(--control-accent);
-    border-color: var(--control-accent);
+    color: var(--pill-active-ink);
+    background: var(--pill-active-bg);
+    border-color: var(--pill-active-bg);
     font-weight: 700;
 }
 @media (hover: hover) and (pointer: fine) {
-    .filter-pill:not(.is-active):hover { background: var(--control-surface-hover); color: #ffffff; }
+    .filter-pill:not(.is-active):hover { background: var(--pill-surface-hover); color: #ffffff; }
 }
 .filter-pill:focus-visible {
     outline: 2px solid var(--control-focus);
@@ -102,6 +104,19 @@
 .filter-pill-badge.hidden, .filter-pill-badge[hidden] { display: none; }
 .filter-pill-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--control-accent); }
 .filter-pill.is-active .filter-pill-dot { background: currentColor; }
+
+/* Segmented (Chat): a few short options sharing the row's width equally - no scrolling, nothing clipped */
+.filter-bar--segmented {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+    overflow: visible;
+    margin-inline: 0;
+    padding: 0;
+}
+.filter-bar--segmented::after { display: none; }
+.filter-bar--segmented .filter-pill { min-width: 0; height: 34px; padding: 0 8px; font-size: 13.5px; }
 
 /* A pill picker inside a form: pills wrap onto lines instead of scrolling */
 .filter-bar--wrap { flex-wrap: wrap; overflow: visible; margin-inline: 0; padding: 0; }

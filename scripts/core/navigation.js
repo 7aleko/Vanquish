@@ -3,7 +3,7 @@
  * (Quick Actions, the side drawer, cards) and pops back with its back button.
  */
 
-const ALL_APP_VIEWS = ['home', 'week', 'sitehub', 'chat', 'team', 'tools', 'time', 'schedule', 'notifications'];
+const ALL_APP_VIEWS = ['home', 'week', 'sitehub', 'chat', 'conversation', 'team', 'tools', 'time', 'schedule', 'notifications'];
 const VIEW_HIERARCHY_DEPTH = {
     'home': 0,
     'week': 1,
@@ -13,7 +13,8 @@ const VIEW_HIERARCHY_DEPTH = {
     'tools': 1,
     'time': 1,
     'notifications': 1,
-    'schedule': 2
+    'schedule': 2,
+    'conversation': 2
 };
 const VIEW_ANIMATION_CLASSES = [
     'view-transition-overlay',
@@ -32,6 +33,7 @@ const subpageParentMap = {
     'team': 'home',
     'sitehub': 'home',
     'schedule': 'sitehub',
+    'conversation': 'chat',
     'tools': 'home',
     'time': 'home',
     'notifications': 'home'

@@ -85,13 +85,9 @@ function openTeamContactModal(memberId) {
                 <div class="space-y-5 pt-1 pb-2">
                     <!-- Profile Hero Section (Apple Contacts Hero) -->
                     <div class="flex flex-col items-center text-center">
-                        <!-- Prominent 88px Squircle Avatar with Apple Presence Indicator -->
-                        <div class="relative mb-3">
-                            <div class="w-20 h-20 sm:w-22 sm:h-22 rounded-card bg-gradient-to-br from-slate-900 via-[#141b24] to-slate-950 text-brand-lime font-black text-2xl sm:text-3xl flex items-center justify-center shadow-xl shadow-slate-950/25 border-2 border-slate-800">
-                                ${member.initials}
-                            </div>
-                            <!-- Clean Apple Presence Status Dot -->
-                            <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full ${isOnLeave ? 'bg-amber-400' : 'bg-emerald-500'} border-[2.5px] border-white shadow-sm"></span>
+                        <!-- The person's avatar (the one avatar component) -->
+                        <div class="mb-3">
+                            ${renderRoleAvatar(member, 'xl')}
                         </div>
                         
                         <!-- Member Name in Confident Apple Typography -->

@@ -54,6 +54,7 @@
     <link rel="stylesheet" href="styles/tool-transfer.css">
     <link rel="stylesheet" href="styles/role-avatar.css">
     <link rel="stylesheet" href="styles/timesheets.css">
+    <link rel="stylesheet" href="styles/chat.css">
     <link rel="stylesheet" href="styles/account-sheet.css">
     <link rel="stylesheet" href="styles/data-status.css">
     <link rel="stylesheet" href="styles/dark-theme.css">
@@ -747,13 +748,9 @@
 <!-- ================= VIEW 4: CHAT TAB (WHATSAPP-INSPIRED LIFESTYLE HUB) ================= -->
 <main id="view-chat" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-5 py-4 space-y-4 pb-8 relative max-w-full">
     
-    <!-- Atmospheric Ambient Glows -->
-    <div class="absolute -top-10 left-6 w-44 h-44 bg-emerald-500/15 rounded-full blur-[65px] pointer-events-none"></div>
-    <div class="absolute top-64 right-4 w-44 h-44 bg-blue-500/15 rounded-full blur-[65px] pointer-events-none"></div>
-
     <!-- Large title (iOS): back, inline title and actions live in the top bar (scripts/core/top-bar.js) -->
     <div class="large-title-row relative z-10 px-1">
-        <h2 class="page-title" data-large-title>Messages</h2>
+        <h2 class="page-title" data-large-title>Chat</h2>
     </div>
 
     <!-- Search: shared search field (styles/search-field.css) -->
@@ -765,34 +762,22 @@
         </button>
     </div>
 
-    <!-- Category filters: shared pill bar, scrolls edge to edge (styles/filter-bar.css) -->
-    <div class="filter-bar relative z-10" role="toolbar" aria-label="Filter messages">
+    <!-- Filters: the shared pill bar as a four-way segmented control (styles/filter-bar.css, --segmented) -->
+    <div class="filter-bar filter-bar--segmented relative z-10" role="toolbar" aria-label="Filter chats">
         <button type="button" onclick="setLifestyleChatFilter('all')" id="filter-chip-all" class="filter-pill is-active" aria-pressed="true">All</button>
-        <button type="button" onclick="setLifestyleChatFilter('unread')" id="filter-chip-unread" class="filter-pill" aria-pressed="false">Unread <span id="lifestyle-unread-count-chip" class="filter-pill-badge">3</span></button>
-        <button type="button" onclick="setLifestyleChatFilter('channel')" id="filter-chip-channel" class="filter-pill" aria-pressed="false">Channels &amp; Sites</button>
-        <button type="button" onclick="setLifestyleChatFilter('direct')" id="filter-chip-direct" class="filter-pill" aria-pressed="false">Direct Messages</button>
-        <button type="button" onclick="setLifestyleChatFilter('ai')" id="filter-chip-ai" class="filter-pill" aria-pressed="false"><i class="ph-fill ph-sparkle" aria-hidden="true"></i>Poppy AI</button>
+        <button type="button" onclick="setLifestyleChatFilter('sites')" id="filter-chip-sites" class="filter-pill" aria-pressed="false">Sites</button>
+        <button type="button" onclick="setLifestyleChatFilter('company')" id="filter-chip-company" class="filter-pill" aria-pressed="false">Company</button>
+        <button type="button" onclick="setLifestyleChatFilter('direct')" id="filter-chip-direct" class="filter-pill" aria-pressed="false">DMs</button>
     </div>
 
-    <!-- Pinned Glass Gradient Card (Poppy Bot & Company All-Hands) -->
-    <div id="lifestyle-pinned-container" class="relative z-10 transition-all duration-300">
-        <div id="lifestyle-pinned-card" class="relative overflow-hidden rounded-card shadow-apple border border-white/95 bg-gradient-to-br from-white/95 via-emerald-50/40 to-blue-50/30 backdrop-blur-2xl transition-all">
-            <!-- Multi-chromatic Ambient Glow Orbs -->
-            <div class="absolute -top-12 -right-12 w-40 h-40 bg-brand-lime/20 rounded-full blur-[45px] pointer-events-none"></div>
-            <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-emerald-400/15 rounded-full blur-[45px] pointer-events-none"></div>
-            <div class="absolute inset-0 rounded-card ring-1 ring-inset ring-white/60 pointer-events-none"></div>
-
-            <div id="lifestyle-pinned-list" class="relative z-10 divide-y divide-slate-100/80">
-                <!-- Dynamically populated via JavaScript -->
-            </div>
-        </div>
+    <!-- Poppy, pinned above the feed in a quiet glass card (styles/chat.css) -->
+    <div id="lifestyle-pinned-container" class="chat-pinned relative z-10">
+        <div id="lifestyle-pinned-list" class="chat-card"></div>
     </div>
 
-    <!-- Messages Card (Matching Team Directory Inset Grouped Card Style) -->
-    <div id="lifestyle-main-feed-card" class="relative z-10 bg-white/80 backdrop-blur-2xl rounded-card shadow-apple border border-white/90 overflow-hidden transition-all">
-        <div id="lifestyle-chat-list" class="divide-y divide-slate-100">
-            <!-- Dynamically populated via JavaScript -->
-        </div>
+    <!-- Every other conversation, channels and sites included, newest activity first (scripts/features/chat.js) -->
+    <div id="lifestyle-main-feed-card" class="chat-card relative z-10">
+        <div id="lifestyle-chat-list" class="chat-feed"></div>
     </div>
 </main>
 
@@ -890,6 +875,35 @@
             <!-- Grouped Lists Container -->
             <div id="tools-groups-container" class="relative z-10 space-y-3">
                 <!-- Injected via JavaScript -->
+            </div>
+        </main>
+
+        <!-- ================= VIEW: CONVERSATION - one chat, full screen (scripts/features/chat.js, styles/chat.css).
+             Pushed from Chat like a WhatsApp / Instagram thread; back and the edge swipe return to Chat. The bar shows
+             the chat's avatar and name (the template below, read by top-bar.js). ================= -->
+        <main id="view-conversation" data-bar-title="" class="view-section conv-view hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Conversation">
+            <template data-bar-title-html></template>
+            <div id="conv-messages" class="conv-messages" role="log" aria-live="polite"></div>
+            <!-- One input pill (Instagram): camera | message | gallery + voice note, which become "Send" once typing -->
+            <div class="conv-composer">
+                <div class="conv-pill">
+                    <button type="button" class="conv-cam" onclick="pickConversationPhoto(true)" aria-label="Take a photo">
+                        <i class="ph-fill ph-camera" aria-hidden="true"></i>
+                    </button>
+                    <input id="conv-input" class="conv-input" type="text" placeholder="Message..." autocomplete="off" enterkeyhint="send"
+                           oninput="syncConversationComposer()" onfocus="scrollLifestyleConversationToEnd('smooth')"
+                           onkeydown="if (event.key === 'Enter') sendLifestyleMessage()" aria-label="Message">
+                    <span id="conv-pill-idle" class="conv-pill-actions">
+                        <button type="button" class="conv-pill-icon" onclick="pickConversationPhoto(false)" aria-label="Photo library">
+                            <i class="ph-bold ph-image" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="conv-pill-icon" onclick="startConversationVoiceNote()" aria-label="Voice note">
+                            <i class="ph-bold ph-microphone" aria-hidden="true"></i>
+                        </button>
+                    </span>
+                    <button type="button" id="conv-send" class="conv-send" onclick="sendLifestyleMessage()" hidden>Send</button>
+                </div>
+                <input type="file" id="conv-photo-input" accept="image/*" hidden onchange="sendConversationPhoto(this)">
             </div>
         </main>
 

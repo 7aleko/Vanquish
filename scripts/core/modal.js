@@ -14,6 +14,7 @@ function setBackgroundShadersPaused(paused) {
     document.documentElement.classList.toggle('sheet-covers-page', !!paused);   // styles/attendance.css
     if (typeof dockOrbInstance !== 'undefined' && dockOrbInstance && dockOrbInstance.setPaused) dockOrbInstance.setPaused(paused);
     if (typeof setSiteCardEnergyPaused === 'function') setSiteCardEnergyPaused(paused);
+    if (typeof syncPoppyAvatars === 'function') syncPoppyAvatars();   // avatars behind the sheet stop; any in it run
 }
 
 function openModal(title, htmlContent) {

@@ -1,0 +1,281 @@
+/* Chat (scripts/features/chat.js): the inbox (#view-chat) and one conversation (#view-conversation), in a dark
+   liquid-glass style - obsidian page, quiet charcoal glass, white type, one iOS-blue accent for unread.
+   Avatars come from the shared avatar component (styles/role-avatar.css); the filter pills are the shared
+   filter bar's --segmented variant (styles/filter-bar.css). */
+
+/* ================= Inbox ================= */
+#view-chat {
+    --chat-unread: #0A84FF;                /* the one unread accent: times, badges */
+    --chat-ink: #F5F5F7;
+    --chat-ink-2: rgba(235, 235, 245, 0.6);
+    --chat-ink-3: rgba(235, 235, 245, 0.45);
+    background: #000;
+}
+
+/* Glass card: Poppy's pinned card and the feed */
+.chat-card {
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.035) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+.chat-pinned[hidden] { display: none; }
+
+/* One conversation: avatar, then two lines (name + time; latest message + unread count) */
+.chat-row {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 70px;
+    padding: 11px 14px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease;
+}
+.chat-row:active { background: rgba(255, 255, 255, 0.05); }
+@media (hover: hover) and (pointer: fine) { .chat-row:hover { background: rgba(255, 255, 255, 0.035); } }
+.chat-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; border-radius: 16px; }
+/* Hairline between rows, inset to start under the text (iOS lists) */
+.chat-row + .chat-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 70px;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.chat-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.chat-row-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.chat-row-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--chat-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chat-row-time {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--chat-ink-3);
+}
+.chat-row-preview {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.3;
+    color: var(--chat-ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Unread: blue time and count, the preview a step brighter */
+.chat-row.is-unread .chat-row-time { color: var(--chat-unread); font-weight: 500; }
+.chat-row.is-unread .chat-row-preview { color: rgba(245, 245, 247, 0.86); }
+.chat-row-badge {
+    flex-shrink: 0;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 9999px;
+    background: var(--chat-unread);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* Nothing to show */
+.chat-empty { padding: 36px 20px; text-align: center; }
+.chat-empty-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--chat-ink); }
+.chat-empty-text { margin: 4px 0 0; font-size: 13px; color: var(--chat-ink-3); }
+.chat-empty-action {
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.chat-empty-action:active { transform: scale(0.96); }
+
+/* ================= Conversation ================= */
+/* One chat, full screen, Instagram DM style: grouped bubbles on black (theirs dark grey with their avatar
+   by the last one; yours a blue-to-indigo gradient), time in centred dividers, "Seen" under your latest
+   message, and one input pill at the bottom. The contact sits left-aligned in the top bar. */
+
+#view-conversation {
+    --conv-theirs: #262629;
+    --conv-mine: linear-gradient(135deg, #0A84FF, #5E5CE6);
+    --conv-accent: #0A84FF;
+    --conv-muted: rgba(235, 235, 245, 0.45);
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 0;
+    background: #000;
+}
+/* A column, so the input sits at the bottom even when the thread is short */
+#view-conversation:not(.hidden) { display: flex; flex-direction: column; }
+
+/* ---- Top bar: back, then the contact left-aligned (avatar, name, "Active now"); no actions ---- */
+#app-top-bar[data-view="conversation"] .top-bar-nav { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 10px; }
+#app-top-bar[data-view="conversation"] .nav-inline-title { justify-self: start; max-width: 100%; }
+.conv-bar-id { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.conv-bar-id .role-avatar-status { width: 11px; height: 11px; right: -1px; bottom: -1px; border-color: #000; }
+.conv-bar-text { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.2; }
+.conv-bar-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-bar-sub { font-size: 12px; font-weight: 400; color: var(--conv-muted, rgba(235, 235, 245, 0.5)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Thread ---- */
+.conv-messages {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;             /* a short thread sits just above the input, as in Instagram */
+    padding: 8px 0 10px;
+}
+.conv-divider {
+    margin: 16px 0 10px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--conv-muted);
+}
+.conv-divider:first-child { margin-top: 4px; }
+
+.conv-row { display: flex; flex-direction: column; margin-top: 2px; }
+.conv-row.is-first { margin-top: 8px; }
+.conv-divider + .conv-row { margin-top: 0; }
+.conv-row.is-mine { align-items: flex-end; }
+.conv-row.is-theirs { align-items: flex-start; }
+.conv-row-inner { display: flex; align-items: flex-end; gap: 8px; max-width: 100%; }
+.conv-row-avatar { width: 28px; flex-shrink: 0; display: flex; }
+.conv-sender { margin: 0 0 3px 48px; font-size: 12px; font-weight: 500; color: var(--conv-muted); }
+
+.conv-bubble {
+    max-width: min(75vw, 300px);
+    padding: 9px 14px;
+    border-radius: 20px;
+    background: var(--conv-theirs);
+    color: #fff;
+    overflow-wrap: anywhere;
+}
+.is-mine .conv-bubble { background: var(--conv-mine); color: #FFFFFF; }
+/* Clusters: 4px where bubbles meet, on the sender's side; the cluster's outer corners stay round */
+.is-theirs:not(.is-first) .conv-bubble { border-top-left-radius: 4px; }
+.is-theirs:not(.is-last) .conv-bubble { border-bottom-left-radius: 4px; }
+.is-mine:not(.is-first) .conv-bubble { border-top-right-radius: 4px; }
+.is-mine:not(.is-last) .conv-bubble { border-bottom-right-radius: 4px; }
+.conv-text { margin: 0; font-size: 15px; line-height: 1.35; white-space: pre-wrap; }
+/* A photo fills its bubble */
+.conv-bubble.has-photo { padding: 0; overflow: hidden; background: #1C1C1E; }
+.conv-photo { display: block; width: 220px; max-width: 100%; height: auto; max-height: 300px; object-fit: cover; }
+
+.conv-seen { margin: 4px 4px 0 0; text-align: right; font-size: 11.5px; font-weight: 500; color: var(--conv-muted); }
+
+/* ---- Input pill: camera | message | gallery + voice note (or Send), anchored above the safe area ---- */
+.conv-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 0 -12px;
+    padding: 8px 12px calc(10px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, #000 30%);
+}
+.conv-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 44px;
+    padding: 0 6px 0 4px;
+    border-radius: 22px;
+    background: #1C1C1E;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.conv-pill:focus-within { border-color: rgba(255, 255, 255, 0.16); }
+.conv-cam {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.10);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms var(--ease-out, ease);
+}
+.conv-cam:active { transform: scale(0.9); }
+.conv-input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 4px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 16px;                       /* 16px: iOS doesn't zoom the page on focus */
+}
+.conv-input::placeholder { color: rgba(235, 235, 245, 0.45); }
+.conv-pill-actions { display: flex; align-items: center; flex-shrink: 0; }
+.conv-pill-actions[hidden] { display: none; }
+.conv-pill-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 21px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.conv-pill-icon:active { opacity: 0.5; }
+.conv-send {
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: var(--conv-accent);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.conv-send[hidden] { display: none; }
+.conv-send:active { opacity: 0.5; }
+.conv-cam:focus-visible, .conv-pill-icon:focus-visible, .conv-send:focus-visible { outline: 2px solid #fff; outline-offset: 1px; border-radius: 9999px; }

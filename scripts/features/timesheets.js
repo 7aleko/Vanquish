@@ -681,11 +681,12 @@ function tsCodeOptions(selected) {
 // State B: editable blocks. Rebuilt only on structural changes (day, add, delete, copy); typing updates in place.
 function renderTimesheetBlocks() {
     const draft = tsDraft(timesheetState.selected);
+    const split = draft.blocks.length > 1;          // line numbers (and the total) only once the day is split
     document.getElementById('ts-block-list').innerHTML = draft.blocks.map((b, i) => `
         <div class="ts-block${i === timesheetState.editingIndex ? ' is-editing' : ''}" data-id="${b.id}">
             ${i === timesheetState.editingIndex ? '<span class="ts-block-editing"><i class="ph-bold ph-pencil-simple" aria-hidden="true"></i>Editing this line</span>' : ''}
             <div class="ts-block-head">
-                <span class="ts-block-num">${i + 1}</span>
+                ${split ? `<span class="ts-block-num">${i + 1}</span>` : ''}
                 <label class="ts-code-wrap">
                     <span class="sr-only">Cost code for line ${i + 1}</span>
                     <select class="ts-code${b.code ? '' : ' is-placeholder'}" data-field="code" onchange="onTimesheetBlockInput(this)">${tsCodeOptions(b.code)}</select>
@@ -741,6 +742,8 @@ function updateTimesheetEditComputed() {
         el.querySelector('.ts-code').classList.toggle('is-placeholder', !b.code);
     });
     document.getElementById('ts-total').textContent = tsFormatHours(tsSumHours(draft.blocks));
+    // One line already shows its hours; the combined total only adds anything once the day is split
+    document.getElementById('ts-total-box').hidden = draft.blocks.length < 2;
     document.getElementById('ts-site-error').textContent = (showErrors && !draft.siteId) ? 'Choose the site you worked at' : '';
 
     const dirty = tsIsDirty(iso);

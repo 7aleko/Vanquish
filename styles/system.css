@@ -91,11 +91,12 @@ html .active\:scale-95:active { --tw-scale-x: var(--press-scale); --tw-scale-y: 
 :where(button, a[href], [role="button"], [role="tab"]):where(:not(:disabled):not([class*="active:scale"]):not(.apple-button):not(.liquid-glass):not(.nav-btn)):active {
     scale: var(--press-scale);
 }
-/* Whole rows/cards made tappable with onclick: subtler travel for big surfaces */
-:where([onclick]:not(button):not(a)):where(:not([class*="active:scale"]):not(.apple-list-item)) {
+/* Whole rows/cards made tappable with onclick: subtler travel for big surfaces. Not a backdrop that holds a
+   dialog (its onclick is tap-outside-to-close): :active would match on every tap inside the sheet and shrink it. */
+:where([onclick]:not(button):not(a)):where(:not([class*="active:scale"]):not(.apple-list-item):not(:has([role="dialog"]))) {
     transition: scale var(--dur-press) var(--ease-out);
 }
-:where([onclick]:not(button):not(a)):where(:not([class*="active:scale"]):not(.apple-list-item)):active {
+:where([onclick]:not(button):not(a)):where(:not([class*="active:scale"]):not(.apple-list-item):not(:has([role="dialog"]))):active {
     scale: var(--press-scale-row);
 }
 

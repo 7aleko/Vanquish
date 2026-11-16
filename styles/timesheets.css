@@ -483,7 +483,17 @@
     -webkit-tap-highlight-color: transparent;
     transition: background-color 160ms ease, border-color 160ms ease;
 }
+/* The chosen site: the Home hero / Roster Today card's emerald glass wash, so its ROSTERED badge sits natively */
+.ts-site-row:not(.is-empty) {
+    border-color: rgba(30, 215, 150, 0.28);
+    background:
+        radial-gradient(140% 160% at 0% 0%, rgba(20, 89, 67, 0.38) 0%, rgba(10, 46, 35, 0.3) 55%, rgba(10, 46, 35, 0.16) 100%),
+        rgba(255, 255, 255, 0.02);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ts-site-row:not(.is-empty) .ts-site-pin { color: #1ED796; }
 .ts-site-row:active:not(:disabled) { background: #1c1f25; }
+.ts-site-row:not(.is-empty):active:not(:disabled) { background: rgba(20, 89, 67, 0.45); }
 .ts-site-row:disabled { cursor: default; opacity: 1; }
 .ts-site-row:disabled .ts-site-caret { display: none; }
 .ts-site-row[aria-expanded="true"] { border-color: rgba(30, 215, 150, 0.4); }
@@ -747,8 +757,11 @@
     border-radius: 28px 28px 0 0;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: 0;
-    background: #111216;                       /* solid: Safari let the page ghost through a 97% surface */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 -18px 50px rgba(0, 0, 0, 0.6);
+    /* Frosted dark liquid glass: the 24px blur keeps the page behind from ghosting through the 92% surface */
+    background: rgba(16, 18, 17, 0.92);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+            backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 -18px 50px rgba(0, 0, 0, 0.6);
     color: #fff;
     outline: none;
     transform: translateY(100%);
@@ -794,7 +807,7 @@
     flex-shrink: 0;
     padding: 10px 16px calc(14px + var(--safe-bottom, 0px));
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-    background: #111216;
+    background: transparent;                   /* the sheet's own glass shows through */
 }
 .ts-sheet-foot > .ts-save { margin-top: 0 !important; }
 .ts-save-next {
@@ -805,9 +818,10 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    /* Secondary dark glass pill under Submit; shown only while the pay run has another unlogged workday */
+    border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.05);
     color: #fff;
     font-size: 15px;
     font-weight: 700;
@@ -815,7 +829,7 @@
     -webkit-tap-highlight-color: transparent;
     transition: scale var(--dur-press) var(--ease-out), background-color 160ms ease;
 }
-.ts-save-next i { font-size: 16px; color: var(--ts-lime); }
+.ts-save-next i { font-size: 16px; color: #1ED796; }
 .ts-save-next:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.1); }
 .ts-block.is-editing { border-color: rgba(30, 215, 150, 0.5); box-shadow: 0 0 0 1px rgba(30, 215, 150, 0.25); }
 .ts-block-editing { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ts-lime); }
@@ -915,6 +929,11 @@
 }
 .ts-input:focus { outline: none; border-color: rgba(30, 215, 150, 0.55); background: rgba(0, 0, 0, 0.55); }
 .ts-input::-webkit-date-and-time-value { text-align: left; }
+/* Start / Finish read "7:00 AM", as on Home and the Time screen (iOS writes "am" otherwise) */
+.ts-input[type="time"],
+.ts-input[type="time"]::-webkit-date-and-time-value,
+.ts-input[type="time"]::-webkit-datetime-edit,
+.ts-input[type="time"]::-webkit-datetime-edit-ampm-field { text-transform: uppercase; }
 .ts-input::placeholder { color: rgba(255, 255, 255, 0.35); font-weight: 500; }
 .ts-task { font-weight: 500; }
 
@@ -952,10 +971,11 @@
     transition: background-color 160ms ease, color 160ms ease, scale var(--dur-press) var(--ease-out);
 }
 .ts-seg:active { scale: 0.96; }
+/* The chosen option: a subtle emerald glass tint with a crisp rim (inset, so the control doesn't shift) */
 .ts-seg.is-active {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(30, 215, 150, 0.14);
     color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4);
+    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .ts-seg:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; }
 
@@ -966,9 +986,9 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px dashed rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    background: transparent;
+    background: rgba(255, 255, 255, 0.03);
     color: #fff;
     font-size: 14px;
     font-weight: 700;
@@ -976,7 +996,7 @@
     -webkit-tap-highlight-color: transparent;
     transition: background-color 160ms ease, scale var(--dur-press) var(--ease-out);
 }
-.ts-add-line:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.05); }
+.ts-add-line:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.06); }
 .ts-add-line i { font-size: 15px; color: var(--ts-lime); }
 
 .ts-total-box {
@@ -989,7 +1009,7 @@
 .ts-total { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ts-lime); }
 .ts-total-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--ts-muted); }
 
-/* Submit: the lime primary pill (same shape and glow as Home's Sign In) */
+/* Submit: a rich emerald glass pill with a crisp mint specular rim and white ink */
 .ts-save {
     width: 100%;
     height: 52px;
@@ -998,13 +1018,13 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(46, 230, 168, 0.45);
     border-radius: 9999px;
-    background: var(--ts-lime);
-    color: #0c0f05;
+    background: linear-gradient(135deg, #0D4A38 0%, #18A878 100%);
+    color: #fff;
     font-size: 16px;
     font-weight: 800;
-    box-shadow: 0 6px 22px -6px rgba(30, 215, 150, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(24, 168, 120, 0.5);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: scale var(--dur-press) var(--ease-out), opacity 160ms ease;

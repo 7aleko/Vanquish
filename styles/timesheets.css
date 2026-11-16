@@ -1,15 +1,22 @@
 /* Time (Timesheets) screen - scripts/features/timesheets.js.
-   Black canvas, #111216 elevated cards with Home's 8% hairline and 28px radius, #16181D for surfaces inside
-   them. #A3E635 for logged progress and the primary action, amber only for a missed or pending day.
+   Dark Liquid Glass, as on Home and Roster: black canvas, translucent 20px-radius glass cards with a fine
+   8% border and a top specular highlight. The signature emerald (#0D4A38 deep -> #1ED796 mint) carries logged
+   progress and the primary action; amber only for a missed day or a pending sign-off.
    Rings follow Apple Fitness: thick strokes on a dark tinted track, round caps, a second lap over the
    first for overtime. All figures use tabular numbers. */
 
 #view-time,
 .ts-sheet-overlay {
-    --ts-lime: #A3E635;
-    --ts-ring-ot: #BEF264;           /* the overtime pill's ink (ring arc colours live in TS_RING_COLOURS) */
-    --ts-ring-track: rgba(50, 215, 75, 0.17);
-    --ts-ring-track-partial: rgba(255, 159, 10, 0.17);
+    --ts-emerald-deep: #0D4A38;
+    --ts-mint: #1ED796;
+    --ts-glow: rgba(30, 215, 150, 0.25);
+    --ts-glass: rgba(255, 255, 255, 0.04);
+    --ts-glass-edge: rgba(255, 255, 255, 0.08);
+    --ts-emerald-mesh: linear-gradient(145deg, #0D4A38 0%, #128A63 55%, #1ED796 100%);
+    --ts-lime: var(--ts-mint);       /* legacy name: every "active" accent on this screen is mint */
+    --ts-ring-ot: var(--ts-mint);    /* the overtime pill's ink (ring arc colours live in TS_RING_COLOURS) */
+    --ts-ring-track: rgba(30, 215, 150, 0.12);
+    --ts-ring-track-idle: rgba(255, 255, 255, 0.07);
     --ts-amber: #FBBF24;
     --ts-emerald: #34D399;
     --ts-card: #111216;
@@ -22,9 +29,19 @@
 #view-time {
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: calc(24px + var(--safe-bottom, 0px));
-    background: #000;
+    /* The floating button rests 28px above the bottom; with its 56px and the 16px above it, the last card
+       always scrolls fully clear of it (~100px of runway) */
+    padding-bottom: calc(28px + var(--safe-bottom, 0px));
+    /* A faint emerald light behind the ring, so the glass cards have something to refract */
+    background:
+        radial-gradient(70% 34% at 50% 18%, rgba(30, 215, 150, 0.07), transparent 70%),
+        #000;
 }
+/* Surfaces inside the glass cards are glass too (the sheet keeps its own opaque surface) */
+#view-time { --ts-surface: rgba(255, 255, 255, 0.045); }
+#view-time .ts-sum-row:active { background: rgba(255, 255, 255, 0.08); }
+#view-time > .large-title-row { padding: 0 4px; margin-bottom: 4px; }
+#view-time .page-title { color: #fff; }
 /* A column, so the floating button can sit at the bottom even when the day's content is short */
 #view-time:not(.hidden) { display: flex; flex-direction: column; }
 #view-time > * { flex-shrink: 0; }
@@ -40,21 +57,11 @@
 #view-time [hidden],
 .ts-sheet-overlay [hidden] { display: none !important; }
 
-/* Bar: "Timesheets"; the Crew pill sits where other screens put their round action */
-#app-top-bar .nav-action-pill {
-    width: auto;
-    height: 36px;
-    padding: 0 14px 0 12px;
-    gap: 6px;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--bar-icon);
-}
-#app-top-bar .nav-action-pill i { font-size: 17px; }
-#app-top-bar .nav-action-pill.is-active {
-    background: rgba(163, 230, 53, 0.14);
-    box-shadow: inset 0 0 0 1px rgba(163, 230, 53, 0.45);
-    color: #A3E635;
+/* Bar: the Crew button is the same round glass action as Roster's; tinted emerald while the crew drawer is open */
+#app-top-bar.on-dark #ts-nav-crew.is-active {
+    background: rgba(30, 215, 150, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.45), 0 0 16px -2px var(--ts-glow);
+    color: var(--ts-mint);
 }
 #app-top-bar[data-mode="nav"] .nav-inline-title { font-variant-numeric: tabular-nums; }
 
@@ -86,7 +93,9 @@
     width: 24px;
     height: 24px;
     border-radius: 9999px;
-    background: #8E8E93;
+    /* Emerald glass: a tinted fill, a fine mint rim and a soft glow */
+    background: radial-gradient(120% 120% at 30% 20%, rgba(30, 215, 150, 0.42), rgba(13, 74, 56, 0.75));
+    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 12px var(--ts-glow);
     pointer-events: none;
     transition: transform 420ms cubic-bezier(0.3, 1.2, 0.5, 1);   /* a spring with a whisper of overshoot */
 }
@@ -153,15 +162,19 @@
 .ts-day.is-upcoming .ts-day-track,
 .ts-day.is-weekend .ts-day-track,
 .ts-day.is-today .ts-day-track,
-.ts-day.is-none .ts-day-track { stroke: rgba(255, 255, 255, 0.09); }
+.ts-day.is-none .ts-day-track { stroke: var(--ts-ring-track-idle); }
 .ts-day.is-logged .ts-day-track { stroke: var(--ts-ring-track); }
-.ts-day.is-logged.is-partial .ts-day-track { stroke: var(--ts-ring-track-partial); }
+/* The selected day's ring carries a soft emerald light */
+.ts-day.is-selected.is-logged .ts-day-ring { filter: drop-shadow(0 0 6px rgba(30, 215, 150, 0.35)); }
 
 /* ---------- Daily ring ---------- */
 .ts-hero { display: flex; justify-content: center; padding: 0; }
 .ts-hero-ring { position: relative; width: 196px; height: 196px; }
 .ts-hero-ring svg { width: 100%; height: 100%; overflow: visible; }
-.ts-hero-track { fill: none; stroke: var(--ts-ring-track); stroke-width: 40; }
+.ts-hero-track { fill: none; stroke: var(--ts-ring-track-idle); stroke-width: 40; }
+.ts-hero[data-status="logged"] .ts-hero-track { stroke: rgba(30, 215, 150, 0.09); }
+/* Ambient emerald light around the active arc (not the whole screen) */
+#ts-hero-arcs { filter: drop-shadow(0 0 14px rgba(30, 215, 150, 0.25)); }
 /* The leading tip's shadow: a blurred disc under the tip's round cap, so it only shows ahead of the tip, on the
    track or (in overtime) on the first lap, as on the Fitness rings */
 .ts-ring-tip { filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.5)); }
@@ -183,7 +196,7 @@
     gap: 2px;
 }
 .ts-hero-hours {
-    font-size: 38px;
+    font-size: 40px;
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.03em;
@@ -201,8 +214,8 @@
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
-    background: rgba(190, 242, 100, 0.16);
-    box-shadow: inset 0 0 0 1px rgba(190, 242, 100, 0.4);
+    background: rgba(30, 215, 150, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.4);
     color: var(--ts-ring-ot);
     font-size: 12px;
     font-weight: 800;
@@ -210,10 +223,28 @@
 }
 
 /* ---------- Cards ---------- */
+/* Liquid Glass: translucent fill, 20px blur, fine 8% border, a curved top-left specular and a soft drop */
 .ts-card {
-    border-radius: var(--radius-card, 28px);
-    background: var(--ts-card);
-    border: 1px solid var(--ts-edge);
+    position: relative;
+    isolation: isolate;
+    border-radius: 20px;
+    background: var(--ts-glass);
+    border: 1px solid var(--ts-glass-edge);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+            backdrop-filter: blur(20px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+        0 12px 32px -18px rgba(0, 0, 0, 0.9);
+}
+.ts-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(120% 60% at 0% -20%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015) 50%, transparent 70%);
 }
 .ts-eyebrow {
     margin: 0;
@@ -228,28 +259,28 @@
 .ts-run { padding: 12px 14px 14px; }
 .ts-run-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .ts-run-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ts-run-nav { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.ts-run-nav { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 4px; }
 .ts-run-range { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; color: #fff; }
 .ts-run-chev {
     position: relative;
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;                     /* rounded-square glass, as Roster's week arrows */
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px var(--ts-glass-edge), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    color: #fff;
     font-size: 14px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: background-color 160ms ease, scale var(--dur-press) var(--ease-out);
 }
-.ts-run-chev::before { content: ""; position: absolute; inset: -8px; }       /* 44px tap target */
-.ts-run-chev:active:not(:disabled) { scale: 0.9; background: rgba(255, 255, 255, 0.08); }
-.ts-run-chev:disabled { color: rgba(255, 255, 255, 0.2); cursor: default; }
-.ts-run-chev:first-child { margin-left: -8px; }
+.ts-run-chev::before { content: ""; position: absolute; inset: -6px; }       /* 44px tap target */
+.ts-run-chev:active:not(:disabled) { scale: 0.92; background: rgba(255, 255, 255, 0.1); }
+.ts-run-chev:disabled { color: rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.025); cursor: default; }
 .ts-run-badge {
     flex-shrink: 0;
     display: inline-flex;
@@ -270,8 +301,8 @@
 .ts-run-badge i { font-size: 13px; }
 .ts-run-badge.is-gap { background: rgba(251, 191, 36, 0.14); color: var(--ts-amber); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.3); }
 .ts-run-badge.is-gap:active { scale: 0.95; }
-.ts-run-badge.is-complete { background: rgba(163, 230, 53, 0.14); color: var(--ts-lime); }
-.ts-run-badge.is-ok { background: rgba(163, 230, 53, 0.10); color: rgba(163, 230, 53, 0.85); }
+.ts-run-badge.is-complete { background: rgba(30, 215, 150, 0.14); color: var(--ts-lime); }
+.ts-run-badge.is-ok { background: rgba(30, 215, 150, 0.10); color: rgba(30, 215, 150, 0.85); }
 .ts-run-badge.is-idle { background: rgba(255, 255, 255, 0.06); color: var(--ts-muted); }
 .ts-run-badge:disabled { cursor: default; }
 
@@ -332,10 +363,11 @@
     background: var(--ts-lime);
     transition: height 500ms var(--ease-out);
 }
-/* Same colours as the rings (TS_RING_COLOURS in timesheets.js): the ring's start colour at the base rising to
-   its tip colour at the top; a full day green -> lime, a short day amber -> gold */
-.ts-bar.is-logged .ts-bar-fill { background: linear-gradient(0deg, #32D74B 0%, #A8FF35 100%); }
-.ts-bar.is-logged.is-partial .ts-bar-fill { background: linear-gradient(0deg, #FF9F0A 0%, #FFD60A 100%); }
+/* Same colours as the rings (TS_RING_COLOURS in timesheets.js): deep emerald at the base rising to mint */
+.ts-bar.is-logged .ts-bar-fill {
+    background: linear-gradient(0deg, #0D4A38 0%, #1ED796 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 10px -2px rgba(30, 215, 150, 0.3);
+}
 /* Missed: a dashed amber baseline marker that can't be mistaken for a short logged day */
 .ts-bar.is-missing .ts-bar-fill {
     height: 18%;
@@ -357,15 +389,27 @@
 .ts-run-sel.is-instant { transition: none; }
 
 /* ---------- Day card: the selected day's work record ---------- */
-.ts-day-card { padding: 14px; }
-.ts-day-card > * + * { margin-top: 12px; }
-.ts-day-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.ts-day-id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ts-day-card { padding: 16px; }
+/* A soft emerald wash behind the site heading, contained by the card */
+.ts-day-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(80% 90px at 18% 30px, rgba(30, 215, 150, 0.13), transparent 75%);
+}
+.ts-day-card > * + * { margin-top: 14px; }
+.ts-day-head { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .ts-day-date { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--ts-muted); }
-.ts-day-site { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ts-day-site-name { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The full site name: wraps onto a second line rather than truncating */
+.ts-day-site-name { max-width: 100%; font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; color: #fff; overflow-wrap: anywhere; }
 .ts-day-site-name.is-empty { color: rgba(255, 255, 255, 0.45); }
-.ts-day-site-address { font-size: 13px; font-weight: 500; color: var(--ts-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-day-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.ts-day-pills .ts-site-badge,
+.ts-day-pills .ts-status-pill { height: 24px; font-size: 10.5px; }
+.ts-day-site-address { max-width: 100%; margin-top: 4px; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--ts-muted); overflow-wrap: anywhere; }
 .ts-day-empty {
     padding: 18px 12px;
     border-radius: 16px;
@@ -415,11 +459,12 @@
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.7);
 }
-.ts-status-pill.is-logged { background: rgba(163, 230, 53, 0.14); color: var(--ts-lime); }
+.ts-status-pill.is-logged { background: rgba(30, 215, 150, 0.14); color: var(--ts-lime); }
 .ts-status-pill.is-missing { background: rgba(251, 191, 36, 0.14); color: var(--ts-amber); }
 .ts-status-pill.is-today, .ts-status-pill.is-editing { background: rgba(255, 255, 255, 0.12); color: #fff; }
-.ts-status-pill.is-approved { background: rgba(163, 230, 53, 0.14); color: var(--ts-lime); }
-.ts-status-pill.is-awaiting { background: rgba(251, 191, 36, 0.14); color: var(--ts-amber); }
+.ts-status-pill.is-approved { background: rgba(30, 215, 150, 0.14); color: var(--ts-mint); box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.3); }
+.ts-status-pill.is-awaiting { background: rgba(251, 191, 36, 0.12); color: var(--ts-amber); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.28); }
+.ts-status-pill.is-missing { box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.28); }
 
 /* Site row: one compact, tappable line */
 .ts-site-row {
@@ -441,7 +486,7 @@
 .ts-site-row:active:not(:disabled) { background: #1c1f25; }
 .ts-site-row:disabled { cursor: default; opacity: 1; }
 .ts-site-row:disabled .ts-site-caret { display: none; }
-.ts-site-row[aria-expanded="true"] { border-color: rgba(163, 230, 53, 0.4); }
+.ts-site-row[aria-expanded="true"] { border-color: rgba(30, 215, 150, 0.4); }
 .ts-site-row:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
 .ts-site-pin { font-size: 14px; color: var(--ts-muted); }
 .ts-site-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -462,7 +507,7 @@
     font-weight: 800;
     letter-spacing: 0.06em;
 }
-.ts-site-badge.is-rostered { background: rgba(52, 211, 153, 0.14); color: var(--ts-emerald); }
+.ts-site-badge.is-rostered { background: rgba(30, 215, 150, 0.12); color: var(--ts-mint); box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.3); }
 .ts-site-badge.is-manual { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.6); }
 /* A different site from the roster's (transferred or a split day): sky, so it reads as information, not a warning */
 .ts-site-badge.is-override { background: rgba(125, 211, 252, 0.14); color: #7DD3FC; white-space: nowrap; }
@@ -500,7 +545,7 @@
     -webkit-appearance: none;
     appearance: none;
 }
-.ts-site-search:focus { outline: 1px solid rgba(163, 230, 53, 0.5); }
+.ts-site-search:focus { outline: 1px solid rgba(30, 215, 150, 0.5); }
 .ts-site-search::placeholder { color: rgba(255, 255, 255, 0.35); }
 .ts-site-list { max-height: 272px; overflow-y: auto; overscroll-behavior: contain; padding: 0 6px 6px; }
 .ts-site-option {
@@ -519,7 +564,7 @@
     -webkit-tap-highlight-color: transparent;
 }
 .ts-site-option:active { background: rgba(255, 255, 255, 0.06); }
-.ts-site-option.is-selected { background: rgba(163, 230, 53, 0.08); }
+.ts-site-option.is-selected { background: rgba(30, 215, 150, 0.08); }
 .ts-site-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ts-site-option-name { font-size: 15px; font-weight: 700; }
 .ts-site-option-addr { font-size: 12px; color: var(--ts-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -593,7 +638,7 @@
 }
 .ts-copy-btn::before { content: ""; position: absolute; inset: -7px 0; }   /* 44px tap height */
 .ts-copy-btn:active { scale: 0.95; }
-.ts-copy-btn.is-copied { background: rgba(163, 230, 53, 0.14); color: var(--ts-lime); }
+.ts-copy-btn.is-copied { background: rgba(30, 215, 150, 0.14); color: var(--ts-lime); }
 
 /* ----- Submitted blocks (day card): one compact row each, tap to edit ----- */
 .ts-submitted-note { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 700; color: var(--ts-lime); }
@@ -625,49 +670,55 @@
 .ts-summary-total { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
 .ts-summary-total-value { font-size: 18px; font-weight: 800; color: #fff; }
 
-/* ---------- Floating button (sticky to the bottom of the screen, so it moves with the page) ---------- */
+/* ---------- Floating action button: 56px circle, bottom right ----------
+   Sticky (not fixed) so it travels with the screen when it slides; the wrap is the column's last item, so at
+   the end of the scroll the button sits below the last card and nothing is left under it. */
 .ts-cta-wrap {
     position: sticky;
-    bottom: calc(24px + var(--safe-bottom, 0px));
+    bottom: 0;                                /* sticky insets from the view's padding edge: 28px + safe area */
     z-index: 40;
     margin-top: auto !important;
     padding-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 4px;                       /* 16px gutter + 4px = 20px from the screen edge */
     pointer-events: none;
 }
 .ts-cta {
     pointer-events: auto;
-    width: 100%;
-    height: 54px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border-radius: 9999px;
-    font-size: 17px;                          /* bold, tracking-tight, both states */
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: scale var(--dur-press) var(--ease-out), background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
-}
-.ts-cta i { font-size: 19px; }
-.ts-cta:active { scale: var(--press-scale, 0.97); }
-.ts-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-.ts-cta.is-primary {
-    background: #A3E635;
-    color: #09090B;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow: 0 10px 30px -8px rgba(163, 230, 53, 0.55), 0 4px 14px rgba(0, 0, 0, 0.5);
-}
-.ts-cta.is-glass {
-    background: rgba(24, 24, 27, 0.90);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+    isolation: isolate;
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     color: #fff;
+    background: rgba(20, 24, 22, 0.85);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
             backdrop-filter: blur(20px) saturate(160%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 30px -8px rgba(0, 0, 0, 0.8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 28px -8px rgba(0, 0, 0, 0.85);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press) var(--ease-out), border-color 260ms ease, color 260ms ease;
 }
-.ts-cta.is-glass i { color: var(--ts-lime); }
+.ts-cta i { font-size: 24px; line-height: 1; }
+.ts-cta i.is-swap { animation: ts-cta-swap 260ms var(--ease-out); }
+@keyframes ts-cta-swap { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
+.ts-cta:active { scale: 0.92; }
+.ts-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* Unlogged day: the same dark smoked glass as the Edit state, set apart only by a fine emerald rim and a mint
+   plus (no green fill, no neon glow) */
+.ts-cta.is-primary {
+    border-color: rgba(30, 215, 150, 0.4);
+    color: var(--ts-mint);
+}
+.ts-cta.is-primary i { font-size: 22px; }
+@media (prefers-reduced-motion: reduce) {
+    .ts-cta i.is-swap { animation: none; }
+}
 
 /* ---------- Timesheet sheet ---------- */
 .ts-sheet-overlay {
@@ -766,7 +817,7 @@
 }
 .ts-save-next i { font-size: 16px; color: var(--ts-lime); }
 .ts-save-next:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.1); }
-.ts-block.is-editing { border-color: rgba(163, 230, 53, 0.5); box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.25); }
+.ts-block.is-editing { border-color: rgba(30, 215, 150, 0.5); box-shadow: 0 0 0 1px rgba(30, 215, 150, 0.25); }
 .ts-block-editing { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ts-lime); }
 
 /* ----- State B: editable time blocks ----- */
@@ -785,7 +836,7 @@
     transition: border-color 200ms ease, box-shadow 400ms ease;
 }
 .ts-block.has-error { border-color: rgba(251, 191, 36, 0.45); }
-.ts-block.is-flash { box-shadow: 0 0 0 2px rgba(163, 230, 53, 0.55); }
+.ts-block.is-flash { box-shadow: 0 0 0 2px rgba(30, 215, 150, 0.55); }
 .ts-block.is-new { animation: tsBlockIn 260ms var(--ease-out) both; }
 @keyframes tsBlockIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .ts-block-head { display: flex; align-items: center; gap: 8px; }
@@ -820,7 +871,7 @@
     cursor: pointer;
 }
 .ts-code.is-placeholder { color: rgba(255, 255, 255, 0.45); font-weight: 600; }
-.ts-code:focus { outline: none; border-color: rgba(163, 230, 53, 0.55); }
+.ts-code:focus { outline: none; border-color: rgba(30, 215, 150, 0.55); }
 .ts-code option { background: #16181D; color: #fff; }
 .ts-code-wrap i { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--ts-muted); pointer-events: none; }
 .ts-block-delete {
@@ -862,7 +913,7 @@
     appearance: none;
     transition: border-color 160ms ease, background-color 160ms ease;
 }
-.ts-input:focus { outline: none; border-color: rgba(163, 230, 53, 0.55); background: rgba(0, 0, 0, 0.55); }
+.ts-input:focus { outline: none; border-color: rgba(30, 215, 150, 0.55); background: rgba(0, 0, 0, 0.55); }
 .ts-input::-webkit-date-and-time-value { text-align: left; }
 .ts-input::placeholder { color: rgba(255, 255, 255, 0.35); font-weight: 500; }
 .ts-task { font-weight: 500; }
@@ -953,7 +1004,7 @@
     color: #0c0f05;
     font-size: 16px;
     font-weight: 800;
-    box-shadow: 0 6px 22px -6px rgba(163, 230, 53, 0.55);
+    box-shadow: 0 6px 22px -6px rgba(30, 215, 150, 0.55);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: scale var(--dur-press) var(--ease-out), opacity 160ms ease;

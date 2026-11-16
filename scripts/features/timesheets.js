@@ -231,9 +231,10 @@ function tsPolar(cx, cy, r, lapFraction) {
 
 // Ring colours (the Pay Run bars use the same pairs, in timesheets.css): an angular gradient from the start colour at 12 o'clock to the end colour at the leading tip
 // (stretched over however far the ring has run, as on the Fitness rings)
+// The app's signature emerald: deep emerald at 12 o'clock rising to mint at the tip. One pair for every ring
+// (full or short day); amber is kept for the gap warning only (an empty amber track, CSS).
 const TS_RING_COLOURS = {
-    done: ['#32D74B', '#A8FF35'],        // a full day (and the daily ring): vibrant green -> electric lime
-    partial: ['#FF9F0A', '#FFD60A']      // a strip day with some hours but short of the target: amber -> gold
+    done: ['#0D4A38', '#1ED796']
 };
 function tsHexRgb(hex) { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
 function tsMixColour(from, to, t) {
@@ -276,7 +277,7 @@ function tsConicRing(o) {
 function tsMiniRing(d, status) {
     const r = 15.5, rec = timesheetState.records[tsIso(d)];
     const laps = rec ? tsLaps(rec.totalHours) : 0;      // no hours, no arc: a gap shows as an amber track (CSS)
-    const colours = laps >= 1 ? TS_RING_COLOURS.done : TS_RING_COLOURS.partial;
+    const colours = TS_RING_COLOURS.done;
     return `<circle class="ts-day-track" cx="20" cy="20" r="${r}"/>` +
         tsConicRing({ cx: 20, cy: 20, r, width: 8.5, laps, colours, step: 1 / 72, shadowClass: 'ts-ring-tip ts-ring-tip--mini', shadowReach: 0.09 });
 }
@@ -333,12 +334,10 @@ function tsEscape(s) {
 }
 function tsSelectedDate() { return tsFromIso(timesheetState.selected); }
 
-// The bar's title is fixed ("Timesheets", data-bar-title); the date lives in the strip and the day card
-function renderTimesheetTitle() {
-    const view = document.getElementById('view-time');
-    if (view) view.dataset.barTitle = 'Timesheets';
-}
-// Called by top-bar.js when the screen opens; the fixed title always fits beside the Crew pill
+// The screen's name is its large title ("Time", index.html), which collapses into the bar on scroll as on
+// Roster; the date lives in the strip and the day card. Nothing to set per render.
+function renderTimesheetTitle() {}
+// Called by top-bar.js when the screen opens; the title always fits beside the round Crew button
 function tsFitBarTitle() {}
 
 // The strip: every calendar day the Pay Run arrows can reach (the first run we hold to the run after the
@@ -623,13 +622,20 @@ function renderTimesheetCta() {
     const btn = document.getElementById('ts-cta');
     if (!btn) return;
     const dirty = tsIsDirty(iso);
-    btn.classList.toggle('is-primary', !rec);
-    btn.classList.toggle('is-glass', !!rec);
-    // Logged day: Edit Hours (pencil). Unlogged day: Log Hours for <date> (plus). A day with unsaved
-    // changes keeps Continue Editing.
-    document.getElementById('ts-cta-icon').className = (dirty || rec) ? 'ph-bold ph-pencil' : 'ph-bold ph-plus';
-    document.getElementById('ts-cta-label').textContent = dirty ? 'Continue Editing'
-        : rec ? 'Edit Hours' : `Log Hours for ${tsShortDate(tsFromIso(iso))}`;
+    // Logged day: dark glass + pencil (Edit Hours). Unlogged day: dark glass, emerald rim + mint plus (Log Hours for <date>).
+    // A day with unsaved changes keeps the pencil (Continue Editing).
+    const edit = !!(dirty || rec);
+    btn.classList.toggle('is-primary', !edit);
+    btn.classList.toggle('is-glass', edit);
+    const icon = document.getElementById('ts-cta-icon');
+    const cls = edit ? 'ph-bold ph-pencil-simple' : 'ph-bold ph-plus';
+    if (icon.className !== cls) {
+        icon.className = cls;
+        icon.classList.remove('is-swap'); void icon.offsetWidth; icon.classList.add('is-swap');   // a small pop on change
+    }
+    const label = dirty ? 'Continue Editing' : rec ? 'Edit Hours' : `Log Hours for ${tsShortDate(tsFromIso(iso))}`;
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
 }
 
 // ----- Sheet (the editor) -----

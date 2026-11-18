@@ -10,9 +10,9 @@ function hydrateAppViews() {
     } catch (err) { console.warn('renderRosterCards notice:', err); }
 
     try {
-        if (typeof renderSiteSites === 'function') renderSiteSites();
+        if (typeof renderSiteHub === 'function') renderSiteHub();
         if (typeof renderConnectedProject === 'function') renderConnectedProject();
-    } catch (err) { console.warn('renderSiteSites notice:', err); }
+    } catch (err) { console.warn('renderSiteHub notice:', err); }
 
     try {
         if (typeof renderHomeSiteCard === 'function') renderHomeSiteCard();

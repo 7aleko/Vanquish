@@ -170,7 +170,7 @@
             currentActiveViewName = targetTab;
             const notifBtn = document.getElementById('btn-notifications');
             if (targetTab !== 'notifications' && notifBtn) {
-                notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+                notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
             }
             requestAnimationFrame(syncDynamicStatusBar);
 

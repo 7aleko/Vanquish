@@ -21,7 +21,7 @@ function openNotificationsView() {
 
     const notifBtn = document.getElementById('btn-notifications');
     if (notifBtn) {
-        notifBtn.classList.add('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+        notifBtn.classList.add('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
     }
 }
 
@@ -29,7 +29,7 @@ function closeNotificationsView() {
     triggerHaptic('light');
     const notifBtn = document.getElementById('btn-notifications');
     if (notifBtn) {
-        notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+        notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
     }
     switchTab(viewBeforeNotifications || 'home', { forceMode: 'pop', silentHaptic: true });
 }
@@ -104,12 +104,12 @@ function handleNotificationAction(e, id, actionType) {
         }
     } else if (actionType === 'tool') {
         const notifBtn = document.getElementById('btn-notifications');
-        if (notifBtn) notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+        if (notifBtn) notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
         switchTab('tools');
         showToast('Tools & Gear', 'Viewing DeWalt 54V Table Saw movement');
     } else if (actionType === 'roster') {
         const notifBtn = document.getElementById('btn-notifications');
-        if (notifBtn) notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+        if (notifBtn) notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
         switchTab('week');
     } else if (actionType === 'docket') {
         triggerHaptic('medium');
@@ -165,7 +165,7 @@ function renderNotificationsFeed(filter = 'all') {
                                 `;
                             } else {
                                 actionButtonHtml = `
-                                    <button onclick="handleNotificationAction(event, '${item.id}', 'signin')" class="hit-44 shrink-0 px-4 py-1.5 rounded-full bg-brand-lime hover:bg-brand-limeHover border border-brand-lime text-slate-950 text-xs font-black shadow-[0_0_12px_rgba(204,255,0,0.35)] active:scale-95 transition-all">
+                                    <button onclick="handleNotificationAction(event, '${item.id}', 'signin')" class="hit-44 shrink-0 px-4 py-1.5 rounded-full bg-brand-lime hover:bg-brand-limeHover border border-brand-lime text-slate-950 text-xs font-black shadow-[0_0_12px_rgba(34,229,98,0.35)] active:scale-95 transition-all">
                                         Sign In
                                     </button>
                                 `;

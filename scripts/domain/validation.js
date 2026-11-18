@@ -70,6 +70,45 @@ const EntitySchemas = (() => {
             siteId: { type: 'id', required: true },
             blocks: { type: 'array', required: true, min: 1, items: block }
         },
+        attendance: {
+            id: { type: 'id', required: true },
+            date: { type: 'date', required: true },
+            employeeId: { type: 'id', nullable: true },
+            name: { type: 'string', required: true },
+            siteId: { type: 'id', required: true },
+            signedInAt: { type: 'timestamp', required: true },
+            signedOutAt: { type: 'timestamp', nullable: true }
+        },
+        siteLog: {
+            id: { type: 'id', required: true },
+            siteId: { type: 'id', required: true },
+            date: { type: 'date', required: true },
+            title: { type: 'string', required: true, min: 3, max: 120 },
+            body: { type: 'string', max: 4000 },
+            authorId: { type: 'id', nullable: true },
+            authorName: { type: 'string', required: true },
+            createdAt: { type: 'timestamp', required: true }
+        },
+        drawing: {
+            id: { type: 'id', required: true },
+            siteId: { type: 'id', required: true },
+            sheet: { type: 'string', required: true },
+            title: { type: 'string', required: true },
+            discipline: { type: 'string', required: true },
+            revision: { type: 'string', required: true },
+            updatedOn: { type: 'date', required: true }
+        },
+        sitePhoto: {
+            id: { type: 'id', required: true },
+            siteId: { type: 'id', required: true },
+            date: { type: 'date', required: true },
+            caption: { type: 'string', max: 200 },
+            tag: { type: 'string', max: 40 },
+            src: { type: 'string', required: true },
+            logId: { type: 'id', nullable: true },
+            takenBy: { type: 'id', nullable: true },
+            createdAt: { type: 'timestamp', required: true }
+        },
         costCode: {
             code: { type: 'id', required: true },
             title: { type: 'string', required: true },
@@ -131,6 +170,7 @@ function validateAgainst(schema, value, path = '') {
             case 'string':
                 if (typeof v !== 'string') fail('must be text');
                 else if (spec.min && v.trim().length < spec.min) fail('is required');
+                else if (spec.max && v.length > spec.max) fail(`must be at most ${spec.max} characters`);
                 break;
             case 'number':
                 if (typeof v !== 'number' || !isFinite(v)) fail('must be a number');

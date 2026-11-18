@@ -15,6 +15,10 @@
  *   RosterAssignment → Employee, Site
  *   Timesheet        → Employee, Site; owns TimesheetBlock[] → CostCode
  *   CrewLog          → Employee (when known), Site; owns TimesheetBlock[]
+ *   Attendance       → Employee (when known), Site
+ *   SiteLog          → Site, Employee (author)
+ *   Drawing          → Site
+ *   SitePhoto        → Site, Employee (taken by), SiteLog (when attached to one)
  *   Tool             → Site (where it is), Site (move requested to)
  *   LeaveRequest     → Employee (requester), Employee (decided by)
  *   LeaveBalance     → Employee
@@ -91,6 +95,54 @@
  * @property {string} name               the person as logged (labour hire has no employee record)
  * @property {string} siteId
  * @property {TimesheetBlock[]} blocks
+ */
+
+/**
+ * @typedef {Object} Attendance          a site sign-in: one record per person per day
+ * @property {string} id
+ * @property {string} date               the day signed in for ('YYYY-MM-DD')
+ * @property {?string} employeeId        null for labour hire not in the directory
+ * @property {string} name               the person as signed in (labour hire has no employee record)
+ * @property {string} siteId
+ * @property {string} signedInAt         timestamp of the (latest) sign-in
+ * @property {?string} signedOutAt       null while on site
+ * Unique: (date, employeeId) for directory staff. Signing in again that day reopens the record.
+ */
+
+/**
+ * @typedef {Object} SiteLog             a daily site log entry: what happened on site
+ * @property {string} id
+ * @property {string} siteId
+ * @property {string} date               the day it describes
+ * @property {string} title
+ * @property {string} body
+ * @property {?string} authorId          employeeId
+ * @property {string} authorName         as written (an author may later leave the directory)
+ * @property {string} createdAt
+ */
+
+/**
+ * @typedef {Object} Drawing             the current revision of a drawing sheet
+ * @property {string} id
+ * @property {string} siteId
+ * @property {string} sheet              sheet number ('A102')
+ * @property {string} title
+ * @property {string} discipline         'Architectural', 'Structural', ...
+ * @property {string} revision           'C'
+ * @property {string} updatedOn          the day this revision was issued
+ */
+
+/**
+ * @typedef {Object} SitePhoto
+ * @property {string} id
+ * @property {string} siteId
+ * @property {string} date               the day it was taken
+ * @property {string} caption
+ * @property {string} tag                a category label ('Progress', 'Defect', ...)
+ * @property {string} src                the image (a URL, or a data URL from the device)
+ * @property {?string} logId             the site log it is attached to
+ * @property {?string} takenBy           employeeId
+ * @property {string} createdAt
  */
 
 /**

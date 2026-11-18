@@ -25,6 +25,8 @@ const SCRIPTS = [
     'scripts/data/tools.js',
     'scripts/data/account.js',
     'scripts/data/timesheets.js',
+    'scripts/data/attendance.js',
+    'scripts/data/site-content.js',
     'scripts/config/app-config.js',
     'scripts/data-access/contracts.js',
     'scripts/data-access/mock/seed.js',
@@ -38,6 +40,8 @@ const SCRIPTS = [
     'scripts/application/services/roster-service.js',
     'scripts/application/services/timesheet-service.js',
     'scripts/application/services/crew-log-service.js',
+    'scripts/application/services/attendance-service.js',
+    'scripts/application/services/site-content-service.js',
     'scripts/application/services/equipment-service.js',
     'scripts/application/services/leave-service.js'
 ];
@@ -45,7 +49,7 @@ const EXPORTS = ['SiteAssignmentType', 'TimesheetStatus', 'ToolStatus', 'LeaveTy
     'AppError', 'DateRules', 'TimeRules', 'PayRunRules', 'TimesheetRules', 'EquipmentRules', 'LeaveRules',
     'EntitySchemas', 'validateAgainst', 'assertValidEntity', 'REPOSITORY_CONTRACTS', 'assertImplementsContracts',
     'buildMockSeed', 'createMockDataProvider', 'createDataProvider', 'createAuthSession', 'Permissions', 'createAppStore',
-    'createServiceKit', 'createSitesService', 'createRosterService', 'createTimesheetService', 'createCrewLogService',
+    'createServiceKit', 'createSitesService', 'createRosterService', 'createTimesheetService', 'createCrewLogService', 'createAttendanceService', 'createSiteContentService',
     'createEquipmentService', 'createLeaveService', 'TIMESHEET_CONFIG'];
 
 function loadApp() {
@@ -66,6 +70,8 @@ function loadApp() {
         const store = app.createAppStore({
             sites: () => provider.sites.list(), employees: () => provider.employees.list(), roster: () => provider.roster.list(),
             costCodes: () => provider.costCodes.list(), timesheets: () => provider.timesheets.list(), crewLogs: () => provider.crewLogs.list(),
+            attendance: () => provider.attendance.list(),
+            siteLogs: () => provider.siteLogs.list(), drawings: () => provider.drawings.list(), sitePhotos: () => provider.sitePhotos.list(),
             equipment: () => provider.equipment.list(), leaveRequests: () => provider.leave.listRequests(),
             leaveBalances: async () => { const b = await provider.leave.getBalance(session.getCurrentUser().employeeId); return b ? [b] : []; }
         });
@@ -74,7 +80,7 @@ function loadApp() {
         return {
             provider, store, session, clock, policy,
             sites: app.createSitesService(kit), roster: app.createRosterService(kit), timesheets: app.createTimesheetService(kit),
-            crewLogs: app.createCrewLogService(kit), equipment: app.createEquipmentService(kit), leave: app.createLeaveService(kit)
+            crewLogs: app.createCrewLogService(kit), attendance: app.createAttendanceService(kit), siteContent: app.createSiteContentService(kit), equipment: app.createEquipmentService(kit), leave: app.createLeaveService(kit)
         };
     };
     return app;

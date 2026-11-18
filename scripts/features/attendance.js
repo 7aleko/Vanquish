@@ -2,21 +2,51 @@
  * Home hero card: site sign in / sign out attendance state.
  */
 
-// Site Sign In / Sign Out Attendance State Management
+// Site Sign In / Sign Out. The record is an Attendance entry (attendanceService, one per person per day);
+// isSiteSignedIn mirrors the signed-in worker's record for the Home card's day, so the card, the
+// notification action and the Crew Status sheet all read the same state.
 let isSiteSignedIn = false;
+let siteSignInPending = false;
 
-function toggleSiteSignIn(e) {
-    if (e) e.stopPropagation();
-    isSiteSignedIn = !isSiteSignedIn;
+function homeAttendanceDay() { return (typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date(); }
+
+// Mirror the stored record (on load and after any attendance change); redraws the card only on a change
+function syncSiteSignInFromStore() {
+    if (siteSignInPending || typeof getMyAttendance !== 'function') return;
+    const rec = getMyAttendance(homeAttendanceDay());
+    const signedIn = !!(rec && !rec.signedOutAt);
+    if (signedIn === isSiteSignedIn) return;
+    isSiteSignedIn = signedIn;
     updateSiteAttendanceUI();
-    triggerGlowSurge(isSiteSignedIn);
-    triggerHaptic(isSiteSignedIn ? 'success' : 'medium');
-    // Today's rostered site (ROSTER, resolved through SITES)
-    const siteName = getSiteName(getRosteredSiteId(typeof APP_TODAY !== 'undefined' ? APP_TODAY : new Date()), 'site');
-    showToast(
-        isSiteSignedIn ? 'Site Check-In' : 'Site Check-Out',
-        isSiteSignedIn ? `Signed into ${siteName} at 7:02 AM • Have a safe shift!` : `Signed out of ${siteName} successfully`
-    );
+}
+
+// The card answers at once (optimistic); the record is saved behind it, and a failure puts the card back
+async function toggleSiteSignIn(e) {
+    if (e) e.stopPropagation();
+    if (siteSignInPending) return;
+    const day = homeAttendanceDay(), date = DateRules.toIso(day), siteId = getRosteredSiteId(day);
+    const signingIn = !isSiteSignedIn;
+    const siteName = getSiteName(siteId, 'site');
+    isSiteSignedIn = signingIn;
+    updateSiteAttendanceUI();
+    triggerGlowSurge(signingIn);
+    triggerHaptic(signingIn ? 'success' : 'medium');
+    siteSignInPending = true;
+    try {
+        const rec = signingIn ? await attendanceService.signIn({ siteId, date }) : await attendanceService.signOut({ date });
+        showToast(
+            signingIn ? 'Site Check-In' : 'Site Check-Out',
+            signingIn ? `Signed into ${siteName} at ${formatClockTime(rec.signedInAt)} • Have a safe shift!` : `Signed out of ${siteName} at ${formatClockTime(rec.signedOutAt)}`
+        );
+    } catch (err) {
+        isSiteSignedIn = !signingIn;
+        updateSiteAttendanceUI();
+        triggerGlowSurge(isSiteSignedIn);
+        showToast(signingIn ? "Couldn't sign in" : "Couldn't sign out", (err && err.userMessage) || 'Check your connection and try again.');
+    } finally {
+        siteSignInPending = false;
+        syncSiteSignInFromStore();
+    }
 }
 
 function triggerGlowSurge(isOpening) {
@@ -141,4 +171,9 @@ function updateSiteAttendanceUI() {
     if (typeof renderNotificationsFeed === 'function') {
         renderNotificationsFeed(currentActiveNotifFilter);
     }
+}
+
+if (typeof subscribeAttendance === 'function') {
+    subscribeAttendance(syncSiteSignInFromStore);
+    appStore.ready.then(syncSiteSignInFromStore).catch(() => {});
 }

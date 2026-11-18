@@ -9,6 +9,9 @@ const rosterCardStates = {};
 let currentRosterMonday = new Date(2026, 9, 12); // Mon 12 Oct 2026
 const ROSTER_SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ROSTER_DAY_IDS = ['card-mon', 'card-tue', 'card-wed', 'card-thu', 'card-fri'];
+// Site filter (the Crew Status sheet's "View Full Site Schedule"): only the days at this site show.
+// null = every day. Cleared by "All Sites" or by opening Roster afresh.
+let rosterSiteFilter = null;
 
 function applyRosterWeek(mondayDate, pickedDate = null) {
     currentRosterMonday = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate());
@@ -69,6 +72,8 @@ function shiftRosterWeek(direction) {
 // Opening Roster afresh (scripts/core/navigation.js): this week, every card collapsed and back on its
 // normal site (any rain-site switch is undone)
 function resetRosterView() {
+    rosterSiteFilter = null;
+    renderRosterSiteFilter();
     ROSTER_DAY_IDS.forEach(id => { expandedRosterCards[id] = false; delete rosterCardStates[id]; });
     const spacer = document.getElementById('roster-scroll-spacer');   // extra room left by a card scroll
     if (spacer) spacer.style.height = '0px';
@@ -706,7 +711,38 @@ function renderRosterCards() {
                 }
             }
         }
+        card.style.display = (rosterSiteFilter && activeSite.siteId !== rosterSiteFilter) ? 'none' : '';
     });
+    const empty = document.getElementById('roster-filter-empty');
+    if (empty) {
+        const none = !!rosterSiteFilter && ROSTER_DAY_IDS.every(id => { const c = document.getElementById(id); return !c || c.style.display === 'none'; });
+        empty.hidden = !none;
+        if (none) empty.textContent = `No days at ${getSiteName(rosterSiteFilter, 'this site')} this week`;
+    }
+}
+
+// Roster for one site: the week of `date`, today's card open, only the days at `siteId`
+function showRosterForSite(siteId, date) {
+    rosterSiteFilter = siteId || null;
+    renderRosterSiteFilter();
+    applyRosterWeek(getMondayForDate(date), date);
+}
+function clearRosterSiteFilter() {
+    if (!rosterSiteFilter) return;
+    triggerHaptic('light');
+    rosterSiteFilter = null;
+    renderRosterSiteFilter();
+    renderRosterCards();
+}
+// The filter bar (shared filter pills): "All Sites" and the filtered site, shown only while filtering
+function renderRosterSiteFilter() {
+    const bar = document.getElementById('roster-site-filter');
+    if (!bar) return;
+    bar.hidden = !rosterSiteFilter;
+    if (!rosterSiteFilter) { bar.innerHTML = ''; return; }
+    const name = getSiteName(rosterSiteFilter, 'Site');
+    bar.innerHTML = `<button type="button" class="filter-pill" aria-pressed="false" onclick="clearRosterSiteFilter()">All Sites</button>`
+        + `<button type="button" class="filter-pill is-active" aria-pressed="true"><i class="ph-fill ph-map-pin" aria-hidden="true"></i>${name}</button>`;
 }
 
 // Sites renamed or archived: redraw the cards

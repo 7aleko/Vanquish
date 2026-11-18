@@ -71,7 +71,7 @@ function render7DayStrip() {
 
     week.days.forEach(d => {
         // Count trades active on this day
-        const activeTrades = whiteboardTradeTasks.filter(t => {
+        const activeTrades = scheduleSiteTasks().filter(t => {
             return d.dateStr >= t.startDate && d.dateStr <= t.endDate;
         });
 
@@ -136,7 +136,7 @@ function renderWeeklyTimelineBars() {
     const weekStart = week.startDate;
     const weekEnd = week.endDate;
 
-    const filteredTasks = whiteboardTradeTasks.filter(t => {
+    const filteredTasks = scheduleSiteTasks().filter(t => {
         if (activeWhiteboardTradeFilter !== 'all' && t.trade !== activeWhiteboardTradeFilter) {
             return false;
         }
@@ -237,7 +237,7 @@ function renderDailyRosterCards() {
 
     week.days.forEach(d => {
         // Find trades active on this day
-        const dayTrades = whiteboardTradeTasks.filter(t => {
+        const dayTrades = scheduleSiteTasks().filter(t => {
             if (activeWhiteboardTradeFilter !== 'all' && t.trade !== activeWhiteboardTradeFilter) {
                 return false;
             }
@@ -386,7 +386,7 @@ function filterTradeWhiteboard(cat, btn) {
 
 function updateTradeFilterCounts() {
     const countEl = document.getElementById('wb-count-all');
-    if (countEl) countEl.textContent = whiteboardTradeTasks.length;
+    if (countEl) countEl.textContent = scheduleSiteTasks().length;
 }
 
 // 8. Open Trade Details Modal
@@ -511,6 +511,7 @@ function saveNewWhiteboardTrade() {
 
     const newTask = {
         id: 'trade-' + Date.now(),
+        siteId: scheduleSiteId(),
         title,
         trade,
         crew,
@@ -522,6 +523,7 @@ function saveNewWhiteboardTrade() {
     whiteboardTradeTasks.unshift(newTask);
     closeModal();
     renderWhiteboardRoster();
+    if (typeof renderSiteHubSchedule === 'function') renderSiteHubSchedule();
     triggerHaptic('medium');
     showToast("Trade Scheduled", `"${title}" published to schedule`);
 }
@@ -532,6 +534,7 @@ function deleteTradeTask(taskId) {
     whiteboardTradeTasks = whiteboardTradeTasks.filter(t => t.id !== taskId);
     closeModal();
     renderWhiteboardRoster();
+    if (typeof renderSiteHubSchedule === 'function') renderSiteHubSchedule();
     showToast("Task Removed", "Trade task removed from schedule");
 }
 
@@ -630,6 +633,32 @@ function openSharedMaterialsModal() {
             </div>
         </div>
     `);
+}
+
+// The site the schedule shows (its site picker), and that site's trade tasks
+function scheduleSiteId() {
+    const select = document.getElementById('schedule-site-select');
+    return (select && select.value) || getRosteredSiteId((typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date());
+}
+function scheduleSiteTasks() { return whiteboardTradeTasks.filter(t => t.siteId === scheduleSiteId()); }
+
+// The site picker changed: redraw the schedule for that site
+function onScheduleSiteChange() {
+    triggerHaptic('light');
+    renderWhiteboardRoster();
+}
+
+// Open the Trade Schedule on a site (the Site Hub's "Full Schedule"), at the week holding `dateIso` (or this
+// week), and optionally a task's details
+function openScheduleForSite(siteId, dateIso, taskId) {
+    switchTab('schedule');
+    renderScheduleSiteSelect();
+    const select = document.getElementById('schedule-site-select');
+    if (select && [...select.options].some(o => o.value === siteId)) select.value = siteId;
+    const idx = dateIso ? WHITEBOARD_WEEKS_LIST.findIndex(w => dateIso >= w.startDate && dateIso <= w.endDate) : -1;
+    if (idx >= 0) currentWhiteboardWeekIndex = idx;
+    renderWhiteboardRoster();
+    if (taskId) requestAnimationFrame(() => openTradeDetailModal(taskId));
 }
 
 // The schedule's site picker: the active sites (SITES), today's rostered site selected. Keeps the current

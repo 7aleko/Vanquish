@@ -28,8 +28,8 @@
     --control-text: #D4D4D8;                          /* inactive pill labels: restrained but readable */
     --control-placeholder: #71717a;
     --control-icon: #AEB6C2;                          /* muted icons, as across the app */
-    --control-accent: #C6F832;                        /* primary buttons (chosen pills are white: --pill-active-bg) */
-    --control-focus: #ccff00;                         /* focus ring */
+    --control-accent: #22E562;                        /* primary buttons (chosen pills are white: --pill-active-bg) */
+    --control-focus: #22E562;                         /* focus ring */
     --control-alert: #EF4444;                         /* unread counts */
     --control-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5), 0 4px 12px -4px rgba(0, 0, 0, 0.3);
     --field-height: 50px;

@@ -15,7 +15,7 @@ function openPoppyBotChat() {
                     <div class="relative pt-1 pb-2 flex flex-col items-center justify-center text-center overflow-hidden">
                         <!-- Iridescent multi-layer caustic bloom -->
                         <div class="absolute w-56 h-56 rounded-full pointer-events-none opacity-70" 
-                             style="background: radial-gradient(circle, rgba(204, 255, 0, 0.55) 0%, rgba(0, 240, 255, 0.40) 45%, rgba(16, 185, 129, 0.22) 70%, transparent 88%); filter: blur(34px);"></div>
+                             style="background: radial-gradient(circle, rgba(34, 229, 98, 0.55) 0%, rgba(0, 240, 255, 0.40) 45%, rgba(16, 185, 129, 0.22) 70%, transparent 88%); filter: blur(34px);"></div>
 
                         <!-- Big 3D WebGL Assistant Orb (Lush Lime-Green & Emerald-Cyan) -->
                         <div class="relative w-52 h-52 flex items-center justify-center mb-1 overflow-visible">
@@ -91,7 +91,7 @@ function openPoppyBotChat() {
                                    class="w-full bg-white/[0.08] border border-white/15 rounded-2xl pl-9 pr-4 py-3 text-xs text-white placeholder:text-slate-400 font-medium shadow-2xs focus:outline-none focus:bg-white/[0.12] focus:border-brand-lime focus:ring-2 focus:ring-brand-lime/25 transition-all">
                         </div>
                         <button onclick="handlePoppySubmit()" 
-                                class="bg-brand-lime text-slate-950 hover:bg-brand-limeHover active:scale-95 px-5 py-3 rounded-2xl text-xs font-black shadow-[0_0_20px_rgba(204,255,0,0.35)] transition-all cursor-pointer shrink-0 flex items-center gap-1.5">
+                                class="bg-brand-lime text-slate-950 hover:bg-brand-limeHover active:scale-95 px-5 py-3 rounded-2xl text-xs font-black shadow-[0_0_20px_rgba(34,229,98,0.35)] transition-all cursor-pointer shrink-0 flex items-center gap-1.5">
                             <span>Ask</span>
                             <i class="fa-solid fa-arrow-up text-[11px]"></i>
                         </button>

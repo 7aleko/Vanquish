@@ -110,9 +110,7 @@ function clearToolsSearch() {
         const logInfo = parseToolLastLog(t.lastLogged);
 
         // Status colour for the status label; the card is a plain dark surface (.tool-card, styles/tools.css)
-        const theme = isAvailable ? { name: 'Available', statusText: 'text-emerald-600' }
-            : (isService ? { name: 'Service', statusText: 'text-amber-600' }
-            : { name: 'In Use', statusText: 'text-blue-600' });
+        const statusTone = isAvailable ? 'is-available' : (isService ? 'is-service' : 'is-in-use');
 
         return `
             <div onclick="openToolTransferModal('${t.id}')"
@@ -121,50 +119,48 @@ function clearToolsSearch() {
                  tabindex="0"
                  aria-label="${t.name} at ${getSiteName(t.siteId, 'an unknown site')}, ${t.status}"
                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openToolTransferModal('${t.id}');}"
-                 class="tool-card relative overflow-hidden rounded-card p-5 transition-all space-y-3.5 group active:scale-[0.985] cursor-pointer select-none">
+                 class="tool-card relative overflow-hidden transition-all group active:scale-[0.985] cursor-pointer select-none">
 
-                <!-- Header: Equipment Title & Inline Location/Status -->
-                <div class="relative z-10 pr-6">
-                    <h4 class="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-snug break-words">${t.name}</h4>
-                    <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1 flex items-center gap-2 flex-wrap">
-                        <span class="flex items-center gap-1.5 truncate">
-                            <i class="fa-solid fa-location-dot text-xs text-slate-400 shrink-0"></i>
-                            <span>Location: <strong class="text-slate-800 font-bold">${getSiteName(t.siteId, 'Unknown site')}</strong></span>
+                <!-- Header: equipment name, then [pin] site · status -->
+                <div class="relative z-10">
+                    <h4 class="tool-card-name">${t.name}</h4>
+                    <p class="tool-card-meta">
+                        <span class="tool-card-site">
+                            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                            <span>${getSiteName(t.siteId, 'Unknown site')}</span>
                         </span>
                         ${t.quantity && t.quantity > 1 ? `
-                            <span class="text-slate-300">•</span>
-                            <span class="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-xs">
-                                <i class="fa-solid fa-layer-group text-[11px] text-slate-400"></i>
+                            <span class="tool-card-sep" aria-hidden="true">·</span>
+                            <span class="tool-card-qty">
+                                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                                 <span>${t.quantity} ${t.unit || 'Units'}</span>
                             </span>
                         ` : ''}
-                        <span class="text-slate-300">•</span>
-                        <span class="font-bold ${theme.statusText}">${t.status === 'Service' ? 'Service • Until Pickup Ready' : t.status}</span>
+                        <span class="tool-card-sep" aria-hidden="true">·</span>
+                        <span class="tool-card-status ${statusTone}">${t.status === 'Service' ? 'Service • Until Pickup Ready' : t.status}</span>
                         ${t.moveRequestedToSiteId ? `
-                            <span class="inline-flex items-center gap-1 font-extrabold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full text-[11px]">
-                                <i class="fa-solid fa-paper-plane text-[11px]"></i>
+                            <span class="tool-card-request">
+                                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
                                 <span>Requested → ${getSiteName(t.moveRequestedToSiteId, 'Unknown site')}</span>
                             </span>
                         ` : ''}
                     </p>
                 </div>
 
-                <!-- Footer Transfer Log Row -->
-                <div class="relative z-10 pt-3.5 border-t border-slate-200/60 flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2.5 text-slate-500 font-medium text-xs min-w-0">
-                        <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                            <i class="fa-regular fa-clock text-[11px]"></i>
-                        </div>
-                        <div class="flex flex-col leading-tight min-w-0">
-                            <span class="truncate text-slate-500">Last log: <strong class="text-slate-800 font-bold">${logInfo.dateText}</strong></span>
-                            ${logInfo.byText ? `<span class="text-[11px] font-semibold text-slate-400 truncate mt-0.5">${logInfo.byText}</span>` : ''}
+                <!-- Footer: last transfer log and the card's action -->
+                <div class="tool-card-foot relative z-10">
+                    <div class="tool-card-log">
+                        <span class="tool-card-clock" aria-hidden="true"><i class="fa-regular fa-clock"></i></span>
+                        <div class="tool-card-log-text">
+                            <span>Last log: <strong>${logInfo.dateText}</strong></span>
+                            ${logInfo.byText ? `<span class="tool-card-by">${logInfo.byText}</span>` : ''}
                         </div>
                     </div>
                     ${isAvailable ? `
                         <button type="button"
                                 onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
                                 aria-label="Transfer ${t.name}"
-                                class="btn btn--card btn--compact btn--glass-emerald">
+                                class="btn btn--card btn--glass-emerald tool-card-action">
                             <span>Transfer</span>
                             <i class="ph-bold ph-arrows-left-right" aria-hidden="true"></i>
                         </button>
@@ -172,7 +168,7 @@ function clearToolsSearch() {
                         <button type="button"
                                 onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
                                 aria-label="${t.name} in service, unavailable until pickup ready"
-                                class="btn btn--card btn--compact btn--glass-amber">
+                                class="btn btn--card btn--glass-amber tool-card-action">
                             <span>Pickup Pending</span>
                             <i class="ph-bold ph-lock-simple" aria-hidden="true"></i>
                         </button>
@@ -180,7 +176,7 @@ function clearToolsSearch() {
                         <button type="button"
                                 onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
                                 aria-label="Request move for ${t.name}"
-                                class="btn btn--card btn--compact btn--glass-blue">
+                                class="btn btn--card btn--glass-blue tool-card-action">
                             <span>Request Move</span>
                             <i class="ph-bold ph-paper-plane-tilt" aria-hidden="true"></i>
                         </button>

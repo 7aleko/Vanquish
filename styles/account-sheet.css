@@ -46,7 +46,7 @@
     --acct-icon: #AEB6C2;                                 /* muted icons, as across the app */
 
     /* Colour */
-    --acct-accent: #ccff00;                               /* focus only */
+    --acct-accent: #22E562;                               /* focus only */
     --acct-danger: #FF453A;
     --acct-ease: cubic-bezier(0.32, 0.72, 0, 1);          /* the app's push and sheet curve */
 }

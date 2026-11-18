@@ -24,7 +24,7 @@ a layer may use the layers listed before it, never the ones after it.
 ### How a screen works
 
 - **Reads:** selectors such as `getSiteById`, `getRosteredSiteId`, `getTimesheetsByDate`, `getCrewLogs`,
-  `getTools`, `getEmployees` and `getLeaveBalance`. They are synchronous reads of the cache.
+  `getAttendance`, `getMyAttendance`, `getSiteLogs`, `getDrawings`, `getSitePhotos`, `getTools`, `getEmployees` and `getLeaveBalance`. They are synchronous reads of the cache.
 - **Changes:** a service, such as `await timesheetService.submit(...)`, `equipmentService.transfer(...)` or
   `sitesService.archive(...)`. Wrap each call in `runUiAction` (`scripts/utils/async-ui.js`). It marks the
   button busy and shows the error's `userMessage` under the button (toasts are switched off). A success
@@ -58,6 +58,10 @@ objects, which are copies of the stored data.
 | `roster` | `list({employeeId, siteId, from, to})`, `getForEmployeeOnDate`, `assign` (unique per employee and day), `remove` |
 | `timesheets` | `list({employeeId, from, to, status})`, `getById`, `getForEmployeeOnDate`, `create` (unique per employee and day), `update` |
 | `crewLogs` | `list({date, siteId, from, to})` |
+| `siteLogs` | `list({siteId})`, `create` |
+| `drawings` | `list({siteId})` |
+| `sitePhotos` | `list({siteId, logId})`, `create` |
+| `attendance` | `list({date, siteId, employeeId})`, `signIn` (one record per employee and day; signing in again reopens it), `signOut` |
 | `costCodes` | `list` |
 | `equipment` | `list`, `getById`, `create`, `update` |
 | `leave` | `listRequests`, `getRequest`, `createRequest`, `updateRequest`, `getBalance`, `updateBalance` |
@@ -74,6 +78,10 @@ The entities are:
 - RosterAssignment
 - Timesheet, which owns its TimesheetBlocks
 - CrewLog
+- Attendance (a site sign-in: who, which site, which day, signed in and out timestamps)
+- SiteLog (a daily site log: site, day, title, notes, author)
+- Drawing (the current revision of a drawing sheet: sheet number, title, discipline, revision, issue date)
+- SitePhoto (a photo taken on site, usually attached to a SiteLog)
 - CostCode
 - Tool
 - LeaveRequest
@@ -97,6 +105,8 @@ The rules every model follows:
 | `rosterService` | `assign`, `moveEmployee`, `unassign`. Needs a supervisor or above. |
 | `timesheetService` | `submit`: validates, works out ROSTERED / TRANSFERRED / MANUAL from the roster, upserts and audits. `approve` and `reject`: needs a supervisor or above, and never on your own timesheet. |
 | `crewLogService` | `forSiteOnDate`: matched on date and site id. `copyBlocks`: returns fresh draft blocks and never submits. |
+| `attendanceService` | `signIn` and `signOut` for the signed-in employee on a given day (the Home card's day). Refuses an archived site or signing in at a second site while still signed in elsewhere. Timestamps come from the provider; every change is audited. |
+| `siteContentService` | `addLog`: validates the title, notes, active site and up to 6 photos, then saves the log and its photos in one transaction with audit entries. |
 | `equipmentService` | `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. `register`: validates name, category (`ToolCategories`), active site and quantity, refuses a duplicate name at the same site, and adds the tool as Available with an audit entry. |
 | `leaveService` | `request`: checks working days, the balance and overlaps. `approve` and `reject`: the balance is deducted in the same transaction. |
 

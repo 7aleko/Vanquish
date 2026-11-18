@@ -3,7 +3,7 @@
    Neutral by default; lime is reserved for active states and primary actions. */
 :root {
     --icon-muted: #AEB6C2;   /* default icon colour on dark surfaces */
-    --icon-accent: #CCFF00;  /* active / primary only */
+    --icon-accent: #22E562;  /* active / primary only */
 }
 
 i.ph-icon {

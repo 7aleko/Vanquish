@@ -378,7 +378,7 @@ function setPoppyOrbState(newState) {
     const ping = document.getElementById('poppy-status-ping');
     const dot = document.getElementById('poppy-status-dot');
     if (ping && dot) {
-        const statusColor = (newState === 'thinking') ? '#00F0FF' : (newState === 'error' ? '#EF4444' : '#CCFF00');
+        const statusColor = (newState === 'thinking') ? '#00F0FF' : (newState === 'error' ? '#EF4444' : '#22E562');
         ping.style.backgroundColor = statusColor;
         dot.style.backgroundColor = statusColor;
         if (newState === 'listening' || newState === 'thinking') {

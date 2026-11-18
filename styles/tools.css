@@ -3,10 +3,113 @@
    by the status label and the card's action (an emerald glass Transfer for Available equipment). */
 
 .tool-card {
-    background: #141417;
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: #141619;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+#tools-groups-container { display: flex; flex-direction: column; gap: 14px; }
+
+/* The equipment name leads; long names wrap */
+.tool-card-name {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: #fff;
+    overflow-wrap: anywhere;
+}
+/* [pin] Site · Status (wraps on narrow screens) */
+.tool-card-meta {
+    margin: 6px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 6px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.3;
+}
+.tool-card-site { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: #F2F4F7; }
+.tool-card-site i { font-size: 13px; color: rgba(255, 255, 255, 0.75); }
+.tool-card-sep { color: #5C6370; font-weight: 700; }
+.tool-card-status { white-space: nowrap; }
+.tool-card-status.is-available { color: #34D399; }
+.tool-card-status.is-in-use { color: #60A5FA; }
+.tool-card-status.is-service { color: #FBBF24; }
+.tool-card-qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 13px;
+    font-weight: 600;
+    color: #D4D8DE;
+}
+.tool-card-qty i { font-size: 11px; color: #AEB6C2; }
+.tool-card-request {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    background: rgba(96, 165, 250, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    font-size: 12px;
+    font-weight: 700;
+    color: #93C5FD;
+}
+.tool-card-request i { font-size: 11px; }
+
+/* Footer: last log (clock tile + text) and the action */
+.tool-card-foot {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.tool-card-log { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tool-card-clock {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    color: #AEB6C2;
+}
+.tool-card-clock i { font-size: 16px; }
+.tool-card-log-text { display: flex; flex-direction: column; min-width: 0; font-size: 0.875rem; line-height: 1.3; color: #8E9299; }
+/* Wraps rather than truncating when the action is wide (Request Move at 390px); the date stays whole */
+.tool-card-log-text > span { overflow-wrap: anywhere; }
+.tool-card-log-text strong { font-weight: 700; color: #E8EAED; white-space: nowrap; }
+.tool-card-by { margin-top: 1px; font-weight: 500; color: #8E9299; }
+
+/* Transfer / Request Move / Pickup Pending: a 42px pill sized to the larger type */
+.btn.tool-card-action {
+    flex-shrink: 0;
+    height: auto;
+    min-height: 42px;
+    padding: 0 18px;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    align-items: center;
+    justify-content: center;
+}
+.btn.tool-card-action i { font-size: 16px; line-height: 1; }
+.btn.tool-card-action::before { inset: -1px 0; }             /* 44px tap area */
 
 /* Status tiles (Available / In Use / Service): status filters. Same surface as the cards; the active tile
    takes its status colour as a border and inner tint, and the other two step back. */

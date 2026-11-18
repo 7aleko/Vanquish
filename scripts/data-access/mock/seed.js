@@ -75,6 +75,33 @@ function buildMockSeed(options) {
         });
     }
 
+    // ----- Attendance: the sample site sign-ins (scripts/data/attendance.js), as timestamps -----
+    const stamp = (date, hhmm) => {
+        const [y, m, d] = date.split('-').map(Number), [h, min] = hhmm.split(':').map(Number);
+        return new Date(y, m - 1, d, h, min).toISOString();
+    };
+    const attendance = (typeof ATTENDANCE_SAMPLE === 'undefined' ? [] : ATTENDANCE_SAMPLE).map((a, i) => {
+        const member = employeeByName(a.name);
+        return {
+            id: `AT-${a.date}-${member ? member.id : `x${i + 1}`}`, date: a.date, employeeId: member ? member.id : null,
+            name: a.name, siteId: a.siteId, signedInAt: stamp(a.date, a.signIn), signedOutAt: a.signOut ? stamp(a.date, a.signOut) : null
+        };
+    });
+
+    // ----- Site content: daily logs and drawings (scripts/data/site-content.js). No sample photos. -----
+    const siteLogs = (typeof SITE_LOG_SAMPLE === 'undefined' ? [] : SITE_LOG_SAMPLE).map((l, i) => {
+        const author = employeeByName(l.author);
+        return {
+            id: `LOG-${l.siteId}-${l.date}-${i + 1}`, siteId: l.siteId, date: l.date, title: l.title, body: l.body,
+            authorId: author ? author.id : null, authorName: l.author, createdAt: stamp(l.date, '16:00')
+        };
+    });
+    const drawings = (typeof DRAWING_SAMPLE === 'undefined' ? [] : DRAWING_SAMPLE).map(d => ({
+        id: `DWG-${d.siteId}-${d.sheet}`, siteId: d.siteId, sheet: d.sheet, title: d.title, discipline: d.discipline,
+        revision: d.revision, updatedOn: d.updated
+    }));
+    const sitePhotos = [];
+
     // ----- Equipment -----
     const equipment = TOOLS_DIRECTORY_DATA.map(t => ({
         id: t.id, name: t.name, siteId: t.siteId, category: t.category, status: t.status,
@@ -102,5 +129,5 @@ function buildMockSeed(options) {
     });
     const leaveBalances = [{ employeeId: leaveOwner, annualDays: ACCOUNT_DATA.leave.annualDays, personalDays: ACCOUNT_DATA.leave.personalDays }];
 
-    return { sites, employees, roster, costCodes, timesheets, crewLogs, equipment, leaveRequests, leaveBalances, audit: [], seededFor: todayIso };
+    return { sites, employees, roster, costCodes, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, equipment, leaveRequests, leaveBalances, audit: [], seededFor: todayIso };
 }

@@ -36,6 +36,8 @@
 .role-avatar--head { width: 36px; height: 36px; font-size: 13px; letter-spacing: -0.01em; --avatar-icon: 17px; }
 /* Beside a message in a conversation */
 .role-avatar--msg { width: 28px; height: 28px; font-size: 10.5px; letter-spacing: 0; --avatar-icon: 13px; }
+/* Crew Status sheet rows */
+.role-avatar--row { width: 40px; height: 40px; font-size: 13.5px; letter-spacing: -0.01em; --avatar-icon: 18px; }
 /* Account sheet identity */
 .role-avatar--xl { width: 76px; height: 76px; font-size: 26px; letter-spacing: -0.02em; --avatar-icon: 32px; }
 /* Account sheet: Personal Details page header */
@@ -76,4 +78,4 @@
     background: #64748B;
 }
 .role-avatar-status.is-online { background: #22C55E; }
-.role-avatar-status.is-ai { background: #A3E635; }
+.role-avatar-status.is-ai { background: #4BEA82; }

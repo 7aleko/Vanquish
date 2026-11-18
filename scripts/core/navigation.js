@@ -67,6 +67,7 @@ function navigateSubpageBack(fallbackTab = 'home') {
 // Per-screen resets for a fresh open (each defined beside that screen's own state)
 const VIEW_FRESH_RESETTERS = {
     week: () => typeof resetRosterView === 'function' && resetRosterView(),
+    sitehub: () => typeof resetSiteHubView === 'function' && resetSiteHubView(),
     team: () => typeof resetTeamView === 'function' && resetTeamView(),
     tools: () => typeof resetToolsView === 'function' && resetToolsView(),
     time: () => typeof resetTimeView === 'function' && resetTimeView()
@@ -96,7 +97,7 @@ function switchTab(tabName, options = {}) {
     // De-highlight notifications button if switching to another view
     const notifBtn = document.getElementById('btn-notifications');
     if (tabName !== 'notifications' && notifBtn) {
-        notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(204,255,0,0.3)]');
+        notifBtn.classList.remove('border-brand-lime', 'shadow-[0_0_12px_rgba(34,229,98,0.3)]');
     }
 
     // Clean up any in-flight view transition immediately (interruptible at any frame)

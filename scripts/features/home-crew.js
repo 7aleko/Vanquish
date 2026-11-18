@@ -1,6 +1,7 @@
 /**
  * Home site card: crew preview under the address. Who is on the card's site today, as overlapping role
- * avatars (most senior first, up to four, then "+N") and "N crew ›". Tapping it opens today's roster card.
+ * avatars (most senior first, up to four, then "+N") and "N crew ›". Tapping it opens the Crew Status sheet
+ * (scripts/features/crew-status-sheet.js); the rest of the card opens the Roster.
  *
  * Data: the site's crew for the app's "today" (APP_TODAY, scripts/features/today-summary.js) from
  * JOBS_DATA (scripts/data/jobs.js) - the same list today's Roster card shows under "With:".
@@ -36,17 +37,7 @@ function renderHomeCrewPreview() {
     stack.innerHTML = shown.map(name => renderRoleAvatar(name, 'md')).join('')
         + (extra > 0 ? `<span class="home-crew-more" aria-hidden="true">+${extra}</span>` : '');
     count.textContent = `${crew.length} crew`;
-    btn.setAttribute('aria-label', `${crew.length} crew at ${getSiteName(siteId)} today: ${crew.join(', ')}. Open today's roster.`);
-}
-
-// Roster, scrolled to today with today's card expanded. Reuses the date picker's path (applyRosterWeek
-// with a picked date: sets the week, expands that day's card, scrolls it into view).
-function openTodayRosterForSite(e) {
-    if (e) e.stopPropagation();                // the site card itself also opens the roster
-    if (typeof triggerHaptic === 'function') triggerHaptic('light');
-    const today = (typeof APP_TODAY !== 'undefined') ? APP_TODAY : new Date();
-    switchTab('week');
-    requestAnimationFrame(() => applyRosterWeek(getMondayForDate(today), today));
+    btn.setAttribute('aria-label', `${crew.length} crew at ${getSiteName(siteId)} today: ${crew.join(', ')}. Show who's on site.`);
 }
 
 // Today's rostered site on the Home card: name, street line and the card's spoken label

@@ -18,10 +18,10 @@
     --hairline-strong: rgba(255, 255, 255, 0.1);
 
     /* Brand */
-    --brand-lime: #CCFF00;
+    --brand-lime: #22E562;
     --brand-ink: #0c0d10;
     --brand-emerald: #10b981;
-    --focus-ring: #84cc16;
+    --focus-ring: #22E562;
 
     /* Radii: one scale for the whole product */
     /* Radius steps down as surfaces nest. Mirrors `borderRadius` in tailwind.config.js:

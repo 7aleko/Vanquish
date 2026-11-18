@@ -1,6 +1,7 @@
 /**
  * Schedule whiteboard: trade colour themes, 5-week runway and seed trade tasks.
- * whiteboardTradeTasks is mutable application state (tasks are added / deleted at runtime).
+ * whiteboardTradeTasks is mutable application state (tasks are added / deleted at runtime). Each task belongs
+ * to a site (siteId, from SITES); the existing tasks are Lugarno's (the connected Procore project).
  * Pure data - no logic. Loaded before all feature scripts.
  */
 
@@ -193,6 +194,7 @@ let whiteboardTradeTasks = [
     // --- THIS WEEK (WEEK 2: OCT 5 – OCT 11) ---
     {
         id: 'trade-formwork',
+        siteId: 'lugarno',
         title: 'Formwork Stripping & Soffits',
         trade: 'formwork',
         crew: 'Apex Formwork (5 Subbies)',
@@ -202,6 +204,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-plumbing',
+        siteId: 'lugarno',
         title: 'Plumbing Rough-In & Drainage',
         trade: 'plumbing',
         crew: 'FlowLine Plumbing (3 Subbies)',
@@ -211,6 +214,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-electrical',
+        siteId: 'lugarno',
         title: 'Electricians Rough-In & Conduits',
         trade: 'electrical',
         crew: 'VoltEdge Electrical (4 Subbies)',
@@ -220,6 +224,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-steel',
+        siteId: 'lugarno',
         title: 'SL82 Steel Mesh Laying',
         trade: 'steel',
         crew: 'Boral Steel Fixers (2 Subbies)',
@@ -229,6 +234,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-concrete',
+        siteId: 'lugarno',
         title: 'Concrete Slab Pour Level 2',
         trade: 'steel',
         crew: 'Apex Concreting & Pump (8 Subbies)',
@@ -240,6 +246,7 @@ let whiteboardTradeTasks = [
     // --- WEEK 1: FOUNDATION (SEP 28 – OCT 4) ---
     {
         id: 'trade-w1-excavation',
+        siteId: 'lugarno',
         title: 'Bulk Earthworks & Footings',
         trade: 'steel',
         crew: 'Dino Earthmoving (3 Operators)',
@@ -249,6 +256,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-w1-piers',
+        siteId: 'lugarno',
         title: 'Bored Piers & Steel Cages',
         trade: 'steel',
         crew: 'Sydney Foundation Group (4 Subbies)',
@@ -258,6 +266,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-w1-geotech',
+        siteId: 'lugarno',
         title: 'Geotechnical Soil Sign-Off',
         trade: 'scaffold',
         crew: 'Douglas Partners Geotechnical',
@@ -269,6 +278,7 @@ let whiteboardTradeTasks = [
     // --- NEXT WEEK (WEEK 3: OCT 12 – OCT 18) ---
     {
         id: 'trade-w3-brickwork',
+        siteId: 'lugarno',
         title: 'Ground Floor Perimeter Brickwork',
         trade: 'masonry',
         crew: 'Precision Bricklaying (6 Subbies)',
@@ -278,6 +288,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-w3-trusses',
+        siteId: 'lugarno',
         title: 'Roof Truss Crane Framing',
         trade: 'carpentry',
         crew: 'Timberline Framing (5 Subbies)',
@@ -289,6 +300,7 @@ let whiteboardTradeTasks = [
     // --- WEEK 4: OCT 19 – OCT 25 ---
     {
         id: 'trade-w4-scaffold',
+        siteId: 'lugarno',
         title: 'Heavy Duty Perimeter Scaffolding',
         trade: 'scaffold',
         crew: 'Apex Rigging & Scaffold (4 Subbies)',
@@ -298,6 +310,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-w4-glazing',
+        siteId: 'lugarno',
         title: 'Architectural Window Suites & Glazing',
         trade: 'windows',
         crew: 'Architectural Glass Sydney (3 Subbies)',
@@ -309,6 +322,7 @@ let whiteboardTradeTasks = [
     // --- WEEK 5: OCT 26 – NOV 1 ---
     {
         id: 'trade-w5-insulation',
+        siteId: 'lugarno',
         title: 'Thermal & Acoustic Wall Batts',
         trade: 'finishes',
         crew: 'Insul-Tech Sydney (3 Subbies)',
@@ -318,6 +332,7 @@ let whiteboardTradeTasks = [
     },
     {
         id: 'trade-w5-drywall',
+        siteId: 'lugarno',
         title: 'Plasterboard Drywall Sheeting',
         trade: 'finishes',
         crew: 'Drywall Masters (5 Subbies)',

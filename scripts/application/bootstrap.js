@@ -6,7 +6,7 @@
  *              -> services (the only code that changes data)
  *
  * Screens use the globals defined here: the services (sitesService, rosterService, timesheetService,
- * crewLogService, equipmentService, leaveService) for changes, and the selectors
+ * crewLogService, attendanceService, siteContentService, equipmentService, leaveService) for changes, and the selectors
  * (scripts/application/selectors.js) for reads. Nothing else creates a provider or touches one.
  *
  * Loading starts immediately; boot.js waits for appStore.ready before the first render and shows an error
@@ -33,6 +33,10 @@ const appStore = createAppStore({
     // Production note: load timesheets and crew logs per employee / date range instead of everything
     timesheets: () => dataProvider.timesheets.list(),
     crewLogs: () => dataProvider.crewLogs.list(),
+    attendance: () => dataProvider.attendance.list(),
+    siteLogs: () => dataProvider.siteLogs.list(),
+    drawings: () => dataProvider.drawings.list(),
+    sitePhotos: () => dataProvider.sitePhotos.list(),
     equipment: () => dataProvider.equipment.list(),
     leaveRequests: () => dataProvider.leave.listRequests(),
     leaveBalances: async () => {
@@ -47,6 +51,8 @@ const sitesService = createSitesService(serviceKit);
 const rosterService = createRosterService(serviceKit);
 const timesheetService = createTimesheetService(serviceKit);
 const crewLogService = createCrewLogService(serviceKit);
+const attendanceService = createAttendanceService(serviceKit);
+const siteContentService = createSiteContentService(serviceKit);
 const equipmentService = createEquipmentService(serviceKit);
 const leaveService = createLeaveService(serviceKit);
 

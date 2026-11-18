@@ -36,6 +36,18 @@
  *   update(id, changes)                     -> Timesheet
  * crewLogs
  *   list({ date, siteId, from, to })        -> CrewLog[]
+ * attendance
+ *   list({ date, siteId, employeeId })      -> Attendance[]
+ *   signIn({ date, employeeId, siteId })    -> Attendance         (reopens that employee's record for the day)
+ *   signOut(id)                             -> Attendance         (CONFLICT if already signed out)
+ * siteLogs
+ *   list({ siteId })                        -> SiteLog[]
+ *   create({ siteId, date, title, body, authorId }) -> SiteLog
+ * drawings
+ *   list({ siteId })                        -> Drawing[]
+ * sitePhotos
+ *   list({ siteId, logId })                 -> SitePhoto[]
+ *   create({ siteId, date, caption, tag, src, logId, takenBy }) -> SitePhoto
  * costCodes
  *   list()                                  -> CostCode[]
  * equipment
@@ -65,6 +77,10 @@ const REPOSITORY_CONTRACTS = Object.freeze({
     roster: ['list', 'getForEmployeeOnDate', 'assign', 'remove'],
     timesheets: ['list', 'getById', 'getForEmployeeOnDate', 'create', 'update'],
     crewLogs: ['list'],
+    attendance: ['list', 'signIn', 'signOut'],
+    siteLogs: ['list', 'create'],
+    drawings: ['list'],
+    sitePhotos: ['list', 'create'],
     costCodes: ['list'],
     equipment: ['list', 'getById', 'create', 'update'],
     leave: ['listRequests', 'getRequest', 'createRequest', 'updateRequest', 'getBalance', 'updateBalance'],

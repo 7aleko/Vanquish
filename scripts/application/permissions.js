@@ -20,6 +20,8 @@ const Permissions = (() => {
         'timesheets.submitOwn': ALL_STAFF,
         'timesheets.submitForOthers': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
         'timesheets.approve': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
+        'attendance.recordOwn': ALL_STAFF,
+        'siteLogs.create': ALL_STAFF,
         'equipment.transfer': ALL_STAFF,
         'equipment.register': ALL_STAFF,
         'leave.request': ALL_STAFF,

@@ -24,6 +24,7 @@
     -webkit-user-select: none;
 }
 .filter-bar::-webkit-scrollbar { display: none; }
+.filter-bar[hidden] { display: none; }
 /* Trailing gutter: padding-right on a scrolling flex row is dropped by some engines, so a spacer keeps
    the last pill a gutter off the edge at the end of the scroll (8px gap + the rest) */
 .filter-bar::after {

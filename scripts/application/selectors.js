@@ -106,6 +106,37 @@ function getCrewLogs(date, siteId) {
     return appStore.get('crewLogs').filter(l => l.date === iso && l.siteId === siteId);
 }
 
+// ---------- Attendance ----------
+// Site sign-ins for a date at a site (Attendance records), and one employee's record for a date
+function getAttendance(date, siteId) {
+    if (!siteId) return [];
+    const iso = DateRules.toIso(date);
+    return appStore.get('attendance').filter(a => a.date === iso && a.siteId === siteId);
+}
+function getMyAttendance(date, employeeId = getCurrentEmployeeId()) {
+    const iso = DateRules.toIso(date);
+    return appStore.get('attendance').find(a => a.date === iso && a.employeeId === employeeId) || null;
+}
+function subscribeAttendance(fn) { return appStore.subscribe(() => fn(), ['attendance']); }
+
+// ---------- Site content (Site Hub) ----------
+// Newest first: logs by day then time written; drawings by the day the revision was issued; photos by day
+function getSiteLogs(siteId) {
+    return appStore.get('siteLogs').filter(l => l.siteId === siteId)
+        .slice().sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : (a.date < b.date ? 1 : -1)));
+}
+function getSiteLogById(id) { return appStore.get('siteLogs').find(l => l.id === id) || null; }
+function getDrawings(siteId) {
+    return appStore.get('drawings').filter(d => d.siteId === siteId).slice().sort((a, b) => (a.updatedOn < b.updatedOn ? 1 : -1));
+}
+function getDrawingById(id) { return appStore.get('drawings').find(d => d.id === id) || null; }
+function getSitePhotos(siteId) {
+    return appStore.get('sitePhotos').filter(p => p.siteId === siteId)
+        .slice().sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : (a.date < b.date ? 1 : -1)));
+}
+function getLogPhotos(logId) { return appStore.get('sitePhotos').filter(p => p.logId === logId); }
+function subscribeSiteContent(fn) { return appStore.subscribe(() => fn(), ['siteLogs', 'drawings', 'sitePhotos']); }
+
 // ---------- Equipment ----------
 function getTools() { return appStore.get('equipment'); }
 function getToolById(id) { return getTools().find(t => t.id === id) || null; }

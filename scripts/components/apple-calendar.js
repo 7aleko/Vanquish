@@ -29,8 +29,6 @@ function openAppleCalendarModal(options = {}) {
         appleCalPrefix = options.prefix;
     } else if (options.target === 'roster') {
         appleCalPrefix = 'Roster set for';
-    } else if (options.target === 'sites') {
-        appleCalPrefix = 'Sites set for';
     } else if (options.target === 'schedule') {
         appleCalPrefix = 'Schedule set for';
     } else {
@@ -46,8 +44,6 @@ function openAppleCalendarModal(options = {}) {
         }
     } else if (options.target === 'roster' && typeof currentRosterMonday !== 'undefined' && currentRosterMonday) {
         appleCalSelectedDate = new Date(currentRosterMonday);
-    } else if (options.target === 'sites' && typeof currentSitesMonday !== 'undefined' && currentSitesMonday) {
-        appleCalSelectedDate = new Date(currentSitesMonday);
     } else {
         // Fallback default: November 8, 2026 matching reference screenshot
         appleCalSelectedDate = new Date(2026, 10, 8);
@@ -114,9 +110,6 @@ function selectAppleCalendarDate(year, month, day) {
     } else if (appleCalTarget === 'roster' && typeof handleRosterDatePick === 'function') {
         const iso = formatIsoDateLocal(appleCalSelectedDate);
         handleRosterDatePick(iso);
-    } else if (appleCalTarget === 'sites' && typeof handleSitesDatePick === 'function') {
-        const iso = formatIsoDateLocal(appleCalSelectedDate);
-        handleSitesDatePick(iso);
     } else if (appleCalTarget === 'schedule') {
         if (typeof jumpWhiteboardToday === 'function') jumpWhiteboardToday();
     }

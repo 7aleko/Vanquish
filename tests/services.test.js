@@ -149,3 +149,83 @@ test('the cache freezes records: screens cannot change data without a service', 
     const site = env.store.get('sites')[0];
     assert.throws(() => { 'use strict'; site.shortName = 'Hacked'; });
 });
+
+test('attendance: seeded sign-ins resolve to employees; labour hire keeps its name', async () => {
+    const env = await app.makeEnv();
+    const day = env.store.get('attendance').filter(a => a.date === '2026-10-14');
+    const james = day.find(a => a.name === 'James Begg');
+    assert.equal(james.employeeId, 'team-31');
+    assert.equal(james.siteId, 'lugarno');
+    assert.equal(james.signedOutAt, null);
+    assert.equal(day.find(a => a.name === 'Labour Hire 1').employeeId, null);
+    assert.ok(!day.some(a => a.employeeId === 'team-1'));          // the worker starts not signed in
+});
+
+test('attendance: sign in, sign in again (no duplicate), sign out, reopen; audited; cache updated', async () => {
+    const env = await app.makeEnv();
+    let notified = 0;
+    env.store.subscribe(() => notified++, ['attendance']);
+    const a = await env.attendance.signIn({ siteId: 'lugarno', date: '2026-10-14' });
+    assert.equal(a.employeeId, 'team-1');
+    assert.equal(a.name, 'Alexander Floratos');
+    assert.equal(a.signedOutAt, null);
+    assert.ok(!Number.isNaN(Date.parse(a.signedInAt)));
+    assert.equal((await env.attendance.signIn({ siteId: 'lugarno', date: '2026-10-14' })).id, a.id);
+    await assert.rejects(env.attendance.signIn({ siteId: 'bondi', date: '2026-10-14' }), code('CONFLICT'));
+    const out = await env.attendance.signOut({ date: '2026-10-14' });
+    assert.ok(out.signedOutAt);
+    await assert.rejects(env.attendance.signOut({ date: '2026-10-14' }), code('CONFLICT'));
+    const back = await env.attendance.signIn({ siteId: 'lugarno', date: '2026-10-14' });
+    assert.equal(back.id, a.id);
+    assert.equal(back.signedOutAt, null);
+    assert.equal(env.store.get('attendance').filter(r => r.employeeId === 'team-1' && r.date === '2026-10-14').length, 1);
+    assert.equal(notified, 3);
+    const actions = (await env.provider.audit.list({ entity: 'attendance', entityId: a.id })).map(e => e.action);
+    assert.deepEqual(actions, ['sign_in', 'sign_out', 'sign_in']);
+});
+
+test('attendance: validation and failures leave nothing behind', async () => {
+    const env = await app.makeEnv();
+    await assert.rejects(env.attendance.signIn({ siteId: 'nowhere', date: '2026-10-14' }), code('VALIDATION'));
+    await assert.rejects(env.attendance.signIn({ siteId: 'lugarno', date: '14 Oct' }), code('VALIDATION'));
+    env.provider.debug.failNext('attendance.signIn');
+    await assert.rejects(env.attendance.signIn({ siteId: 'lugarno', date: '2026-10-14' }));
+    assert.ok(!env.store.get('attendance').some(r => r.employeeId === 'team-1'));
+    assert.equal((await env.provider.attendance.list({ employeeId: 'team-1' })).length, 0);
+});
+
+test('site content: seeded logs and drawings per site, authors resolved, no sample photos', async () => {
+    const env = await app.makeEnv();
+    const logs = env.store.get('siteLogs').filter(l => l.siteId === 'lugarno');
+    assert.ok(logs.length >= 3);
+    assert.equal(logs.find(l => l.title.startsWith('Termite')).authorId, 'team-31');
+    const a102 = env.store.get('drawings').find(d => d.siteId === 'lugarno' && d.sheet === 'A102');
+    assert.equal(a102.revision, 'C');
+    assert.equal(env.store.get('sitePhotos').length, 0);
+});
+
+test('site content: add a log with photos in one transaction; audited; cache updated', async () => {
+    const env = await app.makeEnv();
+    const photo = { src: 'data:image/jpeg;base64,AAAA', caption: 'Slab edge' };
+    const log = await env.siteContent.addLog({ siteId: 'bondi', date: '2026-10-14', title: 'Pool shell steel fixed', body: 'Ready for inspection', photos: [photo, { src: 'data:image/png;base64,BBBB' }] });
+    assert.equal(log.authorId, 'team-1');
+    assert.equal(log.authorName, 'Alexander Floratos');
+    const photos = env.store.get('sitePhotos').filter(p => p.logId === log.id);
+    assert.equal(photos.length, 2);
+    assert.equal(photos[0].caption, 'Slab edge');
+    assert.equal(photos[1].caption, 'Pool shell steel fixed');          // defaults to the log title
+    assert.ok(env.store.get('siteLogs').some(l => l.id === log.id));
+    assert.equal((await env.provider.audit.list({ entity: 'siteLogs', entityId: log.id }))[0].action, 'create');
+});
+
+test('site content: validation, and a failed photo rolls back the whole log', async () => {
+    const env = await app.makeEnv();
+    await assert.rejects(env.siteContent.addLog({ siteId: 'bondi', date: '2026-10-14', title: 'x' }), code('VALIDATION'));
+    await assert.rejects(env.siteContent.addLog({ siteId: 'miranda', date: '2026-10-14', title: 'Archived site' }), code('VALIDATION'));
+    await assert.rejects(env.siteContent.addLog({ siteId: 'bondi', date: '2026-10-14', title: 'Bad photo', photos: [{ src: 'javascript:alert(1)' }] }), code('VALIDATION'));
+    const before = (await env.provider.siteLogs.list({ siteId: 'bondi' })).length;
+    env.provider.debug.failNext('sitePhotos.create');
+    await assert.rejects(env.siteContent.addLog({ siteId: 'bondi', date: '2026-10-14', title: 'Rolled back', photos: [{ src: 'data:image/png;base64,AA' }] }));
+    assert.equal((await env.provider.siteLogs.list({ siteId: 'bondi' })).length, before);
+    assert.ok(!env.store.get('siteLogs').some(l => l.title === 'Rolled back'));
+});

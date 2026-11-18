@@ -873,13 +873,13 @@ html [class*=" border-yellow-300/"] { border-color: rgba(234, 179, 8, 0.3); }
 }
 html .bg-lime-50,
 html [class^="bg-lime-50/"],
-html [class*=" bg-lime-50/"] { background-color: rgba(132, 204, 22, 0.10); }
+html [class*=" bg-lime-50/"] { background-color: rgba(34, 229, 98, 0.10); }
 html .bg-lime-100,
 html [class^="bg-lime-100/"],
-html [class*=" bg-lime-100/"] { background-color: rgba(132, 204, 22, 0.16); }
+html [class*=" bg-lime-100/"] { background-color: rgba(34, 229, 98, 0.16); }
 html .bg-lime-200,
 html [class^="bg-lime-200/"],
-html [class*=" bg-lime-200/"] { background-color: rgba(132, 204, 22, 0.24); }
+html [class*=" bg-lime-200/"] { background-color: rgba(34, 229, 98, 0.24); }
 html .text-lime-700,
 html [class^="text-lime-700/"],
 html [class*=" text-lime-700/"],
@@ -891,10 +891,10 @@ html [class^="text-lime-900/"],
 html [class*=" text-lime-900/"],
 html .text-lime-950,
 html [class^="text-lime-950/"],
-html [class*=" text-lime-950/"] { color: #bef264; }
+html [class*=" text-lime-950/"] { color: #6eeb98; }
 html .text-lime-600,
 html [class^="text-lime-600/"],
-html [class*=" text-lime-600/"] { color: #a3e635; }
+html [class*=" text-lime-600/"] { color: #4bea82; }
 html .border-lime-100,
 html [class^="border-lime-100/"],
 html [class*=" border-lime-100/"],
@@ -903,17 +903,17 @@ html [class^="border-lime-200/"],
 html [class*=" border-lime-200/"],
 html .border-lime-300,
 html [class^="border-lime-300/"],
-html [class*=" border-lime-300/"] { border-color: rgba(132, 204, 22, 0.3); }
+html [class*=" border-lime-300/"] { border-color: rgba(34, 229, 98, 0.3); }
 @media (hover: hover) and (pointer: fine) {
     html .hover\:text-lime-700:hover,
-    html .hover\:text-lime-800:hover { color: #bef264; }
+    html .hover\:text-lime-800:hover { color: #6eeb98; }
 }
 @media (hover: hover) and (pointer: fine) {
-    html .group:hover .group-hover\:text-lime-700 { color: #bef264; }
+    html .group:hover .group-hover\:text-lime-700 { color: #6eeb98; }
 }
 @media (hover: hover) and (pointer: fine) {
     html .hover\:bg-lime-50:hover,
-    html .hover\:bg-lime-100:hover { background-color: rgba(132, 204, 22, 0.2); }
+    html .hover\:bg-lime-100:hover { background-color: rgba(34, 229, 98, 0.2); }
 }
 
 /* Light gradient stops -> transparent glass stops (same direction and positions) */
@@ -955,9 +955,9 @@ html .placeholder\:text-slate-400::placeholder,
 html .placeholder\:text-slate-500::placeholder { color: #71717a; }
 
 /* Dark ink stays dark on lime / amber / white solid surfaces (buttons, today tile, badges) */
-html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow):is(.text-zinc-950, .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-black, .text-gray-900, .text-zinc-900, .text-amber-900, .text-amber-950),
-html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow) :is(.text-zinc-950, .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-black, .text-gray-900, .text-zinc-900, .text-amber-900, .text-amber-950) { color: #0c0f05; }
-html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow) :is(.text-slate-500, .text-slate-400) { color: rgba(12, 15, 5, 0.6); }
+html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-brand-emerald, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow):is(.text-zinc-950, .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-black, .text-gray-900, .text-zinc-900, .text-amber-900, .text-amber-950),
+html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-brand-emerald, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow) :is(.text-zinc-950, .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-black, .text-gray-900, .text-zinc-900, .text-amber-900, .text-amber-950) { color: #0c0f05; }
+html body :is(.bg-\[\#E5E5EA\], .bg-brand-lime, .bg-brand-emerald, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow) :is(.text-slate-500, .text-slate-400) { color: rgba(12, 15, 5, 0.6); }
 html body .group:hover .group-hover\:text-slate-950,
 html body .hover\:bg-brand-lime:hover,
 html body .hover\:bg-brand-lime:hover *,

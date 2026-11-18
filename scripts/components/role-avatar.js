@@ -19,7 +19,7 @@
 // Dark-glass orbs lit from below: obsidian at the top, the role's colour glowing up from the bottom
 const ROLE_CATEGORIES = {
     supervisor: { seniority: 1, gradient: 'linear-gradient(180deg, #121110 25%, #92400E 75%, #F59E0B 100%)' },
-    carpenter:  { seniority: 2, gradient: 'linear-gradient(180deg, #0E120D 25%, #3F6212 75%, #A3E635 100%)' },
+    carpenter:  { seniority: 2, gradient: 'linear-gradient(180deg, #0D120F 25%, #127234 75%, #4BEA82 100%)' },
     tradesman:  { seniority: 3, gradient: 'linear-gradient(180deg, #0D1017 25%, #1D4ED8 75%, #60A5FA 100%)' },
     apprentice: { seniority: 4, gradient: 'linear-gradient(180deg, #0D1414 25%, #0F766E 75%, #2DD4BF 100%)' },
     labour:     { seniority: 5, gradient: 'linear-gradient(180deg, #111214 25%, #334155 75%, #94A3B8 100%)' },

@@ -74,7 +74,9 @@ const AuditAction = Object.freeze({
     REJECT: 'reject',
     ASSIGN: 'assign',
     TRANSFER: 'transfer',
-    REQUEST_MOVE: 'request_move'
+    REQUEST_MOVE: 'request_move',
+    SIGN_IN: 'sign_in',
+    SIGN_OUT: 'sign_out'
 });
 
 // Error categories shared by every layer (see scripts/domain/errors.js)

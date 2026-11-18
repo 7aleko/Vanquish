@@ -99,7 +99,7 @@ hues = {'emerald':(16,185,129,'#6ee7b7','#34d399'), 'green':(34,197,94,'#86efac'
         'cyan':(6,182,212,'#67e8f9','#22d3ee'), 'sky':(14,165,233,'#7dd3fc','#38bdf8'), 'blue':(59,130,246,'#93c5fd','#60a5fa'),
         'indigo':(99,102,241,'#a5b4fc','#818cf8'), 'violet':(139,92,246,'#c4b5fd','#a78bfa'), 'purple':(168,85,247,'#d8b4fe','#c084fc'),
         'rose':(244,63,94,'#fda4af','#fb7185'), 'red':(239,68,68,'#fca5a5','#f87171'), 'orange':(249,115,22,'#fdba74','#fb923c'),
-        'amber':(245,158,11,'#fcd34d','#fbbf24'), 'yellow':(234,179,8,'#fde047','#facc15'), 'lime':(132,204,22,'#bef264','#a3e635')}
+        'amber':(245,158,11,'#fcd34d','#fbbf24'), 'yellow':(234,179,8,'#fde047','#facc15'), 'lime':(34,229,98,'#6eeb98','#4bea82')}
 for h,(r,g,b,ink3,ink4) in hues.items():
     rule(sel_variants(f'bg-{h}-50'), f'background-color: rgba({r}, {g}, {b}, 0.10);')
     rule(sel_variants(f'bg-{h}-100'), f'background-color: rgba({r}, {g}, {b}, 0.16);')
@@ -135,7 +135,7 @@ comment('Placeholder text stays a quiet grey on dark fields')
 rule([f'.{esc("placeholder:text-slate-400")}::placeholder', f'.{esc("placeholder:text-slate-500")}::placeholder'], 'color: #71717a;')
 
 comment('Dark ink stays dark on lime / amber / white solid surfaces (buttons, today tile, badges)')
-on_light = ':is(.bg-\\[\\#E5E5EA\\], .bg-brand-lime, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow)'
+on_light = ':is(.bg-\\[\\#E5E5EA\\], .bg-brand-lime, .bg-brand-emerald, .bg-limeAccent, .bg-lime-300, .bg-lime-400, .bg-amber-300, .bg-amber-400, .bg-yellow-300, .bg-yellow-400, .glass-tile-today, .bg-white.rounded-full.shadow)'
 darks = ':is(.text-zinc-950, .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600, .text-black, .text-gray-900, .text-zinc-900, .text-amber-900, .text-amber-950)'
 rule([f'{on_light}{darks}', f'{on_light} {darks}'], 'color: #0c0f05;', prefix='html body ')
 rule([f'{on_light} {darks}'.replace(darks, ':is(.text-slate-500, .text-slate-400)')], 'color: rgba(12, 15, 5, 0.6);', prefix='html body ')

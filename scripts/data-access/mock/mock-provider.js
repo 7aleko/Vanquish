@@ -27,7 +27,8 @@ function createMockDataProvider(options = {}) {
         if (config.persistence === 'session') {
             try {
                 const saved = JSON.parse(sessionStorage.getItem(config.storageKey) || 'null');
-                if (saved && saved.seededFor === (config.seed && config.seed.seededFor)) return saved;
+                // A table added since the session was saved starts from the seed
+                if (saved && saved.seededFor === (config.seed && config.seed.seededFor)) return { ...clone(config.seed || {}), ...saved };
             } catch (_) { /* unreadable: start from the seed */ }
         }
         return clone(config.seed || {});
@@ -37,7 +38,7 @@ function createMockDataProvider(options = {}) {
         try { sessionStorage.setItem(config.storageKey, JSON.stringify(db)); } catch (_) { /* storage full or blocked: memory only */ }
     }
     db = loadDb();
-    ['sites', 'employees', 'roster', 'costCodes', 'timesheets', 'crewLogs', 'equipment', 'leaveRequests', 'leaveBalances', 'audit']
+    ['sites', 'employees', 'roster', 'costCodes', 'timesheets', 'crewLogs', 'attendance', 'siteLogs', 'drawings', 'sitePhotos', 'equipment', 'leaveRequests', 'leaveBalances', 'audit']
         .forEach(t => { if (!Array.isArray(db[t])) db[t] = []; });
 
     // ----- Simulation -----
@@ -159,6 +160,58 @@ function createMockDataProvider(options = {}) {
             (!date || l.date === date) && (!siteId || l.siteId === siteId) && inRange(l.date, from, to)))
     };
 
+    const attendance = {
+        list: ({ date, siteId, employeeId } = {}) => op('attendance.list', () => db.attendance.filter(a =>
+            (!date || a.date === date) && (!siteId || a.siteId === siteId) && (!employeeId || a.employeeId === employeeId))),
+        // One record per employee per day (unique (date, employeeId)): signing in again reopens it
+        signIn: ({ date, employeeId, siteId }) => write('attendance.signIn', () => {
+            const employee = requireRow('employees', 'id', employeeId, 'Employee');
+            requireFk('sites', siteId, 'site');
+            const existing = db.attendance.find(a => a.date === date && a.employeeId === employeeId);
+            const row = { id: existing ? existing.id : `AT-${date}-${employeeId}`, date, employeeId, name: employee.name, siteId,
+                signedInAt: nowIso(), signedOutAt: null };
+            assertValidEntity('attendance', row);
+            if (existing) Object.assign(existing, row); else db.attendance.push(row);
+            return row;
+        }),
+        signOut: id => write('attendance.signOut', () => {
+            const row = requireRow('attendance', 'id', id, 'Attendance');
+            if (row.signedOutAt) throw appErrors.conflict(`Attendance ${id} is already signed out`, 'Already signed out.');
+            row.signedOutAt = nowIso();
+            return row;
+        })
+    };
+
+    const siteLogs = {
+        list: ({ siteId } = {}) => op('siteLogs.list', () => db.siteLogs.filter(l => !siteId || l.siteId === siteId)),
+        create: ({ siteId, date, title, body, authorId }) => write('siteLogs.create', () => {
+            requireFk('sites', siteId, 'site');
+            const author = requireRow('employees', 'id', authorId, 'Employee');
+            const row = { id: newId('LOG'), siteId, date, title, body: body || '', authorId, authorName: author.name, createdAt: nowIso() };
+            assertValidEntity('siteLog', row);
+            db.siteLogs.push(row);
+            return row;
+        })
+    };
+
+    const drawings = {
+        list: ({ siteId } = {}) => op('drawings.list', () => db.drawings.filter(d => !siteId || d.siteId === siteId))
+    };
+
+    const sitePhotos = {
+        list: ({ siteId, logId } = {}) => op('sitePhotos.list', () => db.sitePhotos.filter(p =>
+            (!siteId || p.siteId === siteId) && (!logId || p.logId === logId))),
+        create: input => write('sitePhotos.create', () => {
+            requireFk('sites', input.siteId, 'site');
+            requireFk('siteLogs', input.logId, 'siteLog');
+            requireFk('employees', input.takenBy, 'employee');
+            const row = { id: newId('PH'), caption: '', tag: '', logId: null, takenBy: null, ...input, createdAt: nowIso() };
+            assertValidEntity('sitePhoto', row);
+            db.sitePhotos.push(row);
+            return row;
+        })
+    };
+
     const costCodes = { list: () => op('costCodes.list', () => db.costCodes) };
 
     const equipment = {
@@ -224,7 +277,7 @@ function createMockDataProvider(options = {}) {
             (!entity || a.entity === entity) && (!entityId || a.entityId === entityId)))
     };
 
-    const repos = { sites, employees, roster, timesheets, crewLogs, costCodes, equipment, leave, audit };
+    const repos = { sites, employees, roster, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, costCodes, equipment, leave, audit };
 
     // All-or-nothing: one transaction at a time; any throw restores the database as it was before.
     // (A real backend runs the same work as one database transaction or server-side function.)

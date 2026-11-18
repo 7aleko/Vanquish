@@ -1289,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && timesheetState.sheetOpen) closeTimesheetSheet(); });
     tsInitSheetDrag();
     tsInitDaySwipe();
+    tsInitRunSwipe();
     renderTimesheets();
 });
 
@@ -1518,6 +1519,82 @@ function tsInitDaySwipe() {
         const ro = new ResizeObserver(() => { tsPlaceStripPill(true); tsPlaceRunOutline(true); });
         ['ts-week-strip', 'ts-run-chart'].forEach(id => { const el = document.getElementById(id); if (el) ro.observe(el); });
     }
+}
+
+// Swipe the Pay Run card to page a fortnight back / forward (same as its chevrons). The bars and footer
+// follow the finger (rubber-banded where there's no run that way); a flick or a drag past a quarter of the
+// width slides them out, the run changes, and the new fortnight slides in from the other side. Anything
+// less springs back. Vertical scrolling stays native (touch-action: pan-y on .ts-run).
+function tsInitRunSwipe() {
+    const card = document.querySelector('#view-time .ts-run');
+    if (!card) return;
+    const parts = () => [document.getElementById('ts-run-chart'), document.getElementById('ts-run-foot')].filter(Boolean);
+    const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const place = (x, ms, opacity = 1) => parts().forEach(el => {
+        el.style.transition = ms ? `transform ${ms}ms ${TS_SLIDE_EASE}, opacity ${ms}ms ${TS_SLIDE_EASE}` : 'none';
+        el.style.transform = x ? `translate3d(${x.toFixed(2)}px, 0, 0)` : '';
+        el.style.opacity = opacity === 1 ? '' : String(opacity);
+    });
+    const canGo = dir => { const b = document.getElementById(dir > 0 ? 'ts-run-next' : 'ts-run-prev'); return b && !b.disabled; };
+    let drag = null, suppressClick = false, busy = false;
+
+    card.addEventListener('pointerdown', e => {
+        if (drag || busy || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        if (timesheetState.sheetOpen || (e.pointerType === 'touch' && e.clientX <= 30)) return;
+        drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lastX: e.clientX, lastT: performance.now(), v: 0, dx: 0, state: 'pending' };
+    });
+    card.addEventListener('pointermove', e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const mx = e.clientX - drag.x0, my = e.clientY - drag.y0;
+        if (drag.state === 'pending') {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            if (Math.abs(mx) <= Math.abs(my) * 1.2) { drag = null; return; }   // vertical: let it scroll
+            drag.state = 'dragging';
+            drag.x0 = e.clientX;
+            try { card.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (e.cancelable) e.preventDefault();
+        const now = performance.now();
+        drag.v = (e.clientX - drag.lastX) / Math.max(1, now - drag.lastT);
+        drag.lastX = e.clientX; drag.lastT = now;
+        const raw = e.clientX - drag.x0;
+        drag.dx = canGo(raw < 0 ? 1 : -1) ? raw : Math.sign(raw) * Math.sqrt(Math.abs(raw)) * 3;
+        place(drag.dx, 0, 1 - Math.min(0.35, Math.abs(drag.dx) / card.clientWidth * 0.5));
+    }, { passive: false });
+    const end = e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const g = drag; drag = null;
+        if (g.state !== 'dragging') return;
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 350);
+        const w = card.clientWidth, dir = g.dx < 0 ? 1 : -1;                    // swipe left = next run
+        const commit = e.type !== 'pointercancel' && canGo(dir) &&
+            (Math.abs(g.dx) > w / 4 || (Math.abs(g.dx) > 30 && Math.abs(g.v) > 0.35 && Math.sign(g.v) === -dir));
+        if (!commit) { place(0, 260); return; }
+        if (reduced()) { place(0, 0); shiftTimesheetPayRun(dir); return; }
+        busy = true;
+        const out = -dir * w * 0.5;
+        place(out, 160, 0);
+        setTimeout(() => {
+            const range = document.getElementById('ts-run-range'), before = range.textContent;
+            shiftTimesheetPayRun(dir);
+            // The run re-renders when the day carousel lands: slide the new fortnight in once it has
+            const t0 = performance.now();
+            const slideIn = () => {
+                if (range.textContent === before && performance.now() - t0 < 700) { requestAnimationFrame(slideIn); return; }
+                place(-out, 0, 0);
+                parts()[0] && parts()[0].getBoundingClientRect();
+                place(0, 300);
+                tsPlaceRunOutline(true);
+                setTimeout(() => { busy = false; parts().forEach(el => { el.style.transition = ''; }); }, 320);
+            };
+            slideIn();
+        }, 160);
+    };
+    card.addEventListener('pointerup', end);
+    card.addEventListener('pointercancel', end);
+    // A swipe that ended over a bar or chevron isn't a tap on it
+    card.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
 
 // Drag the sheet down by its handle / header to dismiss it (follows the finger; a flick or a long drag

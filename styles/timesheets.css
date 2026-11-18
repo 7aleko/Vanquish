@@ -264,7 +264,7 @@
 }
 
 /* ---------- Pay Run card: the fortnight in 10 workday bars ---------- */
-.ts-run { padding: 12px 14px 14px; }
+.ts-run { padding: 12px 14px 14px; touch-action: pan-y; overflow: hidden; }   /* horizontal swipe pages the run */
 .ts-run-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .ts-run-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ts-run-nav { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 4px; }

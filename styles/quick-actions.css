@@ -1,11 +1,11 @@
 /* Home: Quick Actions (Roster, Timesheets, Chat, Site) and the Home list (Poppy, Team, Tools).
-   OLED smoked glass, monochrome icons. Lime is reserved for high-signal values only
-   (the Tools availability count); navigation icons and labels never turn lime. */
+   OLED smoked glass, monochrome icons. Emerald is reserved for high-signal values only
+   (the Tools availability count); navigation icons and labels never turn emerald. */
 
 #view-home {
     --home-icon: #a1a1aa;          /* zinc-400: all navigation icons */
     --home-muted: #8e9299;         /* secondary values */
-    --home-signal: #ccff00;        /* high-signal values */
+    --home-signal: rgba(34, 229, 98, 0.75);   /* high-signal values: soft emerald */
     --home-glass: rgba(255, 255, 255, 0.05);
     --home-glass-edge: rgba(255, 255, 255, 0.08);
 }
@@ -270,7 +270,7 @@
     text-overflow: ellipsis;
 }
 .home-nav-value.is-signal {
-    color: var(--home-signal, #ccff00);
+    color: var(--home-signal, rgba(34, 229, 98, 0.75));
     font-weight: 600;
 }
 .home-nav-chevron {

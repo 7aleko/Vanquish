@@ -164,8 +164,16 @@
 .ts-day.is-today .ts-day-track,
 .ts-day.is-none .ts-day-track { stroke: var(--ts-ring-track-idle); }
 .ts-day.is-logged .ts-day-track { stroke: var(--ts-ring-track); }
-/* The selected day's ring carries a soft emerald light */
+/* The selected day's ring carries a soft emerald light that fades on (and off) rather than snapping. Every ring
+   holds the same shadow at zero alpha, so the filter tweens between matching lists. */
+.ts-day-ring {
+    filter: drop-shadow(0 0 6px rgba(30, 215, 150, 0));
+    transition: filter 420ms var(--ease-out, ease-out);
+}
 .ts-day.is-selected.is-logged .ts-day-ring { filter: drop-shadow(0 0 6px rgba(30, 215, 150, 0.35)); }
+@media (prefers-reduced-motion: reduce) {
+    .ts-day-ring { transition: none; }
+}
 
 /* ---------- Daily ring ---------- */
 .ts-hero { display: flex; justify-content: center; padding: 0; }
@@ -384,6 +392,7 @@
     border-radius: 7px;
     box-shadow: 0 0 0 1.5px #fff;
     pointer-events: none;
+    z-index: 2;                        /* over the bars (positioned, later in the DOM) and the 8h target line */
     transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
 }
 .ts-run-sel.is-instant { transition: none; }
@@ -1035,6 +1044,23 @@
 .ts-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .ts-save-hint { margin-top: 8px !important; font-size: 12px; text-align: center; color: var(--ts-muted); }
 .ts-save-hint:empty { display: none; }
+/* Touch feedback in the sheet: every control presses in smoothly with the app's press timing (system.css
+   --dur-press / --press-scale*). These had a press scale but no scale transition (so it snapped), or none. */
+.ts-site-row,
+.ts-crew-link,
+.ts-site-option { transition: background-color 160ms ease, border-color 160ms ease, scale var(--dur-press) var(--ease-out); }
+.ts-site-row:active:not(:disabled),
+.ts-crew-link:active,
+.ts-site-option:active { scale: var(--press-scale-row, 0.985); }
+.ts-sheet .ts-code,
+.ts-sheet .ts-input[type="time"] { transition: border-color 160ms ease, background-color 160ms ease, scale var(--dur-press) var(--ease-out); }
+.ts-sheet .ts-code:active,
+.ts-sheet .ts-input[type="time"]:active { scale: var(--press-scale, 0.97); }
+@media (prefers-reduced-motion: reduce) {
+    .ts-site-row:active, .ts-crew-link:active, .ts-site-option:active,
+    .ts-sheet .ts-code:active, .ts-sheet .ts-input[type="time"]:active { scale: none; }
+}
+
 .ts-cancel {
     display: block;
     margin: 4px auto 0 !important;

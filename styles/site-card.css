@@ -16,7 +16,7 @@
     --p: 0;
     --on: 0;
     --pp: 0;
-    --sc-lime: #ccff00;
+    --sc-accent: #22e562;
     --sc-mint: #5ee6a8;
     --sc-amber: #f5b021;
     --sc-text: #f3f6f4;
@@ -26,7 +26,7 @@
     background: #03080a;
     box-shadow:
         0 24px 48px -24px rgba(0, 0, 0, 0.7),
-        0 18px 44px -26px rgba(47, 224, 160, calc(0.03 + var(--pp) * 0.08)),
+        0 18px 44px -26px rgba(34, 229, 98, calc(0.14 + var(--pp) * 0.04)),
         0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -174,6 +174,7 @@
         inset 0 14px 22px -18px rgba(255, 255, 255, 0.12),
         inset 0 -1px 0 rgba(170, 255, 220, 0.3);
     background:
+        radial-gradient(70% 90% at 0% 0%, rgba(34, 229, 98, 0.16), rgba(34, 229, 98, 0.05) 45%, transparent 75%),   /* faint emerald glow, top-left */
         radial-gradient(140% 70% at 50% -38%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 55%, transparent 72%);
 }
 /* 3. Grain */
@@ -195,7 +196,7 @@
     pointer-events: none;
     border: 1px solid transparent;
     background: linear-gradient(170deg,
-        rgba(255, 255, 255, calc(0.15 + var(--pp) * 0.06)),
+        rgba(34, 229, 98, calc(0.14 + var(--pp) * 0.04)),
         rgba(255, 255, 255, 0.03) 30%,
         rgba(255, 255, 255, 0.02) 70%,
         rgba(120, 240, 200, calc(0.12 + var(--pp) * 0.14))) border-box;
@@ -238,8 +239,8 @@
     text-transform: uppercase;
 }
 #site-hero-card #site-status-kicker.text-amber-400 { color: var(--sc-amber); }
-#site-hero-card #site-status-kicker.text-brand-lime { color: var(--sc-lime); }
-/* Shift over but still signed in (attendance.js): calmer jade instead of the live lime */
+#site-hero-card #site-status-kicker.text-brand-emerald { color: var(--sc-accent); }
+/* Shift over but still signed in (attendance.js): calmer jade instead of the live emerald */
 #site-hero-card #site-status-kicker[data-state="completed"] { color: var(--sc-mint); }
 #site-hero-card #site-status-kicker > span:first-child,
 #site-hero-card #site-status-kicker > span:first-child > span {
@@ -334,7 +335,7 @@
     width: calc(var(--p) * 100%);
     border-radius: inherit;
     opacity: var(--on);
-    background: linear-gradient(90deg, rgba(14, 122, 94, 0.7), #2fe0a0 80%, #94f51f);   /* emerald -> jade -> lime */
+    background: linear-gradient(90deg, rgba(14, 122, 94, 0.7), #2fe0a0 80%, #22e562);   /* deep emerald -> jade -> brand emerald */
 }
 #site-hero-card .sc-track-now {
     position: absolute;
@@ -345,7 +346,7 @@
     margin: -4.5px 0 0 -4.5px;
     border-radius: 50%;
     background: #b8ffe0;                       /* pale mint */
-    box-shadow: 0 0 10px 2px rgba(148, 245, 31, 0.7);
+    box-shadow: 0 0 10px 2px rgba(34, 229, 98, 0.7);
     opacity: var(--on);
 }
 #site-hero-card .sc-times {
@@ -362,11 +363,11 @@
 #site-hero-card .sc-time { display: flex; align-items: center; gap: 7px; }
 #site-hero-card .sc-time i { font-size: 12px; color: currentColor; }
 
-/* ---- Sign In control: lime capsule (rounded-full) with an inner glass ring; dark glass once signed in ----
+/* ---- Sign In control: emerald capsule (rounded-full) with an inner glass ring; dark glass once signed in ----
    (Size, label roll and icon swap are unchanged in behaviour; see styles/attendance.css.) */
 #site-hero-card #site-signin-btn {
     border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 6px 22px -6px rgba(204, 255, 0, 0.55);
+    box-shadow: 0 6px 22px -6px rgba(34, 229, 98, 0.55);
 }
 /* Signed in (Sign Out): a darker, more opaque glass with a clearly visible rim and a lit top edge,
    so it reads as a solid control over the bright energy outdoors */
@@ -392,7 +393,7 @@
     box-shadow: none;
 }
 #site-hero-card #site-signin-btn .apple-control-label { font-weight: 700; }
-#site-hero-card #site-label-signin { color: #0c0f05; }          /* dark ink on the lime pill */
+#site-hero-card #site-label-signin { color: #000000; }          /* black ink on the emerald pill */
 #site-hero-card #site-label-signout { color: #ffffff; }
 #site-hero-card #site-signin-btn #site-btn-icon-box i { font-size: 19px; }
 /* Chrome doesn't clip a backdrop blur to its parent's rounded overflow: round the pill's frosted

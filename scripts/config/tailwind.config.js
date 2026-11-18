@@ -31,6 +31,7 @@ tailwind.config = {
                 rainBg: '#0F172A',
                 brand: {
                     lime: '#CCFF00',
+                    emerald: '#22E562',          // Home brand accent (wordmark, greeting, Sign In)
                     limeHover: '#b3e000',
                     dark: '#0c0d10',
                     cardDark: '#16181d',

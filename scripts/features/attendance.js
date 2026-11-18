@@ -32,7 +32,7 @@ function triggerGlowSurge(isOpening) {
         }
         if (shiftTrack) {
             shiftTrack.style.transition = 'filter 0.3s ease-out'; // width eases in site-card-energy.js
-            shiftTrack.style.filter = 'brightness(1.4) drop-shadow(0 0 10px rgba(204,255,0,0.8))';
+            shiftTrack.style.filter = 'brightness(1.4) drop-shadow(0 0 10px rgba(34,229,98,0.8))';
         }
         setTimeout(() => {
             if (ambientProgress) {
@@ -81,8 +81,8 @@ function renderSiteSignedInStatus() {
     kicker.dataset.state = state;
 
     const label = completed ? 'Shift Completed' : 'Signed In';
-    kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-brand-lime uppercase whitespace-nowrap";
-    kicker.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-brand-lime shadow-[0_0_6px_rgba(204,255,0,0.8)]"></span></span><span>${label}</span>`;
+    kicker.className = "min-w-0 flex items-center gap-2 text-xs font-black tracking-wide text-brand-emerald uppercase whitespace-nowrap";
+    kicker.innerHTML = `<span class="relative flex h-2 w-2"><span class="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald shadow-[0_0_6px_rgba(34,229,98,0.8)]"></span></span><span>${label}</span>`;
     btn.setAttribute('aria-label', `Site attendance: ${label}. Tap to Sign Out.`);
 }
 

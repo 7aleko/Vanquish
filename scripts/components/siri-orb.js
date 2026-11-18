@@ -3,7 +3,7 @@
  */
 
 // =========================================================================
-// SMOOTHUI SIRI ORB ENGINE & ORGANIC PRESENCE CONTROLLER (BRAND LIME / CYAN)
+// SMOOTHUI SIRI ORB ENGINE & ORGANIC PRESENCE CONTROLLER (BRAND EMERALD / CYAN)
 // =========================================================================
     // =========================================================================
 // STANDALONE VANILLA JS WEBGL ORB INITIALIZER (POPPY BOT AI ASSISTANT)
@@ -77,8 +77,8 @@ function createAssistantOrb(canvas, options = {}) {
         colors: options.colors || {
             c0: [0.01, 0.06, 0.36], // Deep Sapphire Pocket (#030f5c)
             c1: [0.00, 0.68, 0.58], // Rich Emerald-Cyan (#00ad94)
-            c2: [0.58, 0.96, 0.12], // Lush Lifestyle Lime-Green (#94f51f)
-            c3: [0.93, 1.00, 0.75]  // Luminous White-Lime Crease (#edffbf)
+            c2: [0.13, 0.90, 0.38], // Lifestyle Brand Emerald (#22e562)
+            c3: [0.80, 1.00, 0.88]  // Luminous White-Mint Crease (#ccffe0)
         }
     };
     // Backing-store cap in device pixels: the orb is soft, so upscaling isn't visible

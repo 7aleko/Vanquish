@@ -958,6 +958,7 @@ function tsScrollSheetTo(el, behavior = 'smooth') {
 
 // ----- Opening / closing the sheet -----
 let tsSheetSnapshot = null;          // what the draft looked like right after opening, to tell real edits apart
+let tsPageCrewOpen = false;          // the page's crew drawer state, kept aside while the sheet has the drawer
 function tsDraftJson(iso) {
     const d = timesheetState.drafts[iso];
     return d ? JSON.stringify({ s: d.siteId, b: d.blocks.map(b => [b.code, b.start, b.finish, b.breakMins, b.task]) }) : '';
@@ -974,10 +975,15 @@ function openTimesheetSheet(opts = {}) {
         timesheetState.editingIndex = -1;
     }
     tsSheetSnapshot = { iso, hadDraft, json: tsDraftJson(iso) };
+    // The crew drawer moves into the sheet, but the page and the sheet keep their own open state: the sheet's
+    // starts closed, and closing the sheet puts back whatever the page had
+    if (!timesheetState.sheetOpen) tsPageCrewOpen = timesheetState.crewOpen;
+    timesheetState.crewOpen = false;
     timesheetState.sheetOpen = true;
     timesheetState.sitePickerOpen = false;
     document.getElementById('ts-sheet-note').hidden = true;
     tsPlaceCrewSection();
+    syncTimesheetCrewDrawer();
     renderTimesheetEditor();
     tsShowSheet(true);
     triggerHaptic('light');
@@ -1007,7 +1013,9 @@ function closeTimesheetSheet() {
     timesheetState.sheetOpen = false;
     timesheetState.sitePickerOpen = false;
     timesheetState.editingIndex = -1;
+    timesheetState.crewOpen = tsPageCrewOpen;          // opening crew in the sheet never opens it on the page
     tsPlaceCrewSection();
+    syncTimesheetCrewDrawer();
     tsShowSheet(false);
     renderTimesheetDay();
     renderTimesheetCta();
@@ -1260,6 +1268,7 @@ function resetTimeView() {
     tsAbortTransition();
     timesheetState.selected = tsIso(tsToday());
     timesheetState.crewOpen = false;
+    tsPageCrewOpen = false;
     timesheetState.sitePickerOpen = false;
     timesheetState.editingIndex = -1;
     document.getElementById('ts-submitted-note').hidden = true;

@@ -503,15 +503,13 @@ function renderTimesheetPayRun() {
                 <span class="ts-run-label" data-iso="${tsIso(week[0])}">${tsRangeLabel(week[0]).split(' – ')[0]}</span>
             </div>`).join('');
     }
-    // Scale: the top is 10h, or the longest day if longer, so overtime days are never clipped
-    const maxHours = Math.max(10, ...workdays.map(d => (timesheetState.records[tsIso(d)] || {}).totalHours || 0));
+    const maxHours = tsRunMaxHours(workdays);
     chart.style.setProperty('--target', (TIMESHEET_CONFIG.targetHours / maxHours).toFixed(3));
     chart.querySelectorAll('.ts-bar').forEach(bar => {
         const iso = bar.dataset.iso, d = tsFromIso(iso), status = tsDayStatus(d), rec = timesheetState.records[iso];
-        const isSel = iso === timesheetState.selected;
-        const partial = rec && rec.totalHours < TIMESHEET_CONFIG.targetHours;
-        bar.className = `ts-bar is-${status}${partial ? ' is-partial' : ''}${isSel ? ' is-selected' : ''}`;
-        bar.style.setProperty('--h', rec ? Math.max(0.06, rec.totalHours / maxHours).toFixed(3) : '0');
+        const isSel = iso === timesheetState.selected, state = tsRunBarState(iso, maxHours);
+        bar.className = `ts-bar ${state.cls}${isSel ? ' is-selected' : ''}`;
+        bar.style.setProperty('--h', state.h);
         bar.setAttribute('aria-label', `${tsShortDate(d)}: ${rec ? tsFormatHours(rec.totalHours) : status === 'missing' ? 'missing' : status}`);
         bar.setAttribute('aria-pressed', String(isSel));
     });
@@ -520,10 +518,36 @@ function renderTimesheetPayRun() {
     const selMonday = tsIso(getMondayForDate(tsSelectedDate()));
     chart.querySelectorAll('.ts-run-label').forEach(l => l.classList.toggle('is-active', l.dataset.iso === selMonday));
 
+    document.getElementById('ts-run-foot').innerHTML = tsRunFootHtml(sum);
+}
+// Scale: the top is 10h, or the longest day if longer, so overtime days are never clipped
+function tsRunMaxHours(workdays) {
+    return Math.max(10, ...workdays.map(d => (timesheetState.records[tsIso(d)] || {}).totalHours || 0));
+}
+// A bar's status classes and fill height (0..1 of the chart)
+function tsRunBarState(iso, maxHours = 10) {
+    const rec = timesheetState.records[iso], status = tsDayStatus(tsFromIso(iso));
+    const partial = rec && rec.totalHours < TIMESHEET_CONFIG.targetHours;
+    return { cls: `is-${status}${partial ? ' is-partial' : ''}`, h: rec ? Math.max(0.06, rec.totalHours / maxHours).toFixed(3) : '0' };
+}
+function tsRunFootHtml(sum) {
     const hrs = (Math.round(sum.hours * 10) / 10).toFixed(1);
-    document.getElementById('ts-run-foot').innerHTML = sum.eligible
+    return sum.eligible
         ? `<b>${sum.logged} / ${sum.eligible}</b> days logged · <b>${hrs}</b> hrs total`
         : `<b>${sum.workdays}</b> workdays ahead · <b>${hrs}</b> hrs logged`;
+}
+// A static copy of a run's chart and footer (no ids, no handlers): the neighbouring fortnight that rides
+// alongside while the Pay Run card is swiped
+function tsRunPreviewHtml(start) {
+    const workdays = tsRunWorkdays(start), max = tsRunMaxHours(workdays);
+    const weeks = [workdays.slice(0, 5), workdays.slice(5, 10)];
+    const bar = d => { const s = tsRunBarState(tsIso(d), max); return `<span class="ts-bar ${s.cls}" style="--h:${s.h}"><span class="ts-bar-fill"></span></span>`; };
+    return `<div class="ts-run-chart" style="--target:${(TIMESHEET_CONFIG.targetHours / max).toFixed(3)}">
+            <span class="ts-run-target"><span>8h</span></span>
+            ${weeks.map(week => `<div class="ts-run-week"><div class="ts-run-bars">${week.map(bar).join('')}</div>
+                <span class="ts-run-label">${tsRangeLabel(week[0]).split(' – ')[0]}</span></div>`).join('')}
+        </div>
+        <p class="ts-run-foot">${tsRunFootHtml(tsRunSummary(start))}</p>`;
 }
 
 // ----- Day card: the selected day's site, status and submitted blocks -----
@@ -1521,22 +1545,42 @@ function tsInitDaySwipe() {
     }
 }
 
-// Swipe the Pay Run card to page a fortnight back / forward (same as its chevrons). The bars and footer
-// follow the finger (rubber-banded where there's no run that way); a flick or a drag past a quarter of the
-// width slides them out, the run changes, and the new fortnight slides in from the other side. Anything
-// less springs back. Vertical scrolling stays native (touch-action: pan-y on .ts-run).
+// Swipe the Pay Run card to page a fortnight back / forward (same as its chevrons), like a carousel: the
+// neighbouring fortnight's chart and footer ride in from the card edge with the finger, so you can see what
+// you're swiping to. A flick or a drag past a quarter of the width carries it in and pages the run; anything
+// less springs back. No neighbour that way: rubber-banded. Vertical scrolling stays native (touch-action: pan-y).
 function tsInitRunSwipe() {
     const card = document.querySelector('#view-time .ts-run');
     if (!card) return;
     const parts = () => [document.getElementById('ts-run-chart'), document.getElementById('ts-run-foot')].filter(Boolean);
     const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const place = (x, ms, opacity = 1) => parts().forEach(el => {
-        el.style.transition = ms ? `transform ${ms}ms ${TS_SLIDE_EASE}, opacity ${ms}ms ${TS_SLIDE_EASE}` : 'none';
-        el.style.transform = x ? `translate3d(${x.toFixed(2)}px, 0, 0)` : '';
-        el.style.opacity = opacity === 1 ? '' : String(opacity);
-    });
     const canGo = dir => { const b = document.getElementById(dir > 0 ? 'ts-run-next' : 'ts-run-prev'); return b && !b.disabled; };
-    let drag = null, suppressClick = false, busy = false;
+    let drag = null, ghosts = [], stride = 0, suppressClick = false, busy = false;
+
+    const place = (x, ms) => [...parts(), ...ghosts].forEach(el => {
+        el.style.transition = ms ? `transform ${ms}ms ${TS_SLIDE_EASE}` : 'none';
+        el.style.transform = x ? `translate3d(${x.toFixed(2)}px, 0, 0)` : '';
+    });
+    // The neighbouring runs, laid just past the card's edges at the chart's spot
+    const layGhosts = () => {
+        const chart = document.getElementById('ts-run-chart');
+        stride = card.clientWidth;
+        [-1, 1].filter(canGo).forEach(dir => {
+            const g = document.createElement('div');
+            g.className = 'ts-run-ghost';
+            g.setAttribute('aria-hidden', 'true');
+            g.dataset.dir = dir;
+            g.style.cssText = `left:${chart.offsetLeft + dir * stride}px; top:${chart.offsetTop}px; width:${chart.offsetWidth}px`;
+            g.innerHTML = tsRunPreviewHtml(tsAddDays(tsSelectedRunStart(), dir * TIMESHEET_CONFIG.payRunLengthDays));
+            card.appendChild(g);
+            ghosts.push(g);
+        });
+    };
+    const clearGhosts = () => {
+        ghosts.forEach(g => g.remove());
+        ghosts = [];
+        parts().forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.visibility = ''; });
+    };
 
     card.addEventListener('pointerdown', e => {
         if (drag || busy || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -1552,14 +1596,16 @@ function tsInitRunSwipe() {
             drag.state = 'dragging';
             drag.x0 = e.clientX;
             try { card.setPointerCapture(e.pointerId); } catch (_) {}
+            clearGhosts();
+            layGhosts();
         }
         if (e.cancelable) e.preventDefault();
         const now = performance.now();
         drag.v = (e.clientX - drag.lastX) / Math.max(1, now - drag.lastT);
         drag.lastX = e.clientX; drag.lastT = now;
         const raw = e.clientX - drag.x0;
-        drag.dx = canGo(raw < 0 ? 1 : -1) ? raw : Math.sign(raw) * Math.sqrt(Math.abs(raw)) * 3;
-        place(drag.dx, 0, 1 - Math.min(0.35, Math.abs(drag.dx) / card.clientWidth * 0.5));
+        drag.dx = canGo(raw < 0 ? 1 : -1) ? Math.max(-stride, Math.min(stride, raw)) : Math.sign(raw) * Math.sqrt(Math.abs(raw)) * 3;
+        place(drag.dx, 0);
     }, { passive: false });
     const end = e => {
         if (!drag || e.pointerId !== drag.id) return;
@@ -1567,34 +1613,36 @@ function tsInitRunSwipe() {
         if (g.state !== 'dragging') return;
         suppressClick = true;
         setTimeout(() => { suppressClick = false; }, 350);
-        const w = card.clientWidth, dir = g.dx < 0 ? 1 : -1;                    // swipe left = next run
+        const dir = g.dx < 0 ? 1 : -1;                                          // swipe left = next run
         const commit = e.type !== 'pointercancel' && canGo(dir) &&
-            (Math.abs(g.dx) > w / 4 || (Math.abs(g.dx) > 30 && Math.abs(g.v) > 0.35 && Math.sign(g.v) === -dir));
-        if (!commit) { place(0, 260); return; }
-        if (reduced()) { place(0, 0); shiftTimesheetPayRun(dir); return; }
+            (Math.abs(g.dx) > stride / 4 || (Math.abs(g.dx) > 30 && Math.abs(g.v) > 0.35 && Math.sign(g.v) === -dir));
         busy = true;
-        const out = -dir * w * 0.5;
-        place(out, 160, 0);
+        if (!commit) {
+            place(0, 260);
+            setTimeout(() => { clearGhosts(); busy = false; }, 280);
+            return;
+        }
+        const left = stride - Math.abs(g.dx), ms = reduced() ? 0 : Math.round(Math.max(180, Math.min(320, left / Math.max(0.6, Math.abs(g.v)))));
+        place(-dir * stride, ms);
         setTimeout(() => {
-            const range = document.getElementById('ts-run-range'), before = range.textContent;
+            // The incoming copy now sits exactly where the chart is: it stands in until the real chart has
+            // re-rendered for the new run (when the day carousel lands), then they swap
+            parts().forEach(el => { el.style.visibility = 'hidden'; });
+            const range = document.getElementById('ts-run-range'), before = range.textContent, t0 = performance.now();
             shiftTimesheetPayRun(dir);
-            // The run re-renders when the day carousel lands: slide the new fortnight in once it has
-            const t0 = performance.now();
-            const slideIn = () => {
-                if (range.textContent === before && performance.now() - t0 < 700) { requestAnimationFrame(slideIn); return; }
-                place(-out, 0, 0);
-                parts()[0] && parts()[0].getBoundingClientRect();
-                place(0, 300);
+            const swap = () => {
+                if (range.textContent === before && performance.now() - t0 < 800) { requestAnimationFrame(swap); return; }
+                clearGhosts();
                 tsPlaceRunOutline(true);
-                setTimeout(() => { busy = false; parts().forEach(el => { el.style.transition = ''; }); }, 320);
+                busy = false;
             };
-            slideIn();
-        }, 160);
+            swap();
+        }, ms + 10);
     };
     card.addEventListener('pointerup', end);
     card.addEventListener('pointercancel', end);
     // A swipe that ended over a bar or chevron isn't a tap on it
-    card.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+    card.addEventListener('click', e => { if (suppressClick || busy) { e.stopPropagation(); e.preventDefault(); } }, true);
 }
 
 // Drag the sheet down by its handle / header to dismiss it (follows the finger; a flick or a long drag

@@ -1080,3 +1080,8 @@
     .ts-sheet-overlay.is-open .ts-sheet { opacity: 1; }
     .ts-block.is-new { animation: none; }
 }
+
+/* Pay Run swipe: the neighbouring fortnight (a static copy) riding in beside the chart (tsInitRunSwipe) */
+.ts-run-ghost { position: absolute; pointer-events: none; will-change: transform; }
+.ts-run-ghost .ts-bar-fill { transition: none; }
+.ts-run-ghost .ts-run-target { transition: none; }

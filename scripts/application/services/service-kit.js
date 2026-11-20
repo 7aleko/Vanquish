@@ -21,8 +21,11 @@ function createServiceKit({ provider, store, session, clock }) {
         return employee;
     }
     function todayIso() { return DateRules.toIso(clock.today()); }
+    // The current instant (timestamps, ETAs) and the day the sites run on (who is at a site)
+    function now() { return clock.now ? clock.now() : new Date(); }
+    function siteDayIso() { return DateRules.toIso(clock.siteDay ? clock.siteDay() : clock.today()); }
     function audit(repos, entity, entityId, action, actorId, changes) {
         return repos.audit.record({ entity, entityId, action, actorId, ...(changes ? { changes } : {}) });
     }
-    return { provider, store, session, clock, actor, todayIso, audit };
+    return { provider, store, session, clock, actor, todayIso, now, siteDayIso, audit };
 }

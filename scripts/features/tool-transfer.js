@@ -50,60 +50,69 @@ function updateTransferConfirmButtonLabel() {
 
     const tool = currentTransferTool;
     const isService = tool.status === 'Service';
-    const isInUse = tool.status === 'In Use';
     const isBulk = Boolean(tool.quantity && tool.quantity > 1);
 
     if (isService) {
         btnLabel.textContent = 'Unavailable Until Pickup Ready';
-    } else if (isInUse) {
-        btnLabel.textContent = 'Request Move';
     } else if (isBulk) {
-        const qtyInput = document.getElementById('transfer-input-qty');
-        const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
-        const unitName = tool.unit || 'Units';
-        btnLabel.textContent = `Transfer ${qty} ${unitName}`;
+        btnLabel.textContent = `Transfer ${readQty('transfer-qty')} of ${tool.quantity}`;
     } else {
         btnLabel.textContent = 'Transfer Equipment';
     }
 }
 
-function openToolTransferModal(toolId) {
+// A grouped (quantity-tracked) tool transfers from one bucket: its available units at `fromSiteId` (null =
+// the unassigned location). The sheet then works on a view of that bucket - its location, Available, and its
+// count as the quantity - so the stepper can never offer more than the bucket holds.
+let currentTransferAllocation = null;
+
+function openToolTransferModal(toolId, fromSiteId) {
     triggerHaptic('medium');
-    const tool = getToolById(toolId);
-    if (!tool) return;
+    const record = getToolById(toolId);
+    if (!record) return;
+    currentTransferAllocation = null;
+    let tool = record;
+    // In use: there's no moving it from here - ask its site. An open request opens in the site chat; otherwise
+    // the Request Availability sheet (the same as the card's blue pill). No site chat: the card says so.
+    if (!isGroupedTool(record) && record.status === ToolStatus.IN_USE) {
+        const av = getToolAvailability(record.id);
+        if (av && av.active) openAvailabilityRequest(av.id);
+        else if (avCanAsk(record.siteId)) openRequestAvailability(record.id);
+        return;
+    }
+    if (isGroupedTool(record)) {
+        const from = fromSiteId === undefined ? undefined : (fromSiteId || null);
+        const bucket = getToolAllocations(record.id).find(a => a.status === ToolStatus.AVAILABLE && (from === undefined || a.siteId === from));
+        if (!bucket) return;                                  // nothing available to move
+        currentTransferAllocation = bucket;
+        tool = { ...record, siteId: bucket.siteId, status: ToolStatus.AVAILABLE, quantity: bucket.quantity };
+    }
 
     currentTransferTool = tool;
 
     const isAvailable = tool.status === ToolStatus.AVAILABLE;
     const isService = tool.status === 'Service';
-    const isInUse = tool.status === 'In Use';
     const isBulk = Boolean(tool.quantity && tool.quantity > 1);
 
     // Copy and colour for the tool's status (styles/tool-transfer.css reads data-tone)
     const mode = isAvailable ? {
         tone: 'available', title: 'Transfer Equipment', subtitle: 'Available now \u2014 assign to a new site',
-        toLabel: 'Transfer To', note: 'e.g. Framing stage', cta: 'btn btn--cta btn--cta-emerald btn--block',
+        toLabel: 'Transfer To', note: 'e.g. Framing stage', cta: 'sheet-btn',
         icon: 'ph-bold ph-arrows-left-right', glow: 'bg-emerald-400/15'
-    } : isInUse ? {
-        tone: 'in-use', title: 'Request Equipment Move', subtitle: 'Active on site \u2014 request release & transfer',
-        toLabel: 'Request For', note: 'e.g. Needed by 7:00 AM', cta: 'btn btn--cta btn--cta-blue btn--block',
-        icon: 'ph-bold ph-paper-plane-tilt', glow: 'bg-sky-400/15'
     } : {
         tone: 'service', title: 'Workshop Service Hold', subtitle: 'Unavailable until workshop pickup is ready',
-        toLabel: 'Transfer To', note: '', cta: 'btn btn--cta btn--block is-tone-amber',
+        toLabel: 'Transfer To', note: '', cta: 'sheet-btn is-tone-amber',
         icon: 'ph-bold ph-lock-simple', glow: 'bg-amber-400/15'
     };
     const byId = id => document.getElementById(id);
 
     byId('transfer-modal-title').textContent = mode.title;
     byId('transfer-modal-subtitle').textContent = mode.subtitle;
-    const glow1 = byId('transfer-sheet-glow-1');
-    if (glow1) glow1.className = `absolute -top-16 -left-10 w-52 h-52 ${mode.glow} rounded-full blur-[65px] pointer-events-none transition-colors duration-500`;
 
     // 1. The tool: name, then category, units and where it is
     const category = (ToolCategories.find(c => c.id === tool.category) || { label: tool.category }).label;
     byId('transfer-tool-name').textContent = tool.name;
-    byId('transfer-tool-meta').textContent = [category, isBulk ? `${tool.quantity} ${tool.unit || 'Units'}` : '', getSiteName(tool.siteId, 'Unknown site')]
+    byId('transfer-tool-meta').textContent = [category, toolLocationLabel(tool)]                        // the count is beside the stepper
         .filter(Boolean).join(' \u00b7 ');
     byId('transfer-tool-icon').className = getToolCategoryIcon(tool.category);
 
@@ -122,55 +131,46 @@ function openToolTransferModal(toolId) {
 
     const descInput = byId('transfer-input-desc');
     if (descInput) descInput.placeholder = mode.note;
-    const qtySection = byId('transfer-quantity-section');
 
     const confirmBtn = byId('transfer-confirm-btn');
     confirmBtn.className = mode.cta;
     confirmBtn.disabled = isService;
     byId('transfer-confirm-btn-icon').className = mode.icon;
+    setUiActionError(confirmBtn, '', '');
 
-    // From: the site it was last logged to, with when and by whom
-    const logInfo = parseToolLastLog(tool.lastLogged);
-    byId('transfer-from-name').textContent = getSiteName(tool.siteId, 'Unknown site');
-    byId('transfer-from-log').textContent = [logInfo.dateText, logInfo.byText.replace(/^by\s+/i, '')].filter(Boolean).join(' \u2022 ');
+    // From: the location's name, and a meaningful second line or none at all
+    byId('transfer-from-name').textContent = toolLocationLabel(tool);
+    const fromSub = byId('transfer-from-log');
+    fromSub.textContent = transferLocationSubtitle(tool.siteId);
+    fromSub.hidden = !fromSub.textContent;
     const fromSite = getSiteById(tool.siteId);
     byId('transfer-from-icon').className = (fromSite && fromSite.icon) || 'ph-fill ph-map-pin';
 
-    // Default "To" site: today's rostered site unless the tool is already there
-    transferSites = getActiveSites();
+    // To: where you're signed in today, if that's somewhere else; otherwise as before - today's rostered site
+    // unless the tool is already there
+    transferSites = getEquipmentLocations();     // the factory and the active construction sites
+    const activeSiteId = transferActiveSiteId();
     const workingSiteId = getCurrentWorkingSiteId();
-    let defaultIndex = transferSites.findIndex(s => s.id === workingSiteId);
-    if (tool.siteId === workingSiteId) {
-        const altIndex = transferSites.findIndex(s => s.id !== tool.siteId);
-        defaultIndex = altIndex !== -1 ? altIndex : 0;
-    } else if (defaultIndex === -1) {
-        defaultIndex = 0;
+    let defaultIndex = activeSiteId && activeSiteId !== tool.siteId ? transferSites.findIndex(s => s.id === activeSiteId) : -1;
+    if (defaultIndex === -1) {
+        defaultIndex = transferSites.findIndex(s => s.id === workingSiteId);
+        if (tool.siteId === workingSiteId || defaultIndex === -1) {
+            const altIndex = transferSites.findIndex(s => s.id !== tool.siteId);
+            defaultIndex = altIndex !== -1 ? altIndex : 0;
+        }
     }
     currentTransferToIndex = defaultIndex;
+    buildTransferChips(tool.siteId, activeSiteId);
+
+    // How many: a stepper in the tool card when the source bucket holds more than one unit
+    renderTransferQuantity();
+
+    // Status at destination: only for a real move; In Use unless changed
+    byId('transfer-status-section').hidden = !isAvailable;
+    setTransferArrivalStatus(ToolStatus.IN_USE, true);
 
     renderTransferDestination();
-
-    // Only show unit quantity stepper if the item actually has multiple units (e.g. Acro Props) and is not in Service
-    const qtyInput = document.getElementById('transfer-input-qty');
-    const unitLabel = document.getElementById('transfer-input-unit');
-    const availLabel = document.getElementById('transfer-amount-available');
-
-    if (qtySection) qtySection.hidden = !isBulk || isService;
-
-    const unitName = tool.unit || 'Units';
-    const initialQty = isBulk ? Math.min(10, tool.quantity) : 1;
-
-    if (qtyInput) {
-        qtyInput.value = initialQty;
-        qtyInput.max = isBulk ? tool.quantity : 1;
-    }
-    if (unitLabel) unitLabel.textContent = unitName;
-    if (availLabel && isBulk) {
-        availLabel.textContent = `Available: ${tool.quantity} ${unitName}`;
-    }
     if (descInput) descInput.value = '';
-
-    updateTransferConfirmButtonLabel();
 
     // Animate open
     const overlay = document.getElementById('tool-transfer-modal-overlay');
@@ -186,7 +186,7 @@ function openToolTransferModal(toolId) {
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                sheet.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1)';
+                sheet.style.transition = 'transform var(--sheet-enter) var(--sheet-ease)';   // the shared sheet motion
                 sheet.style.transform = 'translate3d(0, 0, 0)';
                 syncDynamicStatusBar();
             });
@@ -194,27 +194,117 @@ function openToolTransferModal(toolId) {
     }
 }
 
-function adjustTransferQuantity(delta) {
-    if (!currentTransferTool || !currentTransferTool.quantity || currentTransferTool.quantity <= 1) return;
-    triggerHaptic('light');
-    const input = document.getElementById('transfer-input-qty');
-    if (!input) return;
-    let val = parseInt(input.value) || 1;
-    const max = currentTransferTool.quantity;
-    val = Math.max(1, Math.min(max, val + delta));
-    input.value = val;
-    onTransferQuantityChange(val);
+// ---------------- Quantity (grouped tools) ----------------
+// The limit is the source bucket's own count - never the tool's total, which includes units elsewhere or out
+// of service. renderTransferQuantity draws it; the store subscription below re-checks it while the sheet is open.
+function renderTransferQuantity() {
+    const row = document.getElementById('transfer-qty-row');
+    if (!row) return;
+    const tool = currentTransferTool;
+    const max = currentTransferAllocation && tool ? tool.quantity : 0;
+    row.hidden = max <= 1;
+    row.innerHTML = max > 1
+        ? `${renderQtyStepper('transfer-qty', max, `How many ${tool.name} to transfer`)}<span id="transfer-qty-of" class="tt-qty-of">of ${max} available</span>`
+        : '<output id="transfer-qty" data-max="1" hidden>1</output>';
+}
+// The stepper changed: the button says how many
+document.addEventListener('qtychange', e => {
+    if (e.target && e.target.id === 'transfer-qty') updateTransferConfirmButtonLabel();
+});
+// Kept for older callers
+function adjustTransferQuantity(delta) { stepQty('transfer-qty', delta); }
+
+// The source bucket as it is now (another person may have moved units since the sheet opened)
+function liveTransferBucket() {
+    const b = currentTransferAllocation;
+    if (!b) return null;
+    return getToolAllocations(b.toolId).find(a => a.status === ToolStatus.AVAILABLE && (a.siteId || null) === (b.siteId || null)) || null;
+}
+appStore.subscribe(() => {
+    const overlay = document.getElementById('tool-transfer-modal-overlay');
+    if (!overlay || overlay.classList.contains('opacity-0') || !currentTransferAllocation || !currentTransferTool) return;
+    const live = liveTransferBucket();
+    const btn = document.getElementById('transfer-confirm-btn');
+    if (!live) {
+        btn.disabled = true;
+        setUiActionError(btn, 'Nothing left to transfer', `No ${currentTransferTool.name} are available at ${toolLocationLabel(currentTransferTool)} any more.`);
+        return;
+    }
+    if (live.quantity === currentTransferTool.quantity) return;
+    const keep = readQty('transfer-qty');
+    currentTransferAllocation = live;
+    currentTransferTool = { ...currentTransferTool, quantity: live.quantity };
+    renderTransferQuantity();
+    if (live.quantity > 1) { document.getElementById('transfer-qty').textContent = Math.min(keep, live.quantity); stepQty('transfer-qty', 0, true); }
+    updateTransferConfirmButtonLabel();
+}, ['equipmentAllocations']);
+
+// ---------------- From: the second line ----------------
+// A street address; the factory reads "Main Warehouse"; nothing meaningful -> no line at all
+function transferLocationSubtitle(siteId) {
+    const site = siteId ? getSiteById(siteId) : null;
+    if (!site) return '';
+    if (site.kind === 'factory') return 'Main Warehouse';
+    const line = String(site.address || '').trim();
+    return /^(n\/a|null|undefined|-)$/i.test(line) ? '' : shortStreetAddress(line);
 }
 
-function onTransferQuantityChange(val) {
-    if (!currentTransferTool) return;
-    const max = currentTransferTool.quantity || 1;
-    const clamped = Math.max(1, Math.min(max, parseInt(val) || 1));
-    const input = document.getElementById('transfer-input-qty');
-    if (input && String(input.value) !== String(clamped) && val !== '') {
-        input.value = clamped;
-    }
-    updateTransferConfirmButtonLabel();
+// ---------------- To: My Site and quick chips ----------------
+// Where the signed-in person is signed in today (attendance, the Home card's day) - the only source for "My Site"
+function transferActiveSiteId() {
+    const rec = typeof getMyAttendance === 'function' ? getMyAttendance(homeAttendanceDay()) : null;
+    return rec && !rec.signedOutAt && isSiteActive(rec.siteId) ? rec.siteId : null;
+}
+let transferChips = [];             // [{ siteId, label, mine }]
+// My Site (if signed in somewhere other than the source), then the factory and the person's own sites - up to
+// three more, never the source, never twice - then More (the full list)
+function buildTransferChips(fromSiteId, activeSiteId) {
+    const usable = id => id && id !== fromSiteId && transferSites.some(s => s.id === id);
+    const chips = [];
+    if (usable(activeSiteId)) chips.push({ siteId: activeSiteId, label: 'My Site', mine: true });
+    const mine = typeof getSiteHubSites === 'function' ? getSiteHubSites().map(s => (typeof s === 'string' ? s : s.id)) : [];
+    const factory = transferSites.find(s => s.kind === 'factory');
+    [factory && factory.id, ...mine].forEach(id => {
+        if (chips.length >= (activeSiteId && usable(activeSiteId) ? 4 : 3) || !usable(id) || chips.some(c => c.siteId === id)) return;
+        chips.push({ siteId: id, label: getSiteName(id), mine: false });
+    });
+    transferChips = chips;
+    renderTransferChips();
+}
+function renderTransferChips() {
+    const box = document.getElementById('transfer-chips');
+    if (!box) return;
+    const chosen = transferSites[currentTransferToIndex];
+    const card = document.getElementById('transfer-to-card');
+    box.hidden = !!(card && card.disabled) || !transferChips.length;
+    box.innerHTML = transferChips.map(c => {
+        const on = !!chosen && chosen.id === c.siteId;
+        const name = getSiteName(c.siteId);
+        return `<button type="button" class="tt-chip${on ? ' is-active' : ''}${c.mine ? ' is-mine' : ''}" aria-pressed="${on}"
+            aria-label="${c.mine ? `My Site, ${name}` : name}" onclick="chooseTransferChip('${c.siteId}')">
+            ${c.mine ? '<i class="ph-fill ph-map-pin" aria-hidden="true"></i>' : ''}<span>${c.label}</span></button>`;
+    }).join('') + `<button type="button" class="tt-chip tt-chip--more" aria-label="More destinations" onclick="toggleTransferSiteList()">More<i class="ph-bold ph-caret-down" aria-hidden="true"></i></button>`;
+}
+function chooseTransferChip(siteId) {
+    const index = transferSites.findIndex(s => s.id === siteId);
+    if (index === -1) return;
+    triggerHaptic('light');
+    currentTransferToIndex = index;
+    renderTransferDestination();
+    setTransferSiteListOpen(false);
+}
+
+// ---------------- Status at destination ----------------
+let transferArrivalStatus = ToolStatus.IN_USE;
+function setTransferArrivalStatus(status, silent) {
+    if (status !== ToolStatus.IN_USE && status !== ToolStatus.AVAILABLE) return;
+    if (!silent) triggerHaptic('light');
+    transferArrivalStatus = status;
+    document.querySelectorAll('#transfer-status-section .sheet-seg').forEach(b => {
+        const on = b.dataset.status === status;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-checked', String(on));
+    });
 }
 
 function closeToolTransferModal(fromDrag = false, startYOffset = 0, releaseVelocity = 0) {
@@ -260,10 +350,13 @@ function renderTransferDestination() {
     const site = transferSites[currentTransferToIndex];
     if (!site) return;
     document.getElementById('transfer-to-name').textContent = site.shortName;
-    document.getElementById('transfer-to-addr').textContent = shortStreetAddress(site.address);
     document.getElementById('transfer-to-icon').className = site.icon || 'fa-solid fa-helmet-safety';
     document.getElementById('transfer-to-card').setAttribute('aria-label',
         `${document.getElementById('transfer-to-label').textContent}: ${site.shortName}, ${site.address}. Change destination`);
+    const sub = transferLocationSubtitle(site.id);
+    document.getElementById('transfer-to-addr').textContent = sub;
+    document.getElementById('transfer-to-addr').hidden = !sub;
+    renderTransferChips();                        // the chips always show the chosen destination
     updateTransferConfirmButtonLabel();
 }
 
@@ -281,7 +374,7 @@ function renderTransferSiteList() {
                 <span class="tt-site-option-icon" aria-hidden="true"><i class="${site.icon || 'fa-solid fa-helmet-safety'}"></i></span>
                 <span class="tt-site-option-text">
                     <span class="tt-site-option-name">${site.shortName}</span>
-                    <span class="tt-site-option-sub">${isHere ? 'Current site' : shortStreetAddress(site.address)}</span>
+                    <span class="tt-site-option-sub">${isHere ? 'Current site' : transferLocationSubtitle(site.id)}</span>
                 </span>
                 <i class="ph-bold ph-check tt-site-option-check" aria-hidden="true"></i>
             </button>`;
@@ -358,27 +451,39 @@ async function confirmToolTransfer() {
         return;
     }
 
-    const dest = transferSites[currentTransferToIndex] || getSiteById(getCurrentWorkingSiteId());
-    if (!dest) return;
-    const fromSite = getSiteName(tool.siteId, 'Unknown site');
+    const confirmBtn = document.getElementById('transfer-confirm-btn');
+    const dest = transferSites[currentTransferToIndex];
+    // Re-check before sending (the service checks again): a live destination that isn't the source, and no
+    // more units than the source bucket holds right now
+    if (!dest || !isSiteActive(dest.id) || dest.id === tool.siteId) {
+        triggerHaptic('error');
+        setUiActionError(confirmBtn, 'Choose a destination', 'Pick a different location to transfer to.');
+        return;
+    }
+    const fromSite = toolLocationLabel(tool);
     const isBulk = EquipmentRules.isBulk(tool);
-    const qtyInput = document.getElementById('transfer-input-qty');
-    const qty = isBulk && qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    const qty = isBulk ? readQty('transfer-qty') : 1;
     const unitName = tool.unit || (qty > 1 ? 'Units' : 'Unit');
 
-    const result = await runUiAction(() => equipmentService.transfer(tool.id, dest.id), {
+    const bucket = currentTransferAllocation;
+    if (bucket) {
+        const live = liveTransferBucket();
+        if (!live || qty < 1 || qty > live.quantity) {
+            triggerHaptic('error');
+            setUiActionError(confirmBtn, 'Transfer not logged', live ? `Only ${live.quantity} available at ${fromSite} now.` : `No ${tool.name} are available at ${fromSite} any more.`);
+            return;
+        }
+    }
+    const status = tool.status === ToolStatus.AVAILABLE ? transferArrivalStatus : undefined;   // a real move: the chosen status
+    const result = await runUiAction(() => (bucket
+        ? equipmentService.transferUnits({ toolId: tool.id, fromSiteId: bucket.siteId, toSiteId: dest.id, quantity: qty, toStatus: status })
+        : equipmentService.transfer(tool.id, dest.id, { status })), {
         button: document.getElementById('transfer-confirm-btn'),
         errorTitle: 'Transfer not logged'
     });
     if (!result.ok) return;
-    currentTransferTool = result.value.tool;
+    if (!bucket) currentTransferTool = result.value.tool;
     triggerHaptic('success');
-
-    if (result.value.outcome === 'request') {
-        showToast('Move Request Sent', `Requested ${tool.name} move from ${fromSite} to ${dest.shortName}`);
-        closeToolTransferModal();
-        return;
-    }
 
     const toastMsg = isBulk
         ? `${qty} ${unitName} (${tool.name}) transferred to ${dest.shortName}`

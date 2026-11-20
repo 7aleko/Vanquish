@@ -99,31 +99,108 @@ test('crew logs: filtered by date and site; copying returns fresh blocks and cha
     assert.equal(env.store.get('timesheets').some(t => t.date === '2026-11-13'), false);    // nothing submitted
 });
 
-test('equipment: available moves, in use requests, service refused', async () => {
+test('equipment: available moves, in use requests, service refused; the factory is a location', async () => {
     const env = await app.makeEnv();
-    const moved = await env.equipment.transfer('tool-2', 'bondi');             // available, at Castlecrag
+    assert.equal(env.store.get('equipment').find(t => t.id === 'eq-013').status, 'In Use');   // Jackhammer Makita, at Bondi
+    await env.provider.equipment.update('eq-015', { status: 'Service' });             // Table Saw, Factory
+    await env.store.refresh('equipment');
+    const moved = await env.equipment.transfer('eq-006', 'bondi');                    // Drop Saw, available at the Factory
     assert.equal(moved.outcome, 'move');
-    assert.equal(env.store.get('equipment').find(t => t.id === 'tool-2').siteId, 'bondi');
-    const requested = await env.equipment.transfer('tool-1', 'bondi');         // in use, at Lugarno
-    assert.equal(requested.outcome, 'request');
-    assert.equal(requested.tool.siteId, 'lugarno');
-    assert.equal(requested.tool.moveRequestedToSiteId, 'bondi');
-    await assert.rejects(env.equipment.transfer('tool-4', 'bondi'), code('CONFLICT'));     // in service
-    await assert.rejects(env.equipment.transfer('tool-2', 'miranda'), code('VALIDATION'));  // archived destination
+    assert.equal(env.store.get('equipment').find(t => t.id === 'eq-006').siteId, 'bondi');
+    assert.equal(env.store.get('equipment').find(t => t.id === 'eq-006').status, 'In Use');   // at a site = in use
+    await assert.rejects(env.equipment.transfer('eq-006', 'factory'), err => err.code === 'CONFLICT' && /Request availability/.test(err.userMessage));   // in use: ask first
+    await assert.rejects(env.equipment.transfer('eq-016', 'factory'), code('VALIDATION'));    // Thicknesser, already there
+    await assert.rejects(env.equipment.transfer('eq-013', 'lugarno'), code('CONFLICT'));      // in use: no move requests
+    assert.equal(env.store.get('equipment').find(t => t.id === 'eq-013').moveRequestedToSiteId, null);
+    await assert.rejects(env.equipment.transfer('eq-015', 'bondi'), code('CONFLICT'));     // in service
+    await assert.rejects(env.equipment.transfer('eq-006', 'miranda'), code('VALIDATION'));  // archived destination
+    // a grouped tool moves units, not the record
+    const props = env.store.get('equipment').find(t => t.name === 'Acro Props');
+    await assert.rejects(env.equipment.transfer(props.id, 'oatley'), code('VALIDATION'));
 });
 
-test('equipment register: starts available at the site, audits, refuses bad input and duplicates', async () => {
+// ---------- Quantity-tracked (grouped) equipment ----------
+const bucketsOf = (env, toolId) => env.store.get('equipmentAllocations').filter(a => a.toolId === toolId)
+    .map(a => `${a.siteId || 'unassigned'}|${a.status}|${a.quantity}`).sort();
+
+test('grouped: transfer some units; source and destination buckets update and still add up', async () => {
+    const env = await app.makeEnv();
+    const wb = env.store.get('equipment').find(t => t.name === 'Wheelbarrow');
+    assert.deepEqual([wb.trackingType, wb.totalQuantity], ['quantity', 3]);
+    assert.deepEqual(bucketsOf(env, wb.id), ['factory|Available|3']);
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 2 });
+    assert.deepEqual(bucketsOf(env, wb.id), ['bondi|In Use|2', 'factory|Available|1']);     // at a site = in use
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1 });
+    assert.deepEqual(bucketsOf(env, wb.id), ['bondi|In Use|3']);                              // empty bucket removed
+    assert.deepEqual(bucketsOf(env, wb.id), (await env.provider.equipment.listAllocations({ toolId: wb.id })).map(a => `${a.siteId}|${a.status}|${a.quantity}`).sort());
+    const audit = await env.provider.audit.list({ entity: 'equipment', entityId: wb.id });
+    assert.equal(audit.length, 2);
+    assert.equal(audit[0].changes.quantity, 2);
+    // unassigned Acro Props: some placed, the rest still to confirm
+    const props = env.store.get('equipment').find(t => t.name === 'Acro Props');
+    await env.equipment.transferUnits({ toolId: props.id, fromSiteId: null, toSiteId: 'oatley', quantity: 15 });
+    assert.deepEqual(bucketsOf(env, props.id), ['oatley|In Use|15', 'unassigned|Available|25']);
+});
+
+test('grouped: invalid quantities and missing units are refused, nothing changes', async () => {
+    const env = await app.makeEnv();
+    const wb = env.store.get('equipment').find(t => t.name === 'Wheelbarrow');
+    for (const q of [0, -1, 1.5, 'x']) {
+        await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: q }), code('VALIDATION'));
+    }
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 4 }),
+        err => err.code === 'CONFLICT' && /Only 3/.test(err.userMessage));
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'bondi', toSiteId: 'factory', quantity: 1 }), code('CONFLICT'));   // none there
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'factory', quantity: 1 }), code('VALIDATION'));
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'miranda', quantity: 1 }), code('VALIDATION'));
+    await assert.rejects(env.equipment.transferUnits({ toolId: 'eq-001', fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1 }), code('VALIDATION'));   // individual
+    assert.deepEqual(bucketsOf(env, wb.id), ['factory|Available|3']);
+});
+
+test('grouped: simultaneous transfers can never take more units than exist', async () => {
+    const env = await app.makeEnv();
+    const wb = env.store.get('equipment').find(t => t.name === 'Wheelbarrow');
+    const tries = [2, 2, 2].map(q => env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: q }));
+    const results = await Promise.allSettled(tries);
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+    assert.ok(results.filter(r => r.status === 'rejected').every(r => r.reason.code === 'CONFLICT'));
+    const saved = await env.provider.equipment.listAllocations({ toolId: wb.id });
+    assert.deepEqual(saved.map(a => a.quantity).sort(), [1, 2]);
+    assert.ok(saved.every(a => a.quantity > 0));
+});
+
+test('grouped: status changes in place; out of service units stay in the total', async () => {
+    const env = await app.makeEnv();
+    const wb = env.store.get('equipment').find(t => t.name === 'Wheelbarrow');
+    await env.equipment.setUnitStatus({ toolId: wb.id, siteId: 'factory', fromStatus: 'Available', toStatus: 'Service', quantity: 1 });
+    assert.deepEqual(bucketsOf(env, wb.id), ['factory|Available|2', 'factory|Service|1']);
+    await env.equipment.setUnitStatus({ toolId: wb.id, siteId: 'factory', fromStatus: 'Available', toStatus: 'In Use', quantity: 1 });
+    assert.deepEqual(bucketsOf(env, wb.id), ['factory|Available|1', 'factory|In Use|1', 'factory|Service|1']);
+    assert.equal(env.store.get('equipment').find(t => t.id === wb.id).totalQuantity, 3);
+    // out of service units can't be transferred (only available ones move)
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1 });
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1 }), code('CONFLICT'));
+    await env.equipment.setUnitStatus({ toolId: wb.id, siteId: 'factory', fromStatus: 'Service', toStatus: 'Available', quantity: 1 });
+    assert.deepEqual(bucketsOf(env, wb.id), ['bondi|In Use|1', 'factory|Available|1', 'factory|In Use|1']);
+    await assert.rejects(env.equipment.setUnitStatus({ toolId: wb.id, siteId: 'factory', fromStatus: 'Available', toStatus: 'Available', quantity: 1 }), code('VALIDATION'));
+    // a details update can't change the count
+    assert.equal((await env.provider.equipment.update(wb.id, { totalQuantity: 9, name: 'Wheelbarrow' })).totalQuantity, 3);
+});
+
+test('equipment register: in use at a site, available at the factory, audits, refuses bad input and duplicates', async () => {
     const env = await app.makeEnv();
     const tool = await env.equipment.register({ name: '  Makita  Impact Driver ', category: 'power tools', siteId: 'bondi' });
     assert.equal(tool.name, 'Makita Impact Driver');
-    assert.equal(tool.status, 'Available');
+    assert.equal(tool.status, 'In Use');                                             // at a construction site
+    assert.equal((await env.equipment.register({ name: 'Nail Gun', category: 'power tools', siteId: 'factory' })).status, 'Available');
     assert.equal(tool.siteId, 'bondi');
-    assert.equal(tool.quantity, undefined);
+    assert.equal(tool.trackingType, 'individual');
     assert.ok(env.store.get('equipment').some(t => t.id === tool.id));
     assert.equal((await env.provider.audit.list({ entity: 'equipment', entityId: tool.id }))[0].action, 'create');
     const props = await env.equipment.register({ name: 'Formwork Clamps', category: 'site', siteId: 'lugarno', quantity: '40', unit: 'Clamps' });
-    assert.equal(props.quantity, 40);
-    assert.equal(props.unit, 'Clamps');
+    assert.deepEqual([props.trackingType, props.totalQuantity, props.unit, props.siteId], ['quantity', 40, 'Clamps', null]);   // one record
+    assert.deepEqual(env.store.get('equipmentAllocations').filter(a => a.toolId === props.id).map(a => [a.siteId, a.status, a.quantity]),
+        [['lugarno', 'In Use', 40]]);
     await assert.rejects(env.equipment.register({ name: 'x', category: 'power tools', siteId: 'bondi' }), code('VALIDATION'));
     await assert.rejects(env.equipment.register({ name: 'Saw', category: 'nope', siteId: 'bondi' }), code('VALIDATION'));
     await assert.rejects(env.equipment.register({ name: 'Saw', category: 'power tools', siteId: 'miranda' }), code('VALIDATION'));  // archived
@@ -228,4 +305,31 @@ test('site content: validation, and a failed photo rolls back the whole log', as
     await assert.rejects(env.siteContent.addLog({ siteId: 'bondi', date: '2026-10-14', title: 'Rolled back', photos: [{ src: 'data:image/png;base64,AA' }] }));
     assert.equal((await env.provider.siteLogs.list({ siteId: 'bondi' })).length, before);
     assert.ok(!env.store.get('siteLogs').some(l => l.title === 'Rolled back'));
+});
+
+test('transfer: the arrival status is the one chosen (In Use / Available), recorded and validated', async () => {
+    const env = await app.makeEnv();
+    const drop = await env.equipment.transfer('eq-006', 'bondi', { status: 'Available' });      // Drop Saw, Factory -> Bondi
+    assert.deepEqual([drop.tool.siteId, drop.tool.status], ['bondi', 'Available']);
+    const log = (await env.provider.audit.list({ entity: 'equipment', entityId: 'eq-006' })).slice(-1)[0];
+    assert.equal(log.changes.status, 'Available');
+    await assert.rejects(env.equipment.transfer('eq-007', 'bondi', { status: 'Service' }), code('VALIDATION'));
+    // grouped: units arrive in the chosen bucket; an existing bucket is topped up, never duplicated
+    const wb = env.store.get('equipment').find(t => t.name === 'Wheelbarrow');
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1, toStatus: 'Available' });
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1, toStatus: 'Available' });
+    await env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'factory', toSiteId: 'bondi', quantity: 1, toStatus: 'In Use' });
+    assert.deepEqual(bucketsOf(env, wb.id), ['bondi|Available|2', 'bondi|In Use|1']);
+    await assert.rejects(env.equipment.transferUnits({ toolId: wb.id, fromSiteId: 'bondi', toSiteId: 'factory', quantity: 1, toStatus: 'Service' }), code('VALIDATION'));
+});
+
+test('drawings: add a sheet; a new revision replaces it; the same revision is refused', async () => {
+    const env = await app.makeEnv();
+    const d = await env.siteContent.addDrawing({ siteId: 'lugarno', sheet: 'a 103', title: 'First Floor Plan', discipline: 'Architectural', revision: 'a', date: '2026-10-14' });
+    assert.deepEqual([d.sheet, d.revision, d.updatedOn], ['A103', 'A', '2026-10-14']);
+    const r = await env.siteContent.addDrawing({ siteId: 'lugarno', sheet: 'A103', title: 'First Floor Plan', discipline: 'Architectural', revision: 'B', date: '2026-10-15' });
+    assert.equal(r.id, d.id);
+    assert.equal(env.store.get('drawings').filter(x => x.siteId === 'lugarno' && x.sheet === 'A103').length, 1);
+    await assert.rejects(env.siteContent.addDrawing({ siteId: 'lugarno', sheet: 'A103', title: 'First Floor Plan', discipline: 'Architectural', revision: 'B', date: '2026-10-15' }), code('CONFLICT'));
+    await assert.rejects(env.siteContent.addDrawing({ siteId: 'lugarno', sheet: '', title: 'x', discipline: 'Nope', revision: '', date: '2026-10-15' }), code('VALIDATION'));
 });

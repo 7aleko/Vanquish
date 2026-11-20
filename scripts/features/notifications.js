@@ -8,6 +8,44 @@
 let currentActiveNotifFilter = 'all';
 let viewBeforeNotifications = 'home';
 
+// ---------- The feed: the signed-in user's own notifications (database) + the sample feed ----------
+// Targeted notifications (availability requests and answers) come from the database through
+// getMyNotifications. The sample items (NOTIFICATIONS_DATA) belong to the demo account only.
+const LIVE_NOTIF_LOOK = {
+    availability_request: { icon: 'fa-solid fa-bell', iconBg: 'bg-sky-950 text-sky-400 border border-sky-500/30', action: 'View' },
+    availability_available: { icon: 'fa-solid fa-circle-check', iconBg: 'bg-emerald-950 text-brand-lime border border-brand-lime/30', action: 'View' },
+    availability_in_use: { icon: 'fa-solid fa-clock', iconBg: 'bg-sky-950 text-sky-400 border border-sky-500/30', action: 'View' },
+    availability_eta_updated: { icon: 'fa-solid fa-clock-rotate-left', iconBg: 'bg-sky-950 text-sky-400 border border-sky-500/30', action: 'View' },
+    availability_missing: { icon: 'fa-solid fa-triangle-exclamation', iconBg: 'bg-amber-950 text-amber-400 border border-amber-500/30', action: 'View' },
+    availability_missing_alert: { icon: 'fa-solid fa-triangle-exclamation', iconBg: 'bg-amber-950 text-amber-400 border border-amber-500/30', action: 'Check' }
+};
+function liveNotifTime(iso) {
+    const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (mins < 24 * 60) return `${Math.round(mins / 60)}h ago`;
+    return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+function liveNotifGroup(iso) {
+    const d = new Date(iso), now = new Date();
+    const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((day0(now) - day0(d)) / 86400000);
+    return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : 'Earlier';
+}
+function getNotificationFeedItems() {
+    const live = (typeof getMyNotifications === 'function' && appStore.status === 'ready') ? getMyNotifications().map(n => {
+        const look = LIVE_NOTIF_LOOK[n.type] || LIVE_NOTIF_LOOK.availability_request;
+        const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        return {
+            id: n.id, live: true, category: 'tools', timeGroup: liveNotifGroup(n.createdAt), icon: look.icon, iconBg: look.iconBg,
+            title: esc(n.title), message: esc(n.body), time: liveNotifTime(n.createdAt), read: !!n.readAt,
+            actionType: n.requestId ? 'availability' : null, actionLabel: look.action
+        };
+    }) : [];
+    const sample = getCurrentEmployeeId() === APP_CONFIG.auth.defaultEmployeeId ? NOTIFICATIONS_DATA : [];
+    return [...live, ...sample];
+}
+
 function openNotificationsView() {
     triggerHaptic('light');
     if (currentActiveViewName === 'notifications') {
@@ -44,6 +82,11 @@ function filterNotifications(category) {
 }
 
 function markNotificationAsRead(id) {
+    const live = getNotificationFeedItems().find(n => n.id === id && n.live);
+    if (live) {
+        if (!live.read) availabilityService.markNotificationRead(id).catch(err => console.warn('Mark read failed:', err));
+        return;
+    }
     const item = NOTIFICATIONS_DATA.find(n => n.id === id);
     if (item && !item.read) {
         item.read = true;
@@ -55,13 +98,14 @@ function markNotificationAsRead(id) {
 function markAllNotificationsRead() {
     triggerHaptic('success');
     NOTIFICATIONS_DATA.forEach(n => n.read = true);
+    availabilityService.markAllNotificationsRead().catch(err => console.warn('Mark all read failed:', err));
     updateNotificationBadges();
     renderNotificationsFeed(currentActiveNotifFilter);
     showToast('Notifications', 'All caught up!');
 }
 
 function updateNotificationBadges() {
-    const unreadCount = NOTIFICATIONS_DATA.filter(n => !n.read).length;
+    const unreadCount = getNotificationFeedItems().filter(n => !n.read).length;
     const badgeCount = document.getElementById('notif-badge-count');
     const badgeDot = document.getElementById('notif-badge-dot');
     const countPill = document.getElementById('notif-count-pill');
@@ -90,6 +134,10 @@ function updateNotificationBadges() {
 
 function handleNotificationAction(e, id, actionType) {
     if (e) e.stopPropagation();
+    if (actionType === 'availability') {             // the request's card in its site chat
+        openAvailabilityNotification(id);
+        return;
+    }
     markNotificationAsRead(id);
 
     if (actionType === 'signin') {
@@ -123,9 +171,8 @@ function renderNotificationsFeed(filter = 'all') {
 
     updateNotificationBadges();
 
-    const filtered = filter === 'all' 
-        ? NOTIFICATIONS_DATA 
-        : NOTIFICATIONS_DATA.filter(n => n.category === filter);
+    const items = getNotificationFeedItems();
+    const filtered = filter === 'all' ? items : items.filter(n => n.category === filter);
 
     if (filtered.length === 0) {
         container.innerHTML = `
@@ -188,6 +235,12 @@ function renderNotificationsFeed(filter = 'all') {
                                     View
                                 </button>
                             `;
+                        } else if (item.actionType === 'availability') {
+                            actionButtonHtml = `
+                                <button onclick="handleNotificationAction(event, '${item.id}', 'availability')" class="hit-44 shrink-0 px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-black text-brand-lime text-xs font-bold active:scale-95 transition-all shadow-xs">
+                                    ${item.actionLabel || 'View'}
+                                </button>
+                            `;
                         } else if (item.actionType === 'docket') {
                             actionButtonHtml = `
                                 <button onclick="handleNotificationAction(event, '${item.id}', 'docket')" class="hit-44 shrink-0 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200 text-xs font-bold active:scale-95 transition-all shadow-xs">
@@ -197,7 +250,7 @@ function renderNotificationsFeed(filter = 'all') {
                         }
 
                         return `
-                            <div onclick="markNotificationAsRead('${item.id}')" 
+                            <div onclick="${item.actionType === 'availability' ? `handleNotificationAction(event, '${item.id}', 'availability')` : `markNotificationAsRead('${item.id}')`}" 
                                  class="relative rounded-[22px] p-4 ${item.read ? 'bg-white/75 hover:bg-white/90 border-white/80' : 'bg-white/95 hover:bg-white border-white/90 ring-1 ring-emerald-500/25'} backdrop-blur-2xl border shadow-apple flex items-center justify-between gap-3.5 transition-all cursor-pointer group active:scale-[0.99] overflow-hidden">
                                 
                                 <div class="flex items-start gap-3.5 min-w-0 flex-1">

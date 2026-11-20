@@ -11,6 +11,9 @@
  * - `active: false` archives a site: it drops out of every picker, but records that point at it still
  *   resolve (historical timesheets, tools last logged there).
  * - `icon` is the Font Awesome icon the tool transfer picker shows for the site.
+ * - `kind`: 'site' (a construction site, the default) or 'factory' (the Lifestyle Tradie factory / office).
+ *   The factory is a real location for equipment - it can be transferred to, searched and shown on Tools -
+ *   but it is not a construction site: it never appears in site pickers (Site Hub, roster, timesheets).
  *
  * Migrated from the four lists that existed before (Timesheets, tool transfer destinations, the Site screen's
  * jobs and the roster's free-text names). Street names are written out in full ("Road", not "Rd") to match the
@@ -18,6 +21,8 @@
  */
 
 const SITES = [
+    // The Lifestyle Tradie factory / office: an equipment location, not a construction site. No street address was supplied.
+    { id: 'factory',          shortName: 'Factory',          address: 'Lifestyle Tradie factory & office', suburb: '', active: true, icon: 'fa-solid fa-industry', kind: 'factory' },
     { id: 'lugarno',          shortName: 'Lugarno',          address: '935 Forest Road',            suburb: 'Lugarno',    active: true,  icon: 'fa-solid fa-building-user' },
     { id: 'yowie-bay',        shortName: 'Yowie Bay',        address: '1a Yelambie Street',         suburb: 'Yowie Bay',  active: true,  icon: 'fa-solid fa-house-flood-water' },
     { id: 'castlecrag',       shortName: 'Castlecrag',       address: '8c The Bulwark',             suburb: 'Castlecrag', active: true,  icon: 'fa-solid fa-hammer' },

@@ -22,8 +22,14 @@ const Permissions = (() => {
         'timesheets.approve': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
         'attendance.recordOwn': ALL_STAFF,
         'siteLogs.create': ALL_STAFF,
+        'drawings.create': ALL_STAFF,
         'equipment.transfer': ALL_STAFF,
         'equipment.register': ALL_STAFF,
+        'equipment.setStatus': ALL_STAFF,                // in use / available / out of service
+        'equipment.requestAvailability': ALL_STAFF,
+        'availability.respond': ALL_STAFF,               // and only as a member of the request's site (the service checks)
+        'availability.override': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],   // answer for any site; correct an in-use hold
+        'availability.respondOwn': [R.ADMIN],            // answer your own request (administrative override)
         'leave.request': ALL_STAFF,
         'leave.approve': [R.ADMIN, R.PROJECT_MANAGER]
     });

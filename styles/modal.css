@@ -4,28 +4,37 @@
 #modal-overlay, #tool-transfer-modal-overlay, #apple-calendar-modal-overlay {
     transition: opacity 0.3s var(--ease-out);
 }
+/* The look is the shared sheet (styles/sheet.css); this file only places and moves the shared modal,
+   the transfer sheet and the calendar. */
+.sheet-scrim--modal { z-index: 50; transition: opacity var(--sheet-scrim-fade) ease; }
+.sheet-scrim--modal.opacity-0 { opacity: 0; }
 #modal-content, #tool-transfer-sheet {
-    /* enter: iOS spring sheet curve; dark theme sheet: one step up from Home's #08080A page */
-    background-color: rgba(18, 18, 21, 0.97);
-    color: var(--ink-primary);
-    transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: calc(100% - var(--safe-top, 0px) - 28px);
+    transition: transform var(--sheet-enter) var(--sheet-ease);
     will-change: transform;
     transform-origin: 50% 100%;
 }
-#apple-calendar-card-container {
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s var(--ease-out);
-    will-change: transform, opacity;
-    transform-origin: 50% 50%;
+#modal-content.translate-y-\[120\%\], #tool-transfer-sheet.translate-y-\[120\%\] { transform: translateY(120%); }
+/* No title: the close button sits alone on the right */
+#modal-header-container.is-untitled { justify-content: flex-end; }
+#modal-header-container.is-untitled .sheet-head-text { display: none; }
+/* Date picker: the shared sheet, over everything (it opens from inside other sheets) */
+.sheet-scrim--calendar { position: fixed; z-index: 70; transition: opacity var(--sheet-scrim-fade) ease; }
+.sheet-scrim--calendar.opacity-0 { opacity: 0; }
+#apple-calendar-card-container { transform: none; transition: transform var(--sheet-enter) var(--sheet-ease); will-change: transform; }
+#apple-calendar-modal-overlay.opacity-0 #apple-calendar-card-container { transform: translateY(100%); transition: transform var(--sheet-exit) var(--sheet-ease); }
+.cal-sheet-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cal-sheet-today, .cal-sheet-step {
+    min-height: 34px; padding: 0 10px; border: 0; border-radius: 9999px; background: none;
+    color: rgba(255, 255, 255, 0.7); font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-#apple-calendar-modal-overlay.opacity-0 #apple-calendar-card-container {
-    transform: scale(0.93) translateY(8px);
-    opacity: 0;
-    transition: transform 0.22s var(--ease-out), opacity 0.2s ease;
-}
+.cal-sheet-step { width: 34px; padding: 0; display: grid; place-items: center; font-size: 15px; }
+.cal-sheet-today:active, .cal-sheet-step:active { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.cal-sheet-caption { margin: 14px 0 0; text-align: center; font-size: 13px; font-weight: 500; color: var(--sheet-muted); }
 #modal-overlay.opacity-0 #modal-content,
 #tool-transfer-modal-overlay.opacity-0 #tool-transfer-sheet {
     /* exit: quicker, so dismissing never feels like waiting */
-    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform var(--sheet-exit) var(--sheet-ease);
 }
 #modal-content.is-dragging, #tool-transfer-sheet.is-dragging {
     transition: none !important;
@@ -33,11 +42,6 @@
 }
 #modal-drag-zone {
     touch-action: none;
-}
-#modal-content.poppy-dark-modal.is-dragging {
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.6) !important;
 }
 
 @keyframes contentFadeIn {
@@ -47,3 +51,6 @@
 .modal-tab-content {
     animation: contentFadeIn 0.25s var(--ease-out);
 }
+
+/* Body text that content doesn't style itself keeps the sheet's secondary ink and size */
+#modal-body { font-size: 0.875rem; color: var(--ink-secondary, #a1a1aa); }

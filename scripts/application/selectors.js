@@ -12,8 +12,16 @@ function getSiteById(siteId) {
     if (!siteId) return null;
     return appStore.memo('sitesById', ['sites'], () => new Map(getSites().map(s => [s.id, s]))).get(siteId) || null;
 }
-// Sites that can be chosen for new work, in master order
-function getActiveSites() { return appStore.memo('activeSites', ['sites'], () => getSites().filter(s => s.active)); }
+// Construction sites that can be chosen for new work, in master order (never the factory)
+function getActiveSites() { return appStore.memo('activeSites', ['sites'], () => getSites().filter(s => s.active && s.kind !== 'factory')); }
+// Where equipment can be: the factory first, then the active construction sites
+function getEquipmentLocations() {
+    return appStore.memo('equipmentLocations', ['sites'], () => {
+        const live = getSites().filter(s => s.active);
+        return [...live.filter(s => s.kind === 'factory'), ...live.filter(s => s.kind !== 'factory')];
+    });
+}
+function isFactory(siteId) { const s = getSiteById(siteId); return !!(s && s.kind === 'factory'); }
 function getSiteName(siteId, fallback = '') {
     const site = getSiteById(siteId);
     return site ? site.shortName : fallback;
@@ -139,7 +147,67 @@ function subscribeSiteContent(fn) { return appStore.subscribe(() => fn(), ['site
 
 // ---------- Equipment ----------
 function getTools() { return appStore.get('equipment'); }
-function getToolById(id) { return getTools().find(t => t.id === id) || null; }
+// By id; a per-unit id folded into a grouped record (mergedIds) resolves to that record
+function getToolById(id) { return getTools().find(t => t.id === id || (t.mergedIds && t.mergedIds.includes(id))) || null; }
+function isGroupedTool(tool) { return EquipmentRules.isGrouped(tool); }
+// A grouped tool's buckets: available first, then in use, then out of service; the factory first within each
+const TOOL_STATUS_ORDER = [ToolStatus.AVAILABLE, ToolStatus.IN_USE, ToolStatus.SERVICE];
+function getToolAllocations(toolId) {
+    const where = a => (!a.siteId ? 2 : getSiteById(a.siteId) && getSiteById(a.siteId).kind === 'factory' ? 0 : 1);
+    return appStore.get('equipmentAllocations').filter(a => a.toolId === toolId).slice().sort((a, b) =>
+        (TOOL_STATUS_ORDER.indexOf(a.status) - TOOL_STATUS_ORDER.indexOf(b.status)) || (where(a) - where(b)) ||
+        getSiteName(a.siteId, '').localeCompare(getSiteName(b.siteId, '')));
+}
+// How many tools (cards) have something in a status: an individual tool counts once for its status; a grouped
+// tool counts once under each status any of its units are in. What the Tools tiles and Home show - the tiles
+// filter the cards, so their numbers match the cards they show.
+function countToolsWithStatus(status) {
+    return appStore.memo(`toolsWith:${status}`, ['equipment', 'equipmentAllocations'], () => {
+        const grouped = new Set(appStore.get('equipmentAllocations').filter(a => a.status === status).map(a => a.toolId));
+        return getTools().filter(t => (isGroupedTool(t) ? grouped.has(t.id) : t.status === status)).length;
+    });
+}
+// How many physical units are in a status (an individual tool is one unit; a grouped tool counts its buckets)
+function countToolUnits(status) {
+    return appStore.memo(`toolUnits:${status}`, ['equipment', 'equipmentAllocations'], () =>
+        getTools().filter(t => !isGroupedTool(t) && t.status === status).length +
+        appStore.get('equipmentAllocations').filter(a => a.status === status).reduce((n, a) => n + a.quantity, 0));
+}
+
+// ---------- Chats ----------
+function getChatForSite(siteId) {
+    if (!siteId) return null;
+    return appStore.get('chats').find(c => c.kind === 'site' && c.siteId === siteId) || null;
+}
+// A chat's structured messages (availability cards), oldest first
+function getChatMessages(chatId) {
+    return appStore.get('chatMessages').filter(m => m.chatId === chatId).slice().sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+}
+function getChatMessageById(id) { return appStore.get('chatMessages').find(m => m.id === id) || null; }
+
+// ---------- Equipment availability requests ----------
+// Each request with its status as of now (a pending request past its 30 minutes reads as expired)
+function withLiveStatus(r) {
+    return r ? { ...r, liveStatus: AvailabilityRules.effectiveStatus(r, Date.now()) } : null;
+}
+function getAvailabilityRequest(id) {
+    return withLiveStatus(appStore.get('availabilityRequests').find(r => r.id === id) || null);
+}
+// The tool's latest request (what its Tools card shows), or null. Grouped tools: per site (one bucket's request).
+function getToolAvailability(toolId, siteId) {
+    const rows = appStore.get('availabilityRequests').filter(r => r.toolId === toolId && (siteId === undefined || r.siteId === siteId));
+    if (!rows.length) return null;
+    const latest = rows.reduce((a, b) => (a.createdAt >= b.createdAt ? a : b));
+    return { ...withLiveStatus(latest), active: AvailabilityRules.isActive(latest, Date.now()) };
+}
+function subscribeAvailability(fn) { return appStore.subscribe(() => fn(), ['availabilityRequests', 'chatMessages', 'equipment', 'equipmentAllocations']); }
+
+// ---------- Notifications (the signed-in user's own) ----------
+function getMyNotifications() {
+    const me = getCurrentEmployeeId();
+    return appStore.get('notifications').filter(n => n.recipientId === me).slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+function subscribeNotifications(fn) { return appStore.subscribe(() => fn(), ['notifications']); }
 
 // ---------- Leave ----------
 function getLeaveBalance(employeeId = getCurrentEmployeeId()) {

@@ -19,7 +19,13 @@
  *   SiteLog          → Site, Employee (author)
  *   Drawing          → Site
  *   SitePhoto        → Site, Employee (taken by), SiteLog (when attached to one)
- *   Tool             → Site (where it is), Site (move requested to)
+ *   Tool             → Site (where it is), Site (move requested to), Employee (missing reported by)
+ *   EquipmentAllocation → Tool, Site (a quantity-tracked tool's units at one place in one status)
+ *   Chat             → Site (a site group chat)
+ *   ChatMessage      → Chat, Employee (sender), AvailabilityRequest (an availability card)
+ *   AvailabilityRequest  → Tool, Site, Chat, ChatMessage, Employee (requester, responder, holder)
+ *   AvailabilityResponse → AvailabilityRequest, Employee (responder)
+ *   Notification     → Employee (recipient, actor), AvailabilityRequest, Chat, ChatMessage
  *   LeaveRequest     → Employee (requester), Employee (decided by)
  *   LeaveBalance     → Employee
  *   AuditEntry       → any entity, Employee (actor)
@@ -28,6 +34,7 @@
 /**
  * @typedef {Object} Site
  * @property {string} id                 stable key ('lugarno')
+ * @property {string} [kind]             'site' (construction site, default) or 'factory' (the factory / office)
  * @property {string} shortName          display name ('Lugarno')
  * @property {string} address            street line ('935 Forest Road')
  * @property {string} suburb             ('Lugarno')
@@ -156,13 +163,102 @@
  * @typedef {Object} Tool
  * @property {string} id
  * @property {string} name
- * @property {string} siteId             where it is
+ * @property {?string} siteId            individual: where it is - a site, or the factory (a Site of kind
+ *                                       'factory'); null = unassigned. quantity: null (see allocations)
  * @property {string} category
- * @property {string} status             ToolStatus
- * @property {number} [quantity]         bulk items (props)
+ * @property {?string} status            ToolStatus (individual); null for quantity tracking
  * @property {string} [unit]
  * @property {string} lastLogged         'D Mon by Name' as logged
  * @property {?string} moveRequestedToSiteId
+ * @property {string} [trackingType]    'individual' (default) or 'quantity' (identical units)
+ * @property {?number} [totalQuantity]   quantity: every unit, out of service included
+ * @property {string[]} [mergedIds]      quantity: per-unit record ids folded into this record (history)
+ * @property {boolean} [needsReview]     migrated data that could not be reconciled with confidence
+ * @property {?string} [missingReportedAt]   set when someone answers an availability request "Not here"
+ * @property {?string} [missingReportedBy]   employeeId
+ */
+
+/**
+ * @typedef {Object} EquipmentAllocation  where a quantity-tracked tool's units are
+ * @property {string} id
+ * @property {string} toolId
+ * @property {?string} siteId            null = location to confirm
+ * @property {string} status             ToolStatus
+ * @property {number} quantity           > 0; unique per (toolId, siteId, status)
+ * @property {string} updatedAt
+ */
+
+/**
+ * @typedef {Object} Chat                 a conversation the server knows about (the site group chats)
+ * @property {string} id                 'chat-lugarno'
+ * @property {string} name
+ * @property {string} kind               'site' | 'channel' | 'direct' | 'ai'
+ * @property {?string} siteId            the site a site group chat belongs to (one chat per site)
+ */
+
+/**
+ * @typedef {Object} ChatMessage          a structured message in a chat
+ * @property {string} id
+ * @property {string} chatId
+ * @property {string} type               ChatMessageType
+ * @property {string} senderId           employeeId
+ * @property {string} senderName
+ * @property {string} [text]
+ * @property {?string} requestId         AVAILABILITY_REQUEST: the request it shows. The card renders the
+ *                                       request's current state; the message stores no copy of it.
+ * @property {string} createdAt
+ */
+
+/**
+ * @typedef {Object} AvailabilityRequest  "is this tool free?" asked of a tool's site. The one source of
+ *                                       truth for the Tools card, the chat card and the notifications.
+ * @property {string} id
+ * @property {string} toolId
+ * @property {string} siteId             the tool's site when asked (decided by the server, not the screen)
+ * @property {string} chatId             that site's group chat
+ * @property {string} messageId          the chat message that shows it
+ * @property {string} requesterId
+ * @property {string} requesterName
+ * @property {string} [requesterNote]
+ * @property {string} status             AvailabilityStatus
+ * @property {?string} responderId       who set the current status
+ * @property {?string} responderName
+ * @property {?string} respondedAt
+ * @property {?string} holderId          IN_USE: who has it (may move the ETA)
+ * @property {?string} estimatedAvailableAt
+ * @property {?string} idempotencyKey    one per submit; a retried submit returns the same request
+ * @property {number} version            bumped on every change
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ * @property {string} expiresAt          PENDING becomes EXPIRED at this time (createdAt + 30 min)
+ */
+
+/**
+ * @typedef {Object} AvailabilityResponse one answer or ETA change (audit history)
+ * @property {string} id
+ * @property {string} requestId
+ * @property {string} responderId
+ * @property {string} responderName
+ * @property {string} responseType       AvailabilityResponseType
+ * @property {?string} estimatedAvailableAt
+ * @property {?string} previousEstimatedAvailableAt
+ * @property {string} createdAt
+ */
+
+/**
+ * @typedef {Object} Notification         an in-app notification for one person
+ * @property {string} id
+ * @property {string} recipientId        employeeId
+ * @property {string} type               NotificationType
+ * @property {string} title
+ * @property {string} body
+ * @property {?string} actorId
+ * @property {?string} requestId         deep link: the request, its chat and its message
+ * @property {?string} chatId
+ * @property {?string} messageId
+ * @property {string} dedupeKey          unique per recipient: the same event never notifies twice
+ * @property {string} createdAt
+ * @property {?string} readAt
  */
 
 /**

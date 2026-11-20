@@ -10,7 +10,7 @@ function renderHomeNavList() {
         if (el && text != null) el.textContent = text;
     };
 
-    const available = getTools().filter(t => t.status === ToolStatus.AVAILABLE).length;
+    const available = countToolsWithStatus(ToolStatus.AVAILABLE);   // tools, as the Tools tiles count them
     set('home-nav-tools-value', `${available} available`);
 }
 

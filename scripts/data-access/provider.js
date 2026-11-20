@@ -15,7 +15,7 @@ function createDataProvider(config, context) {
     switch (config.provider) {
         case 'mock':
             provider = createMockDataProvider({
-                seed: buildMockSeed({ today: context.today(), payRunPolicy: context.payRunPolicy }),
+                seed: buildMockSeed({ today: context.today(), payRunPolicy: context.payRunPolicy, siteDay: context.siteDay && context.siteDay() }),
                 latencyMs: config.latencyMs,
                 failureRate: config.failureRate,
                 persistence: config.persistence

@@ -61,7 +61,30 @@ const EquipmentRules = (() => {
         return 'move';
     }
     function isBulk(tool) { return Boolean(tool.quantity && tool.quantity > 1); }
-    return Object.freeze({ transferOutcome, isBulk });
+    // Where a tool is decides whether it is free: at a construction site it is In Use (that site has it); at
+    // the factory or not yet assigned it is Available. In Service stays in Service wherever it is.
+    // `site` is the Site record (or null).
+    function statusAt(site, currentStatus) {
+        if (currentStatus === ToolStatus.SERVICE) return ToolStatus.SERVICE;
+        return site && site.kind !== 'factory' ? ToolStatus.IN_USE : ToolStatus.AVAILABLE;
+    }
+    // Grouped (quantity-tracked) equipment: one record, its units in allocation buckets
+    function isGrouped(tool) { return !!tool && tool.trackingType === 'quantity'; }
+    // The rules every grouped tool's buckets must satisfy. -> [] or the problems found
+    function checkAllocations(tool, allocations) {
+        const problems = [], seen = new Set();
+        let sum = 0;
+        allocations.forEach(a => {
+            if (!Number.isInteger(a.quantity) || a.quantity < 1) problems.push(`bucket ${a.id} has quantity ${a.quantity}`);
+            const key = `${a.siteId || ''}|${a.status}`;
+            if (seen.has(key)) problems.push(`duplicate bucket ${key}`);
+            seen.add(key);
+            sum += a.quantity;
+        });
+        if (sum !== tool.totalQuantity) problems.push(`buckets hold ${sum}, total is ${tool.totalQuantity}`);
+        return problems;
+    }
+    return Object.freeze({ transferOutcome, isBulk, statusAt, isGrouped, checkAllocations });
 })();
 
 /**

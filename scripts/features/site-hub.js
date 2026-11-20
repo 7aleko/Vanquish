@@ -1,26 +1,26 @@
 /**
  * Site Hub (the Site screen, styles/site-hub.css): everything about one construction site, for one active site.
  *
- *   Top bar     back and Sync (the shared top bar); the large title "Site"
- *   Hero        site name and address (a button: the searchable site picker, openSiteSwitcher), a Mon-Fri day switcher, the rostered crew for the chosen day and its
- *               attendance; tapping it opens the Site Crew sheet (openCrewSheetFor, crew-status-sheet.js)
- *   Search      a full-height overlay over the site's photos, logs, drawings and schedule (openSiteSearch)
- *   Site Logs   latest daily logs; Add Log writes through siteContentService (with photos)
- *   Drawings    the drawing register, newest revision first
- *   Schedule    upcoming Trade Schedule entries; Full Schedule opens the Trade Schedule on this site
+ *   Hero      the site's name (+ chevron: the Switch Site sheet) and address (opens Maps), its weather for the
+ *             chosen day, "My Site" when viewing a site other than yours, the Mon-Fri day switcher, and that
+ *             day's crew and attendance (tap: the Crew Quick-View, crew-status-sheet.js)
+ *   Search    a full-height overlay over the site's photos, logs, drawings and schedule (openSiteSearch)
+ *   Bento     Drawings (sheet count, latest revision) | Schedule (the active or next phase), recent Site Photos
+ *             (four newest, + the rest), and the Site Log for the chosen day
+ *   +         Add Photo (photos into a new site log), Add Log, Add Plan (a sheet in the drawing register)
  *
- * One active-site context: siteHubState.siteId (any active SITES id). Every section and every search reads through it,
- * via the selectors (getSiteLogs, getDrawings, getSitePhotos, getCrewStatus, ...) - nothing keeps its own
- * copy of a site, a crew list or a record. The chosen day (siteHubState.day) drives the crew and attendance.
- * "Today" is the app's today (homeAttendanceDay, the same day the Home card uses).
+ * One active-site context: siteHubState.siteId (any active SITES id) and the chosen day (siteHubState.day).
+ * Every part reads through them, via the selectors (getSiteLogs, getDrawings, getSitePhotos, getCrewStatus,
+ * ...) - nothing keeps its own copy of a site, a crew list or a record. Switching site re-renders every part
+ * together under a short crossfade. "Today" is the app's today (homeAttendanceDay, as on Home).
  *
- * The picker lists every active site (SITES), the employee's own sites first ("Your Sites": the active sites of
- * their jobs, JOBS_DATA, and their roster), then the rest; an archived site drops out. Picking a site also connects its Procore project (connectProjectForSite, sheets.js), and the
- * Procore project picker drives the hub back through selectSite.
+ * "My Site" / "Your Site" = the site you're rostered to today (the roster). Weather comes from each job's daily
+ * forecast (JOBS_DATA) for that site and day; a site or day without one shows no weather rather than a guess.
+ * Picking a site also connects its Procore project (connectProjectForSite, sheets.js), and the Procore project
+ * picker drives the hub back through selectSite.
  */
 
 const siteHubState = { siteId: null, day: null };
-const SITE_HUB_PREVIEW_ROWS = 4;
 const SITE_HUB_AVATARS = 5;
 const SH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SH_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -78,12 +78,48 @@ function selectSite(siteId, options = {}) {
         if (typeof renderHomeNavList === 'function') renderHomeNavList();
     }
     closeSiteSwitcher();
-    renderSiteHub();
+    if (changed) crossfadeSiteHub(renderSiteHub); else renderSiteHub();
     if (changed) {
         const view = document.getElementById('view-sitehub');
         if (view) view.scrollTo({ top: 0, behavior: 'smooth' });
     }
     if (siteSearch.open) renderSiteSearch();
+}
+// A short crossfade: the old site's content fades out, the new one is drawn and fades in (no reload, no jump)
+let shSwapTimer = null;
+function crossfadeSiteHub(render) {
+    const hub = document.getElementById('view-sitehub');
+    if (!hub || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { render(); return; }
+    clearTimeout(shSwapTimer);
+    hub.classList.add('is-swapping');
+    shSwapTimer = setTimeout(() => { render(); requestAnimationFrame(() => hub.classList.remove('is-swapping')); }, 150);
+}
+// The site you're rostered to today ("My Site" / "Your Site"), or null
+function shMySiteId() {
+    const id = getRosteredSiteId(shToday());
+    return isSiteActive(id) ? id : null;
+}
+function returnToMySite() {
+    const mine = shMySiteId();
+    if (mine) selectSite(mine);
+}
+function openSiteHubMaps() {
+    const siteId = siteHubState.siteId;
+    if (!siteId) return;
+    triggerHaptic('light');
+    openMapsForAddress(getSiteFullAddress(siteId));               // the Roster's Maps hand-off (week-roster.js)
+}
+// The site's forecast for a day from its job's daily forecast (JOBS_DATA), or null when there isn't one
+function getSiteForecast(siteId, date) {
+    if (typeof JOBS_DATA === 'undefined' || !siteId || !date) return null;
+    const job = JOBS_DATA.find(j => j.siteId === siteId);
+    const label = `${date.getDate()} ${SH_MONTHS[date.getMonth()]}`;
+    const day = job && Object.values(job.days || {}).find(d => d.date === label);
+    if (!day) return null;
+    const high = parseInt(String(day.temp), 10), rain = parseInt(String(day.rain), 10) || 0;
+    if (!Number.isFinite(high)) return null;
+    const icon = rain >= 60 ? 'ph-cloud-rain' : rain >= 30 ? 'ph-cloud' : rain >= 10 ? 'ph-cloud-sun' : 'ph-sun';
+    return { high, rain, icon, label: `${high}°, ${rain}% chance of rain` };
 }
 
 function selectSiteHubDay(iso, e) {
@@ -91,11 +127,13 @@ function selectSiteHubDay(iso, e) {
     if (iso === DateRules.toIso(siteHubState.day)) return;
     triggerHaptic('light');
     siteHubState.day = DateRules.fromIso(iso);
-    renderSiteHubHero();
+    renderSiteHubHero(true);
+    renderSiteHubLog(true);
 }
 
 // Opening Site afresh: back on the default day (the active site is kept)
 function resetSiteHubView() {
+    if (siteHubFabOpen) toggleSiteHubFab(false);
     siteHubState.day = shDefaultDay();
     renderSiteHub();
 }
@@ -103,24 +141,36 @@ function resetSiteHubView() {
 // ---------- Render ----------
 function renderSiteHub() {
     if (!document.getElementById('view-sitehub')) return;
-    const siteId = ensureSiteHubState();
-    const btn = document.getElementById('sh-site-btn');
-    if (btn) btn.setAttribute('aria-label', siteId ? `Site: ${getSiteName(siteId)}, ${getSiteAddress(siteId)}. Change site` : 'Choose a site');
+    ensureSiteHubState();
     renderSiteHubHero();
-    renderSiteHubLogs();
-    renderSiteHubDrawings();
-    renderSiteHubSchedule();
+    renderSiteHubTiles();
+    renderSiteHubPhotos();
+    renderSiteHubLog();
 }
 
-function renderSiteHubHero() {
+function renderSiteHubHero(dayChanged) {
     const siteId = siteHubState.siteId;
     const hero = document.getElementById('sh-hero');
     if (!hero) return;
-    document.getElementById('sh-site-name').textContent = siteId ? getSiteName(siteId) : 'No site';
+    const name = siteId ? getSiteName(siteId) : 'No site';
+    document.getElementById('sh-site-name').textContent = name;
+    document.getElementById('sh-site-btn').setAttribute('aria-label', siteId ? `${name}. Switch site` : 'Choose a site');
+    const addr = document.getElementById('sh-site-addr');
     document.getElementById('sh-site-address').textContent = siteId ? getSiteAddress(siteId) : 'You have no active sites';
+    addr.disabled = !siteId;
+    addr.setAttribute('aria-label', siteId ? `${getSiteFullAddress(siteId)}. Open in Maps` : 'No address');
+
+    // My Site (only when looking at another site) and the day's weather here
+    const mine = shMySiteId();
+    document.getElementById('sh-my-site').hidden = !mine || mine === siteId;
+    document.getElementById('sh-my-site').setAttribute('aria-label', mine ? `Back to my site, ${getSiteName(mine)}` : 'My site');
+    const day = siteHubState.day;
+    const fc = getSiteForecast(siteId, day), wx = document.getElementById('sh-weather');
+    wx.hidden = !fc;
+    if (fc) { wx.innerHTML = `<i class="ph-fill ${fc.icon}" aria-hidden="true"></i><span>${fc.high}°</span>`; wx.setAttribute('aria-label', `Weather ${shDate(day, true)}: ${fc.label}`); wx.setAttribute('role', 'img'); }
 
     // Mon-Fri of the chosen day's week
-    const day = siteHubState.day, monday = DateRules.mondayOf(day), selIso = DateRules.toIso(day), todayIso = shTodayIso();
+    const monday = DateRules.mondayOf(day), selIso = DateRules.toIso(day), todayIso = shTodayIso();
     const days = [0, 1, 2, 3, 4].map(i => DateRules.addDays(monday, i));
     const sel = days.findIndex(d => DateRules.toIso(d) === selIso);
     const strip = document.getElementById('sh-days');
@@ -129,14 +179,16 @@ function renderSiteHubHero() {
         const iso = DateRules.toIso(d), on = iso === selIso;
         return `<button type="button" role="tab" class="sh-day${on ? ' is-selected' : ''}${iso === todayIso ? ' is-today' : ''}" aria-selected="${on}"
                     aria-label="${d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}${iso === todayIso ? ', today' : ''}"
-                    onclick="selectSiteHubDay('${iso}', event)" onkeydown="event.stopPropagation()">
+                    onclick="selectSiteHubDay('${iso}', event)">
                 <span class="sh-day-name">${SH_DAYS[d.getDay()]}</span><span class="sh-day-num">${d.getDate()}</span>
             </button>`;
     }).join('');
 
-    // Crew rostered that day, and their attendance
+    // That day's crew and attendance (tap: the Crew Quick-View)
+    const row = document.getElementById('sh-crew-row');
     const stack = document.getElementById('sh-crew-stack'), pill = document.getElementById('sh-crew-pill');
-    if (!siteId) { stack.innerHTML = ''; pill.textContent = ''; return; }
+    if (dayChanged) { row.classList.remove('is-fresh'); void row.offsetWidth; row.classList.add('is-fresh'); }
+    if (!siteId) { stack.innerHTML = ''; pill.textContent = ''; row.disabled = true; return; }
     const status = getCrewStatus(siteId, day), people = [...status.onSite, ...status.off];
     const shown = people.slice(0, SITE_HUB_AVATARS), extra = people.length - shown.length;
     stack.innerHTML = shown.length
@@ -146,20 +198,72 @@ function renderSiteHubHero() {
     pill.hidden = !people.length;
     pill.className = `sh-crew-pill${head.live ? ' is-live' : ''}`;
     pill.innerHTML = (head.live ? '<span class="sh-live-dot" aria-hidden="true"></span>' : '') + `<span>${head.text}</span>`;
-    hero.setAttribute('aria-label', `${getSiteName(siteId)}, ${getSiteAddress(siteId)}. ${shDate(day, true)}: ${head.label}. Open site crew.`);
+    row.disabled = false;
+    row.setAttribute('aria-label', `${shDate(day, true)}: ${head.label}${people.length ? ` - ${people.map(p => p.name).join(', ')}` : ''}. Open ${name} crew`);
 }
 
-function renderSiteHubLogs() {
-    const el = document.getElementById('sh-logs');
+// ---------- Bento ----------
+// Drawings: how many sheets, and the newest revision issued. Schedule: the phase on site now, else the next.
+function renderSiteHubTiles() {
     const siteId = siteHubState.siteId;
-    const logs = siteId ? getSiteLogs(siteId) : [];
-    if (!logs.length) {
-        el.innerHTML = `<div class="sh-empty"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i><span>No site logs yet.</span>
-            <button type="button" class="sh-empty-action" onclick="openAddSiteLog()">Add the first log</button></div>`;
+    const dwgs = siteId ? getDrawings(siteId) : [];
+    const dSub = document.getElementById('sh-tile-dwg-sub');
+    dSub.textContent = dwgs.length ? `${dwgs.length} sheet${dwgs.length === 1 ? '' : 's'} • Rev ${dwgs[0].revision}` : 'No drawings yet';
+    document.getElementById('sh-tile-dwg').setAttribute('aria-label', `Drawings: ${dSub.textContent}`);
+    const today = shTodayIso();
+    const tasks = getSiteScheduleTasks(siteId);
+    const now = tasks.find(t => t.startDate <= today && t.endDate >= today);
+    const next = tasks.find(t => t.startDate > today);
+    const phase = now || next;
+    const sSub = document.getElementById('sh-tile-sched-sub');
+    // The phase name gives way (ellipsis) before the date does
+    sSub.innerHTML = phase ? `<span class="sh-tile-sub-name">${shEsc(phase.title)}</span><span class="sh-tile-sub-date">&nbsp;• ${shShortDay(now ? now.endDate : next.startDate)}</span>` : 'Nothing scheduled';
+    document.getElementById('sh-tile-sched').setAttribute('aria-label', `Schedule: ${phase ? `${phase.title}, ${now ? 'on site until' : 'starting'} ${shDate(now ? now.endDate : next.startDate, true)}` : 'nothing scheduled'}`);
+}
+function renderSiteHubSchedule() { renderSiteHubTiles(); }        // the Trade Schedule calls this after a change
+function shShortDay(iso) { const d = DateRules.fromIso(iso); return `${SH_DAYS[d.getDay()]} ${d.getDate()}`; }
+
+// Recent photos: the four newest at this site; the 4th carries "+N" when there are more
+function renderSiteHubPhotos() {
+    const siteId = siteHubState.siteId;
+    const photos = siteId ? getSitePhotos(siteId) : [];
+    const all = document.getElementById('sh-photos-all'), row = document.getElementById('sh-photos');
+    all.hidden = !photos.length;
+    all.innerHTML = `View All (${photos.length})<i class="ph-bold ph-caret-right" aria-hidden="true"></i>`;
+    if (!photos.length) {
+        row.className = 'sh-photo-row is-empty';
+        row.innerHTML = `<p class="sh-bento-empty"><i class="ph-fill ph-image" aria-hidden="true"></i>No photos at this site yet</p>`;
         return;
     }
-    el.innerHTML = logs.slice(0, SITE_HUB_PREVIEW_ROWS).map(l => renderLogRow(l)).join('');
+    row.className = 'sh-photo-row';
+    const shown = photos.slice(0, 4), more = photos.length - shown.length;
+    row.innerHTML = shown.map((p, i) => {
+        const overflow = i === 3 && more > 0;
+        return `<button type="button" class="sh-photo" onclick="${overflow ? 'openSiteHubPhotos()' : `openSitePhoto('${shEsc(p.id)}')`}"
+                    aria-label="${overflow ? `View all ${photos.length} photos` : shEsc(p.caption || 'Photo')}">
+                <img src="${shEsc(p.src)}" alt="" loading="lazy">${overflow ? `<span class="sh-photo-more">+${more}</span>` : ''}
+            </button>`;
+    }).join('');
 }
+
+// The site log for the chosen day (the newest that day); none -> a quiet empty line, never another day's log
+function renderSiteHubLog(dayChanged) {
+    const el = document.getElementById('sh-log');
+    const siteId = siteHubState.siteId, iso = DateRules.toIso(siteHubState.day);
+    const log = siteId ? getSiteLogs(siteId).find(l => l.date === iso) : null;
+    if (dayChanged) { el.classList.remove('is-fresh'); void el.offsetWidth; el.classList.add('is-fresh'); }
+    el.innerHTML = log
+        ? `<button type="button" class="sh-log-entry" onclick="openSiteLog('${shEsc(log.id)}')">
+                <span class="sh-log-title">${shEsc(log.title)}</span>
+                <span class="sh-log-meta">By ${shEsc(shShortName(log.authorName))} • ${formatClockTime(log.createdAt)}${getLogPhotos(log.id).length ? ` • <i class="ph-fill ph-image" aria-hidden="true"></i> ${getLogPhotos(log.id).length}` : ''}</span>
+            </button>`
+        : `<p class="sh-bento-empty"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i>No site logs recorded for this day</p>`;
+}
+
+function openSiteHubDrawings() { triggerHaptic('light'); openSiteSearch('drawings'); }
+function openSiteHubPhotos() { triggerHaptic('light'); openSiteSearch('photos'); }
+function openSiteHubLogs() { triggerHaptic('light'); openSiteSearch('logs'); }
+
 function renderLogRow(l, tokens) {
     const photos = getLogPhotos(l.id).length;
     return `<button type="button" class="sh-row" onclick="openSiteLog('${shEsc(l.id)}')">
@@ -173,15 +277,6 @@ function renderLogRow(l, tokens) {
         </button>`;
 }
 
-function renderSiteHubDrawings() {
-    const el = document.getElementById('sh-drawings');
-    const siteId = siteHubState.siteId;
-    const dwgs = siteId ? getDrawings(siteId) : [];
-    document.getElementById('sh-dwg-all').hidden = dwgs.length <= SITE_HUB_PREVIEW_ROWS;
-    el.innerHTML = dwgs.length
-        ? dwgs.slice(0, SITE_HUB_PREVIEW_ROWS).map(d => renderDrawingRow(d)).join('')
-        : `<div class="sh-empty"><i class="ph-fill ph-file-pdf" aria-hidden="true"></i><span>No drawings for this site yet.</span></div>`;
-}
 function renderDrawingRow(d, tokens) {
     return `<button type="button" class="sh-row" onclick="openSiteDrawing('${shEsc(d.id)}')">
             <span class="sh-row-icon is-pdf"><i class="ph-fill ph-file-pdf" aria-hidden="true"></i></span>
@@ -208,14 +303,6 @@ function shTaskStatus(t) {
     return { cls: 'is-next', text: 'Upcoming' };
 }
 function shTradeTheme(t) { return (typeof WHITEBOARD_TRADE_THEMES !== 'undefined' && WHITEBOARD_TRADE_THEMES[t.trade]) || { name: t.trade, icon: 'fa-helmet-safety' }; }
-function renderSiteHubSchedule() {
-    const el = document.getElementById('sh-schedule');
-    const today = shTodayIso();
-    const tasks = getSiteScheduleTasks(siteHubState.siteId).filter(t => t.endDate >= today);
-    el.innerHTML = tasks.length
-        ? tasks.slice(0, SITE_HUB_PREVIEW_ROWS).map(t => renderScheduleRow(t)).join('')
-        : `<div class="sh-empty"><i class="ph-fill ph-calendar-blank" aria-hidden="true"></i><span>Nothing scheduled at this site.</span></div>`;
-}
 function renderScheduleRow(t, tokens) {
     const st = shTaskStatus(t), theme = shTradeTheme(t);
     return `<button type="button" class="sh-row" onclick="openTradeDetailModal('${shEsc(t.id)}')">
@@ -251,25 +338,36 @@ function openSiteSwitcher(e) {
     if (stage) stage.inert = true;
     document.getElementById('sh-switch-sheet').focus({ preventScroll: true });
 }
-// Every active site, filtered by the search (name, street, suburb): "Your Sites" first, then "All Sites"
+// Every active site, filtered as you type (name, street, suburb): yours first (your site, then your other
+// sites), then the rest. Each row: name (+ Your Site), address, today's attendance there and today's weather.
 function renderSiteSwitcherList() {
     const input = document.getElementById('sh-switch-input');
     const tokens = shTokens(input ? input.value : '');
     document.getElementById('sh-switch-clear').classList.toggle('hidden', !tokens.length);
     const hit = s => !tokens.length || shMatches([s.shortName, s.address, s.suburb].join(' '), tokens);
-    const mine = getSiteHubSites(), mineIds = mine.map(s => s.id);
-    const others = getActiveSites().filter(s => !mineIds.includes(s.id)).slice().sort((a, b) => a.shortName.localeCompare(b.shortName));
+    const mySite = shMySiteId(), today = shToday();
+    const mine = getSiteHubSites().map(s => s.id);
+    const rank = s => (s.id === mySite ? 0 : mine.includes(s.id) ? 1 : 2);
+    const sites = getActiveSites().filter(hit).slice().sort((a, b) => rank(a) - rank(b) || a.shortName.localeCompare(b.shortName));
     const row = s => {
         const on = s.id === siteHubState.siteId;
+        const status = getCrewStatus(s.id, today), crew = status.total ? crewHeadline(s.id, today, status) : null;
+        const fc = getSiteForecast(s.id, today);
+        const facts = [
+            crew ? `<span class="sh-switch-fact${crew.live && status.onSite.length ? ' is-live' : ''}"><i class="ph-fill ph-users" aria-hidden="true"></i><span>${crew.text}</span></span>` : '',
+            fc ? `<span class="sh-switch-fact"><i class="ph-fill ${fc.icon}" aria-hidden="true"></i>${fc.high}°</span>` : ''
+        ].join('');
         return `<button type="button" role="option" aria-selected="${on}" class="sh-switch-row${on ? ' is-selected' : ''}" onclick="selectSite('${shEsc(s.id)}')">
-                <span class="sh-switch-row-main"><span class="sh-switch-row-name">${shMark(s.shortName, tokens)}</span><span class="sh-switch-row-addr">${shMark(getSiteFullAddress(s.id), tokens)}</span></span>
-                ${on ? '<i class="ph-bold ph-check" aria-hidden="true"></i>' : ''}
+                <span class="sh-switch-row-main">
+                    <span class="sh-switch-row-line"><span class="sh-switch-row-name">${shMark(s.shortName, tokens)}</span>${s.id === mySite ? '<span class="sh-your-site">Your Site</span>' : ''}</span>
+                    <span class="sh-switch-row-addr">${shMark(getSiteFullAddress(s.id), tokens)}</span>
+                    ${facts ? `<span class="sh-switch-facts">${facts}</span>` : ''}
+                </span>
+                ${on ? '<i class="ph-bold ph-check sh-switch-check" aria-hidden="true"></i>' : ''}
             </button>`;
     };
-    const group = (title, list) => list.length ? `<h3 class="sh-switch-group">${title}</h3>${list.map(row).join('')}` : '';
-    const html = group('Your Sites', mine.filter(hit)) + group('All Sites', others.filter(hit));
-    document.getElementById('sh-switch-list').innerHTML = html
-        || `<p class="sh-switch-empty">No sites match “${shEsc(input.value.trim())}”.</p>`;
+    document.getElementById('sh-switch-list').innerHTML = sites.length ? sites.map(row).join('')
+        : `<p class="sh-switch-empty">No sites match “${shEsc(input.value.trim())}”.</p>`;
 }
 function clearSiteSwitcherSearch(silent) {
     const input = document.getElementById('sh-switch-input');
@@ -429,18 +527,23 @@ function openSiteLog(id) {
 }
 
 let siteLogDraftPhotos = [];
-function openAddSiteLog() {
+let siteLogDraftDate = null;
+// Add Log (and Add Photo, which arrives with photos already picked). The log is for the chosen day, or today
+// when a future day is chosen.
+function openAddSiteLog(opts = {}) {
     if (!siteHubState.siteId) return;
     triggerHaptic('light');
-    siteLogDraftPhotos = [];
-    const label = 'block text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5';
-    const field = 'w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-lime text-base';
+    siteLogDraftPhotos = (opts.photos || []).slice(0, SITE_LOG_MAX_PHOTOS);
+    const chosen = DateRules.toIso(siteHubState.day), today = shTodayIso();
+    siteLogDraftDate = chosen <= today ? chosen : today;
+    const label = 'sheet-label';                          // the shared sheet field (styles/sheet.css)
+    const field = 'sheet-input';
     openModal('New Site Log', `
         <form id="sh-log-form" class="space-y-4 pt-1" onsubmit="event.preventDefault(); submitSiteLog();" novalidate>
-            <p class="sh-detail-kicker">${shEsc(shToday().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${shEsc(getSiteName(siteHubState.siteId))}</p>
+            <p class="sh-detail-kicker">${shEsc(DateRules.fromIso(siteLogDraftDate).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${shEsc(getSiteName(siteHubState.siteId))}</p>
             <div>
                 <label for="sh-log-title" class="${label}">Title</label>
-                <input id="sh-log-title" type="text" maxlength="120" autocomplete="off" enterkeyhint="next" placeholder="e.g. Slab pre-pour inspection" class="${field}">
+                <input id="sh-log-title" type="text" maxlength="120" autocomplete="off" enterkeyhint="next" placeholder="${opts.photos ? 'e.g. Progress photos, slab edge' : 'e.g. Slab pre-pour inspection'}" class="${field}">
             </div>
             <div>
                 <label for="sh-log-body" class="${label}">Notes</label>
@@ -497,11 +600,88 @@ function removeSiteLogPhoto(i) { siteLogDraftPhotos.splice(i, 1); renderSiteLogD
 async function submitSiteLog() {
     const val = id => (document.getElementById(id) || {}).value || '';
     const result = await runUiAction(() => siteContentService.addLog({
-        siteId: siteHubState.siteId, date: shTodayIso(), title: val('sh-log-title'), body: val('sh-log-body'), photos: siteLogDraftPhotos
+        siteId: siteHubState.siteId, date: siteLogDraftDate || shTodayIso(), title: val('sh-log-title'), body: val('sh-log-body'), photos: siteLogDraftPhotos
     }), { button: document.getElementById('sh-log-submit'), errorTitle: 'Log not saved' });
     if (!result.ok) return;
     triggerHaptic('success');
     siteLogDraftPhotos = [];
+    closeModal();
+}
+
+// ---------- + Quick actions ----------
+let siteHubFabOpen = false;
+function toggleSiteHubFab(open = !siteHubFabOpen) {
+    if (open && !siteHubState.siteId) return;
+    siteHubFabOpen = open;
+    triggerHaptic('light');
+    const fab = document.getElementById('sh-fab'), menu = document.getElementById('sh-fab-menu'), scrim = document.getElementById('sh-fab-scrim');
+    fab.setAttribute('aria-expanded', String(open));
+    fab.classList.toggle('is-open', open);
+    if (open) {
+        menu.hidden = false; scrim.hidden = false;
+        requestAnimationFrame(() => menu.classList.add('is-open'));
+    } else {
+        menu.classList.remove('is-open');
+        scrim.hidden = true;
+        setTimeout(() => { if (!siteHubFabOpen) menu.hidden = true; }, 220);
+    }
+}
+function siteHubFabAction(kind) {
+    toggleSiteHubFab(false);
+    if (kind === 'log') openAddSiteLog();
+    else if (kind === 'plan') openAddSitePlan();
+    else if (kind === 'photo') document.getElementById('sh-fab-photo').click();   // camera or library, then a log
+}
+// Add Photo: the photos go into a new site log (the app's one photo workflow), already attached
+async function siteHubPhotosPicked(input) {
+    const files = [...(input.files || [])].slice(0, SITE_LOG_MAX_PHOTOS);
+    input.value = '';
+    const photos = [];
+    for (const file of files) {
+        try { photos.push({ src: await shDownscale(file) }); } catch (_) { /* unreadable: skipped */ }
+    }
+    if (photos.length) openAddSiteLog({ photos });
+}
+
+// Add Plan: a sheet in this site's drawing register (siteContentService.addDrawing). A sheet number already in
+// the register takes the new revision.
+let sitePlanDiscipline = 'Architectural';
+function openAddSitePlan() {
+    if (!siteHubState.siteId) return;
+    triggerHaptic('light');
+    sitePlanDiscipline = 'Architectural';
+    openModal('Add Plan', `
+        <form id="sh-plan-form" class="space-y-4 pt-1" onsubmit="event.preventDefault(); submitSitePlan();" novalidate>
+            <p class="sh-detail-kicker">${shEsc(getSiteName(siteHubState.siteId))} · Drawing register</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label for="sh-plan-sheet" class="sheet-label">Sheet</label>
+                    <input id="sh-plan-sheet" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="e.g. A103" class="sheet-input"></div>
+                <div><label for="sh-plan-rev" class="sheet-label">Revision</label>
+                    <input id="sh-plan-rev" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="e.g. A" class="sheet-input"></div>
+            </div>
+            <div><label for="sh-plan-title" class="sheet-label">Title</label>
+                <input id="sh-plan-title" type="text" maxlength="120" autocomplete="off" placeholder="e.g. First Floor Plan" class="sheet-input"></div>
+            <div><span id="sh-plan-disc-label" class="sheet-label">Discipline</span>
+                <div class="filter-bar filter-bar--wrap" role="radiogroup" aria-labelledby="sh-plan-disc-label">
+                    ${DRAWING_DISCIPLINES.map(d => `<button type="button" role="radio" aria-checked="${d === sitePlanDiscipline}" data-discipline="${d}" class="filter-pill${d === sitePlanDiscipline ? ' is-active' : ''}" onclick="pickSitePlanDiscipline(this)">${d}</button>`).join('')}
+                </div></div>
+            <p class="sh-detail-note">Records the sheet in the register. The drawing file itself isn't stored in the app yet.</p>
+            <button type="submit" id="sh-plan-submit" class="btn btn--primary btn--block"><i class="ph-bold ph-check" aria-hidden="true"></i><span>Add to Register</span></button>
+        </form>`);
+}
+function pickSitePlanDiscipline(pill) {
+    triggerHaptic('light');
+    sitePlanDiscipline = pill.dataset.discipline;
+    pill.parentElement.querySelectorAll('.filter-pill').forEach(p => { const on = p === pill; p.classList.toggle('is-active', on); p.setAttribute('aria-checked', String(on)); });
+}
+async function submitSitePlan() {
+    const val = id => (document.getElementById(id) || {}).value || '';
+    const result = await runUiAction(() => siteContentService.addDrawing({
+        siteId: siteHubState.siteId, sheet: val('sh-plan-sheet'), title: val('sh-plan-title'), discipline: sitePlanDiscipline,
+        revision: val('sh-plan-rev'), date: shTodayIso()
+    }), { button: document.getElementById('sh-plan-submit'), errorTitle: 'Plan not added' });
+    if (!result.ok) return;
+    triggerHaptic('success');
     closeModal();
 }
 
@@ -590,7 +770,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key !== 'Escape') return;
         const modalOpen = document.getElementById('modal-overlay') && !document.getElementById('modal-overlay').classList.contains('opacity-0');
         if (modalOpen) return;                                          // the modal closes first
-        if (siteSwitcherOpen) { e.stopPropagation(); closeSiteSwitcher(); }
+        if (siteHubFabOpen) { e.stopPropagation(); toggleSiteHubFab(false); }
+        else if (siteSwitcherOpen) { e.stopPropagation(); closeSiteSwitcher(); }
         else if (siteSearch.open) { e.stopPropagation(); closeSiteSearch(); }
     }, true);
     renderSiteHub();

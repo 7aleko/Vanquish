@@ -9,7 +9,33 @@ let currentLifestyleChatFilter = 'all';
 let currentLifestyleChatSearchQuery = '';
 
 function getLifestyleUnreadCount() {
-    return LIFESTYLE_CHATS.reduce((sum, c) => sum + (c.unread || 0), 0);
+    return LIFESTYLE_CHATS.reduce((sum, c) => sum + (c.unread || 0) + chatStructuredUnread(c), 0);
+}
+
+// ---------- Structured messages (availability cards) from the database ----------
+// A site chat's thread is its seed messages plus its structured messages (getChatMessages). A chat counts
+// cards from other people that arrived since it was last opened (or since the app opened).
+const CHAT_OPENED_AT = new Date().toISOString();
+function chatStructured(chat) {
+    return (typeof getChatMessages === 'function' && appStore.status === 'ready') ? getChatMessages(chat.id) : [];
+}
+function chatStructuredUnread(chat) {
+    const since = chat.readAt || CHAT_OPENED_AT, me = getCurrentEmployeeId();
+    return chatStructured(chat).filter(m => m.senderId !== me && m.createdAt > since).length;
+}
+// The newest structured message when it is newer than the seed's latest activity
+function chatLatestStructured(chat) {
+    const list = chatStructured(chat);
+    const last = list[list.length - 1];
+    if (!last) return null;
+    const legacy = chat.lastActivity || parseChatTimeLabel(chat.time) || 0;
+    return Date.parse(last.createdAt) >= legacy ? last : null;
+}
+function chatStructuredPreview(m) {
+    const who = m.senderId === getCurrentEmployeeId() ? 'You' : m.senderName.split(' ')[0];
+    const r = m.requestId ? getAvailabilityRequest(m.requestId) : null;
+    const tool = r ? getToolById(r.toolId) : null;
+    return `${who}: Availability request${tool ? ` · ${tool.name}` : ''}`;
 }
 
 function updateLifestyleBadges() {
@@ -79,24 +105,29 @@ function parseChatTimeLabel(text) {
 }
 // When a conversation last moved, for sorting: a message sent here records it exactly (lastActivity)
 function chatActivityTime(chat) {
-    return chat.lastActivity || parseChatTimeLabel(chat.time) || 0;
+    const latest = chatLatestStructured(chat);
+    return latest ? Date.parse(latest.createdAt) : (chat.lastActivity || parseChatTimeLabel(chat.time) || 0);
 }
 
 // Two lines: name + time, then the latest message + unread count. No role or category tags.
 function renderLifestyleChatRow(chat) {
-    const unread = chat.unread > 0;
-    const label = `${chat.name}, ${chat.time}. ${chat.preview}${unread ? `. ${chat.unread} unread` : ''}`;
+    const latest = chatLatestStructured(chat);
+    const count = (chat.unread || 0) + chatStructuredUnread(chat);
+    const unread = count > 0;
+    const time = latest ? formatClockTime(latest.createdAt) : chat.time;
+    const preview = latest ? chatStructuredPreview(latest) : chat.preview;
+    const label = `${chat.name}, ${time}. ${preview}${unread ? `. ${count} unread` : ''}`;
     return `
         <button type="button" class="chat-row${unread ? ' is-unread' : ''}" onclick="openLifestyleConversation('${chat.id}')" aria-label="${chatEscape(label)}">
             ${getLifestyleChatAvatar(chat)}
             <span class="chat-row-body">
                 <span class="chat-row-line">
                     <span class="chat-row-title">${chatEscape(chat.name)}</span>
-                    <span class="chat-row-time">${chatEscape(chat.time)}</span>
+                    <span class="chat-row-time">${chatEscape(time)}</span>
                 </span>
                 <span class="chat-row-line">
-                    <span class="chat-row-preview">${chatEscape(chat.preview)}</span>
-                    ${unread ? `<span class="chat-row-badge" aria-hidden="true">${chat.unread}</span>` : ''}
+                    <span class="chat-row-preview">${chatEscape(preview)}</span>
+                    ${unread ? `<span class="chat-row-badge" aria-hidden="true">${count}</span>` : ''}
                 </span>
             </span>
         </button>`;
@@ -212,7 +243,16 @@ function conversationDividerLabel(t, fallback) {
     return `${day}${hasClock ? ' ' + clock : ''}`.toUpperCase();
 }
 function renderConversationThread(chat) {
-    const msgs = chat.messages;
+    // Seed messages and the chat's structured messages, in time order (a structured one carries `card`)
+    const structured = chatStructured(chat).map(m => ({
+        card: m, sender: m.senderName, isIncoming: m.senderId !== getCurrentEmployeeId(), at: Date.parse(m.createdAt)
+    }));
+    const msgs = structured.length
+        ? chat.messages.map((m, i) => ({ m, i, t: messageTime(m) }))
+            .concat(structured.map((m, i) => ({ m, i: chat.messages.length + i, t: m.at })))
+            .sort((a, b) => ((a.t == null || b.t == null) ? a.i - b.i : (a.t - b.t) || (a.i - b.i)))
+            .map(x => x.m)
+        : chat.messages;
     const times = msgs.map(messageTime);
     // A divider before the first message, and wherever an hour or a day has passed
     const divider = msgs.map((m, i) => {
@@ -221,11 +261,19 @@ function renderConversationThread(chat) {
         if (a == null || b == null) return false;
         return b - a > CONV_DIVIDER_GAP || new Date(a).toDateString() !== new Date(b).toDateString();
     });
-    const sameCluster = (i, j) => j >= 0 && j < msgs.length && !divider[Math.max(i, j)] &&
+    const sameCluster = (i, j) => j >= 0 && j < msgs.length && !divider[Math.max(i, j)] && !msgs[i].card && !msgs[j].card &&
         msgs[i].isIncoming === msgs[j].isIncoming && msgs[i].sender === msgs[j].sender;
     let html = '';
     msgs.forEach((m, i) => {
         if (divider[i]) html += `<div class="conv-divider">${chatEscape(conversationDividerLabel(times[i], m.time))}</div>`;
+        // An availability card (scripts/features/availability.js): full width, renders the request's live state
+        if (m.card) {
+            html += `<div class="conv-row conv-row--card is-first is-last" data-message-id="${chatEscape(m.card.id)}" data-request-id="${chatEscape(m.card.requestId || '')}">
+                ${chat.isGroup ? `<span class="conv-sender conv-sender--card">${chatEscape(m.isIncoming ? m.sender : 'You')}</span>` : ''}
+                <div class="conv-card-slot">${renderAvailabilityRequestCard(m.card)}</div>
+            </div>`;
+            return;
+        }
         const mine = !m.isIncoming, first = !sameCluster(i, i - 1), last = !sameCluster(i, i + 1);
         const body = m.image
             ? `<img class="conv-photo" src="${chatEscape(m.image)}" alt="Photo">`
@@ -239,7 +287,7 @@ function renderConversationThread(chat) {
         </div>`;
     });
     const lastMsg = msgs[msgs.length - 1];
-    if (lastMsg && !lastMsg.isIncoming && lastMsg.seen !== false) html += `<div class="conv-seen">Seen</div>`;
+    if (lastMsg && !lastMsg.card && !lastMsg.isIncoming && lastMsg.seen !== false) html += `<div class="conv-seen">Seen</div>`;
     return html;
 }
 
@@ -247,6 +295,7 @@ function renderLifestyleConversation() {
     const chat = LIFESTYLE_CHATS.find(c => c.id === currentLifestyleConversationId);
     const view = document.getElementById('view-conversation');
     if (!chat || !view) return;
+    chat.readAt = new Date().toISOString();           // on screen = seen (cards arriving while it is open)
     // Bar (left-aligned, top-bar.js reads this template): avatar, name, and "Active now" for someone online
     const isPerson = chat.category === 'direct';
     const online = isPerson && chat.isOnline;
@@ -276,6 +325,7 @@ function openLifestyleConversation(chatId) {
 
     // Mark this conversation as read
     chat.unread = 0;
+    chat.readAt = new Date().toISOString();
     renderLifestyleChats(currentLifestyleChatFilter, currentLifestyleChatSearchQuery);
 
     if (chat.id === 'chat-poppy') {

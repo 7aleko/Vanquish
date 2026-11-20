@@ -35,7 +35,7 @@ const FA_TO_PHOSPHOR = {
 
     // Work & site
     'briefcase': 'briefcase', 'helmet-safety': 'hard-hat', 'hammer': 'hammer', 'screwdriver-wrench': 'wrench',
-    'location-dot': 'map-pin', 'city': 'buildings', 'warehouse': 'warehouse', 'shield-halved': 'shield-check',
+    'location-dot': 'map-pin', 'city': 'buildings', 'warehouse': 'warehouse', 'industry': 'factory', 'shield-halved': 'shield-check',
     'kit-medical': 'first-aid-kit', 'shirt': 't-shirt', 'plane-departure': 'airplane-takeoff',
     'truck-ramp-box': 'truck', 'trailer': 'truck', 'tractor': 'tractor', 'stairs': 'ladder',
     'compass': 'compass', 'compass-drafting': 'compass-tool', 'ruler': 'ruler', 'clipboard-check': 'clipboard-text',

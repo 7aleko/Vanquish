@@ -47,7 +47,13 @@ function crewHeadline(siteId, day, status = getCrewStatus(siteId, day)) {
     if (kind === 'today') return { text: `<b>${onSite.length}</b>&nbsp;/ ${total} Signed In`, live: true, label: `${onSite.length} of ${total} signed in` };
     const attended = onSite.length + off.filter(p => p.completed).length;
     if (kind === 'past' && attended) return { text: `<b>${attended}</b>&nbsp;/ ${total} Attended`, live: false, label: `${attended} of ${total} attended` };
-    return { text: `${total} Rostered`, live: false, label: `${total} rostered` };
+    const start = kind === 'future' ? crewShiftStart() : '';         // a start time only for a day still to come
+    return { text: `${total} Rostered${start ? ` • ${start}` : ''}`, live: false, label: `${total} rostered${start ? `, starting ${start}` : ''}` };
+}
+// The rostered start time ("7:00 AM"), from the standard shift (TIMESHEET_CONFIG.defaultStart)
+function crewShiftStart() {
+    const hhmm = typeof TIMESHEET_CONFIG !== 'undefined' && TIMESHEET_CONFIG.defaultStart;
+    return hhmm ? formatClockTime(`2000-01-01T${hhmm}:00`) : '';
 }
 
 // Who is scheduled at `siteId` on `day`, and each person's attendance there:
@@ -74,15 +80,37 @@ function getCrewStatus(siteId, day) {
     return { onSite, off, total: names.length };
 }
 
+// One person: avatar, name and role, their status for the day, and Call / Message when there's a way to reach
+// them (an employee record with a phone number; never you yourself). Labour hire has no record: no actions.
 function renderCrewRow(p, on, kind) {
-    const status = kind === 'future' ? ''
-        : on ? `<span class="crew-row-dot" aria-hidden="true"></span>Signed in ${formatClockTime(p.at)}`
-        : (p.completed ? `Shift completed ${formatClockTime(p.at)}` : 'Not signed in');
+    const emp = getEmployeeByName(p.name);
+    const start = crewShiftStart();
+    const badge = kind === 'future' ? { cls: 'is-neutral', text: `Rostered${start ? ` · ${start}` : ''}` }
+        : on ? { cls: 'is-live', text: `Signed In · ${formatClockTime(p.at)}` }
+        : p.completed ? { cls: 'is-neutral', text: `Shift Completed · ${formatClockTime(p.at)}` }
+        : { cls: 'is-neutral', text: kind === 'past' ? 'No Sign-In' : 'Not Signed In' };
+    const me = emp && emp.id === getCurrentEmployeeId();
+    const phone = emp && !me && emp.phone ? String(emp.phone).replace(/[^\d+]/g, '') : '';
+    const first = String(p.name).split(' ')[0];
+    const actions = [
+        phone ? `<a class="crew-act" href="tel:${crewEscape(phone)}" aria-label="Call ${crewEscape(p.name)}" onclick="event.stopPropagation(); triggerHaptic('light')"><i class="ph-fill ph-phone" aria-hidden="true"></i></a>` : '',
+        emp && !me ? `<button type="button" class="crew-act" aria-label="Message ${crewEscape(first)}" onclick="messageCrewMember(${crewEscape(JSON.stringify(emp.name))})"><i class="ph-fill ph-chat-circle-text" aria-hidden="true"></i></button>` : ''
+    ].join('');
     return `<li class="crew-row ${on || kind === 'future' ? 'is-on' : 'is-off'}">
             ${renderRoleAvatar(p.name, 'row')}
-            <span class="crew-row-name">${crewEscape(p.name)}</span>
-            ${status ? `<span class="crew-row-status">${status}</span>` : ''}
+            <span class="crew-row-text">
+                <span class="crew-row-name">${crewEscape(p.name)}${me ? ' <span class="crew-row-you">(You)</span>' : ''}</span>
+                ${emp && emp.role ? `<span class="crew-row-role">${crewEscape(emp.role)}</span>` : ''}
+                <span class="crew-badge ${badge.cls}">${badge.cls === 'is-live' ? '<span class="crew-row-dot" aria-hidden="true"></span>' : ''}${badge.text}</span>
+            </span>
+            ${actions ? `<span class="crew-acts">${actions}</span>` : ''}
         </li>`;
+}
+// Message: the existing direct-message conversation with them (scripts/features/chat.js)
+function messageCrewMember(name) {
+    triggerHaptic('light');
+    closeCrewStatusSheet();
+    setTimeout(() => openDirectMessage(name), 200);
 }
 
 function renderCrewStatusSheet() {
@@ -93,9 +121,8 @@ function renderCrewStatusSheet() {
     const name = getSiteName(siteId, 'Site');
     const dayLabel = kind === 'today' ? 'today' : `on ${day.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}`;
 
-    document.getElementById('crew-sheet-site').textContent = `Site Crew — ${name}`;
-    document.getElementById('crew-sheet-address').textContent = kind === 'today'
-        ? getSiteAddress(siteId) : `${getSiteAddress(siteId)} · ${day.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}`;
+    document.getElementById('crew-sheet-site').textContent = `${name} Crew`;
+    document.getElementById('crew-sheet-address').textContent = day.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
     const head = crewHeadline(siteId, day, status);
     const count = document.getElementById('crew-sheet-count');
     count.hidden = total === 0;

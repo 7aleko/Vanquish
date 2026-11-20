@@ -258,25 +258,65 @@
 }
 .tt-qty-input::-webkit-outer-spin-button, .tt-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .tt-qty-input:focus { outline: 2px solid var(--control-focus); outline-offset: 1px; }
-.tt-note-label { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 600; color: #A1A1AA; }
-.tt-note-input {
-    display: block;
-    width: 100%;
-    height: 48px;
-    padding: 0 16px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    background: #1C1C20;
-    color: #fff;
-    font: inherit;
-    font-size: 16px;                               /* 16px: iOS doesn't zoom on focus */
-    -webkit-appearance: none;
-    appearance: none;
-}
-.tt-note-input::placeholder { color: #71717A; }
-.tt-note-input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--control-focus); }
+/* ---- Quantity, in the tool card (grouped tools with more than one unit at the source) ---- */
+.tt-qty-row { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+.tt-qty-row[hidden] { display: none; }
+.tt-qty-row .qty-stepper { padding: 3px; }
+.tt-qty-row .qty-step { width: 32px; height: 32px; }
+.tt-qty-row .qty-readout { min-width: 30px; }
+.tt-qty-row .qty-max { display: none; }                   /* "of N available" says it */
+.tt-qty-of { font-size: 13px; font-weight: 500; color: #A1A1AA; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* ---- 4. Action ---- */
-.tt-action { padding-top: 4px; }
+/* An empty second line under From / To isn't drawn */
+.tt-site-sub[hidden] { display: none; }
+
+/* ---- Quick destinations: one horizontal row that scrolls, never wraps ---- */
+.tt-chips {
+    display: flex;
+    gap: 8px;
+    margin-left: calc(-1 * var(--sheet-gutter));
+    margin-right: calc(-1 * var(--sheet-gutter));
+    padding: 2px var(--sheet-gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.tt-chips::-webkit-scrollbar { display: none; }
+.tt-chips[hidden] { display: none; }
+.tt-chip {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, scale var(--dur-press, 120ms) var(--ease-out, ease-out);
+}
+.tt-chip::before { content: ''; position: absolute; inset: -5px 0; }          /* 44px tap target */
+.tt-chip:active { scale: 0.96; }
+.tt-chip i { font-size: 13px; }
+.tt-chip.is-mine i { color: var(--sheet-mint); }
+/* Selected: the route's colour, so chip and To card read as one choice */
+.tt-chip.is-active { background: rgba(30, 215, 150, 0.14); border-color: rgba(30, 215, 150, 0.5); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.tt-chip--more { color: rgba(255, 255, 255, 0.6); }
+.tt-chip--more i { font-size: 12px; }
+.tt-chip:focus-visible { outline: 2px solid var(--focus-ring, #22E562); outline-offset: 2px; }
+
+/* ---- Status at destination: just above the action, in the footer ---- */
+.tt-arrival { margin-bottom: 12px; }
+.tt-arrival[hidden] { display: none; }
+.tt-arrival .sheet-seg { min-height: 38px; font-size: 14px; }
+
+/* The note is the shared sheet field (.sheet-label / .sheet-input, styles/sheet.css); the action sits in the sheet footer */
 
 @media (prefers-reduced-motion: reduce) { .tt-site--to:active { transform: none; } }

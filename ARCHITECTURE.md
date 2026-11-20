@@ -59,21 +59,25 @@ objects, which are copies of the stored data.
 | `timesheets` | `list({employeeId, from, to, status})`, `getById`, `getForEmployeeOnDate`, `create` (unique per employee and day), `update` |
 | `crewLogs` | `list({date, siteId, from, to})` |
 | `siteLogs` | `list({siteId})`, `create` |
-| `drawings` | `list({siteId})` |
+| `drawings` | `list({siteId})`, `create` (one record per site and sheet; a new revision replaces it) |
 | `sitePhotos` | `list({siteId, logId})`, `create` |
 | `attendance` | `list({date, siteId, employeeId})`, `signIn` (one record per employee and day; signing in again reopens it), `signOut` |
 | `costCodes` | `list` |
-| `equipment` | `list`, `getById`, `create`, `update` |
+| `equipment` | `list`, `getById`, `create`, `update` (details only), `listAllocations`, `moveUnits` (atomic: checks the source bucket, decrements it and removes it at 0, increments or creates the destination, reconciles the total) |
 | `leave` | `listRequests`, `getRequest`, `createRequest`, `updateRequest`, `getBalance`, `updateBalance` |
+| `chats` | `list`, `getForSite` (a site's group chat) |
+| `chatMessages` | `list({chatId})` |
+| `availability` | `listRequests`, `getRequest`, `listResponses`, `createRequest` (one active request per tool; a repeated idempotency key replays the first; site and chat come from the tool's record, and the request and its chat message are created together), `respond` (compare-and-set: the first answer wins, then only the holder or an override; updates the tool and appends the response history), `expireDue` |
+| `notifications` | `list({recipientId})`, `createMany` (unique per recipient and dedupe key), `markRead` (own only), `markAllRead` |
 | `audit` | `record`, `list` |
-| provider | `transaction(async repos => ...)`, `name` |
+| provider | `transaction(async repos => ...)`, `subscribe(fn)` (optional realtime: changed tables), `name` |
 
 ## Data models
 
 The models are defined in `scripts/domain/models.js`, and their runtime schemas in `scripts/domain/validation.js`.
 The entities are:
 
-- Site
+- Site (`kind`: a construction site, or the factory - an equipment location that never appears in site pickers; `getActiveSites` lists construction sites, `getEquipmentLocations` adds the factory)
 - Employee
 - RosterAssignment
 - Timesheet, which owns its TimesheetBlocks
@@ -83,9 +87,15 @@ The entities are:
 - Drawing (the current revision of a drawing sheet: sheet number, title, discipline, revision, issue date)
 - SitePhoto (a photo taken on site, usually attached to a SiteLog)
 - CostCode
-- Tool
+- Tool (`trackingType` 'individual': one asset with its own `siteId` and `status`, `siteId` null = unassigned; 'quantity': identical units under one record with `totalQuantity`)
+- EquipmentAllocation (where a quantity-tracked tool's units are: unique per tool, site and status; positive quantities that add up to `totalQuantity`, out-of-service units included)
 - LeaveRequest
 - LeaveBalance
+- Chat (the server's view of a chat: id, name, kind and, for a site group chat, its site)
+- ChatMessage (a structured chat message; an availability card references its request and stores no copy of its state)
+- AvailabilityRequest (one "is this tool free?" asked of a tool's site: the one record the Tools card, the chat card and the notifications all show)
+- AvailabilityResponse (the history of answers and ETA changes)
+- Notification (one person's in-app notification, with a deep link to a chat message)
 - AuditEntry
 
 The rules every model follows:
@@ -106,8 +116,9 @@ The rules every model follows:
 | `timesheetService` | `submit`: validates, works out ROSTERED / TRANSFERRED / MANUAL from the roster, upserts and audits. `approve` and `reject`: needs a supervisor or above, and never on your own timesheet. |
 | `crewLogService` | `forSiteOnDate`: matched on date and site id. `copyBlocks`: returns fresh draft blocks and never submits. |
 | `attendanceService` | `signIn` and `signOut` for the signed-in employee on a given day (the Home card's day). Refuses an archived site or signing in at a second site while still signed in elsewhere. Timestamps come from the provider; every change is audited. |
-| `siteContentService` | `addLog`: validates the title, notes, active site and up to 6 photos, then saves the log and its photos in one transaction with audit entries. |
-| `equipmentService` | `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. `register`: validates name, category (`ToolCategories`), active site and quantity, refuses a duplicate name at the same site, and adds the tool as Available with an audit entry. |
+| `siteContentService` | `addDrawing`: validates the sheet, title, discipline and revision and records it in the site's drawing register (a new revision of a sheet replaces the old; the same revision is a conflict). `addLog`: validates the title, notes, active site and up to 6 photos, then saves the log and its photos in one transaction with audit entries. |
+| `equipmentService` | `transferUnits` / `setUnitStatus`: move N units of a quantity-tracked tool between buckets (only available units transfer; they arrive In Use at a site, Available at the factory). `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. `register`: validates name, category (`ToolCategories`), active site and quantity, refuses a duplicate name at the same site, and adds the tool as Available with an audit entry. |
+| `availabilityService` | `request`: asks a tool's site whether an in-use tool is free; the database refuses a second active request for the tool (30-minute cooldown), a tool that is available, in service, at an inactive site or at a site without a group chat, and replays a retried submit. Notifies the site's members today (rostered there or signed in there, active, not the requester), each once. `respond` (available / in use with an ETA / missing) and `updateEta`: only site members, never your own request (admins excepted), supervisors and above may override; ETAs are worked out from a preset or a clock time by the service. Tells the requester; a missing tool also alerts the site's supervisors (or the directors). Notifications are delivered after the change is saved, so a failed delivery never undoes it. `sweepExpired`, `markNotificationRead`, `markAllNotificationsRead`. |
 | `leaveService` | `request`: checks working days, the balance and overlaps. `approve` and `reject`: the balance is deducted in the same transaction. |
 
 ## Errors
@@ -143,8 +154,11 @@ is never shown to a user.
    `APP_CONFIG.dataProvider.provider`. Put only public keys in the config.
 3. Replace the body of `createAuthSession` with the identity provider. Its interface stays the same.
 4. Load timesheets and crew logs by employee and date range in `bootstrap.js` instead of loading everything.
-5. Optionally, subscribe to the backend's change events and call `appStore.refresh(collection)` so other
-   users' changes appear live.
+5. Implement `provider.subscribe(fn)` with the backend's change feed. `bootstrap.js` already refreshes the
+   changed collections, so other users' changes appear live. The mock does this between browser tabs
+   (`persistence: 'local'`); `?as=<employeeId>` signs a tab in as someone else and `?reset-data` restores the seed.
+6. Run each `availability` method as a server function that reads the caller from the auth session, and send
+   real push notifications (APNs, Web Push) from the notifications table; the app delivers in-app only.
 
 Steps 1 to 5 don't change screens, services or domain rules. The tests in `tests/` run against any provider
 that passes `assertImplementsContracts`.
@@ -152,7 +166,9 @@ that passes `assertImplementsContracts`.
 Database-side requirements:
 
 - **Foreign keys:** every `*Id` field.
-- **Unique keys:** `roster (date, employeeId)` and `timesheets (date, employeeId)`.
+- **Unique keys:** `equipmentAllocations (toolId, siteId, status)` with `quantity > 0` and a check that a tool's buckets sum to its `totalQuantity`, `roster (date, employeeId)`, `timesheets (date, employeeId)`, `notifications (recipientId, dedupeKey)`,
+  `availabilityRequests (requesterId, idempotencyKey)`, and one active availability request per tool (a partial
+  unique index on `toolId` (and `siteId` for quantity-tracked tools) where the request is pending or in use).
 - **Indexes:** on `date`, `employeeId` and `siteId`.
 - **Soft archive:** `active` on permanent tables.
 - **Audit:** an append-only audit table.
@@ -179,6 +195,7 @@ class; don't copy utility strings onto a new element.
 | Search field (`.search-field`, `--sheet` variant) | `styles/search-field.css` | Messages, Team, Tools & Gear, Procore projects |
 | Filter pills (`.filter-bar`, `.filter-pill`, `--inset` variant) | `styles/filter-bar.css`, `setActiveFilterPill()` | Messages, Notifications, Team, Tools & Gear, Trade Schedule (trades and weeks) |
 | Buttons (`.btn` + `--primary`, `--secondary`, `--card` pill with glass tones `--glass` / `--glass-emerald` / `--glass-blue` / `--glass-amber` and `--compact`, `--cta` with `--cta-emerald` / `--cta-blue`, `--destructive`, `--icon`, `--round`, `--block`) | `styles/buttons.css` | Tools (cards, + Add, the add sheet, the transfer sheet); use for every new button |
+| Sheets and modals (`.sheet-scrim`, `.sheet`, `.sheet-grab`, `.sheet-handle`, `.sheet-head`, `.sheet-title` / `.sheet-subtitle`, `.sheet-close`, `.sheet-body`, `.sheet-foot`, `.sheet-btn` / `--secondary` / `--text` / `.is-tone-blue` / `.is-tone-amber`, `.sheet-label`, `.sheet-input`; `--sheet-*` tokens) | `styles/sheet.css` (the Time sheet's design, the single source; the Time sheet's own classes share its rules) | Every modal: `openModal`, Time, Tool Transfer, Crew, Choose Site, the account sheet (via its tokens), the date picker. New modals call `openModal` or compose these classes. |
 | Header round buttons (`.nav-back`, `.nav-action`) | `styles/top-bar.css`, `--nav-circle-*` tokens | Every pushed screen |
 | Account sheet parts (`.account-control`, `.account-tile`, `--acct-*` tokens) | `styles/account-sheet.css` | The account sheet and its pages |
 

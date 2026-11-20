@@ -68,24 +68,6 @@ function openProfileModal() {
         function openProjectSelectorModal() {
             openModal("Select project", `
                 <div class="space-y-4 py-1">
-                    <style>
-        * {
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-        body {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
-        }
-
-                        #modal-title {
-                            font-size: 1.25rem;
-                            font-weight: 900;
-                            letter-spacing: -0.03em;
-                            color: var(--ink-primary);
-                        }
-                    </style>
                     <div class="search-field search-field--sheet">
                         <i class="ph-bold ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
                         <input type="search" id="procore-search-input" oninput="filterProcoreProjects()" placeholder="Search project name, suburb or ID..." aria-label="Search Procore projects" autocomplete="off" enterkeyhint="search" class="search-field-input">
@@ -236,8 +218,8 @@ function openProfileModal() {
             <!-- Request Gear Form Content -->
             <div id="ww-content-request" class="space-y-4 pt-1">
                 <div>
-                    <label class="block text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5">Select Item</label>
-                    <select id="ww-item-select" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 font-bold text-slate-900 focus:outline-none focus:border-brand-lime shadow-inner text-xs">
+                    <label class="sheet-label">Select Item</label>
+                    <select id="ww-item-select" class="sheet-input">
                         <option value="Short Sleeve Shirt">Short Sleeve Shirt</option>
                         <option value="Long Sleeve Shirt">Long Sleeve Shirt</option>
                         <option value="Jumper">Jumper</option>
@@ -248,7 +230,7 @@ function openProfileModal() {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5">Select Size</label>
+                    <label class="sheet-label">Select Size</label>
                     <div class="grid grid-cols-5 gap-2" id="ww-size-container">
                         <button type="button" onclick="selectWorkwearSize(this)" class="ww-size-btn py-3 rounded-2xl border border-slate-200 font-extrabold text-slate-700 hover:border-slate-900 transition-all cursor-pointer text-xs">S</button>
                         <button type="button" onclick="selectWorkwearSize(this)" class="ww-size-btn py-3 rounded-2xl border border-slate-900 bg-slate-900 text-white font-extrabold transition-all cursor-pointer shadow-sm text-xs">M</button>
@@ -259,8 +241,8 @@ function openProfileModal() {
                 </div>
 
                 <div>
-                    <label class="block text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5">Optional Note</label>
-                    <textarea id="ww-note" placeholder="Add any special instructions..." class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-lime h-24 resize-none shadow-inner text-xs"></textarea>
+                    <label class="sheet-label">Optional Note</label>
+                    <textarea id="ww-note" placeholder="Add any special instructions..." class="sheet-input"></textarea>
                 </div>
 
                 <!-- Enlarged Primary Action Button -->

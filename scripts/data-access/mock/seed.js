@@ -6,6 +6,9 @@
  * A real provider has its own mapper (rows / documents <-> models) in place of this file.
  */
 
+// Bump when the seed's shape changes: a saved mock database from an older seed is then started again
+const MOCK_SEED_VERSION = 2;
+
 function buildMockSeed(options) {
     const { today, payRunPolicy } = options;
     const D = DateRules;
@@ -15,7 +18,7 @@ function buildMockSeed(options) {
     // ----- Sites -----
     const sites = SITES.map(s => ({
         id: s.id, shortName: s.shortName, address: s.address, suburb: s.suburb, active: !!s.active,
-        icon: s.icon, createdAt: SEEDED_AT, updatedAt: SEEDED_AT
+        icon: s.icon, kind: s.kind || 'site', createdAt: SEEDED_AT, updatedAt: SEEDED_AT
     }));
 
     // ----- Employees (the team directory) -----
@@ -88,6 +91,43 @@ function buildMockSeed(options) {
         };
     });
 
+    // ----- Site crews (JOBS_DATA, the sites' daily crews) as roster assignments, so the database knows who
+    // belongs to a site on a day. The signed-in worker's own roster (ROSTER) wins; a person named on two
+    // crews the same day is placed where they signed in, otherwise on the first.
+    const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const crewYear = Number(String(options.siteDay || todayIso).slice(0, 4));
+    const crewDate = label => {
+        const m = /^(\d{1,2})\s+([A-Za-z]{3})/.exec(label || '');
+        const mi = m ? MONTHS.indexOf(m[2].toLowerCase()) : -1;
+        return mi < 0 ? null : D.toIso(new Date(crewYear, mi, Number(m[1])));
+    };
+    const crewChoices = new Map();                  // 'employeeId|date' -> [siteId, ...]
+    (typeof JOBS_DATA === 'undefined' ? [] : JOBS_DATA).forEach(job => {
+        Object.values(job.days || {}).forEach(day => {
+            const date = crewDate(day.date);
+            if (!date) return;
+            (day.crew || []).forEach(name => {
+                const member = employeeByName(name);
+                if (!member) return;                    // labour hire / rotational teams have no employee record
+                const key = `${member.id}|${date}`;
+                crewChoices.set(key, [...(crewChoices.get(key) || []), job.siteId]);
+            });
+        });
+    });
+    crewChoices.forEach((siteIds, key) => {
+        const [employeeId, date] = key.split('|');
+        if (roster.some(r => r.employeeId === employeeId && r.date === date)) return;
+        const signedIn = attendance.find(a => a.employeeId === employeeId && a.date === date && siteIds.includes(a.siteId));
+        roster.push({ id: `RA-${employeeId}-${date}`, date, employeeId, siteId: signedIn ? signedIn.siteId : siteIds[0] });
+    });
+
+    // ----- Chats the server knows about (LIFESTYLE_CHATS): a site group chat names its site -----
+    const chats = (typeof LIFESTYLE_CHATS === 'undefined' ? [] : LIFESTYLE_CHATS).map(c => ({
+        id: c.id, name: c.name,
+        kind: c.siteId ? 'site' : (c.category === 'ai' ? 'ai' : c.category === 'direct' ? 'direct' : 'channel'),
+        siteId: c.siteId || null
+    }));
+
     // ----- Site content: daily logs and drawings (scripts/data/site-content.js). No sample photos. -----
     const siteLogs = (typeof SITE_LOG_SAMPLE === 'undefined' ? [] : SITE_LOG_SAMPLE).map((l, i) => {
         const author = employeeByName(l.author);
@@ -102,12 +142,33 @@ function buildMockSeed(options) {
     }));
     const sitePhotos = [];
 
-    // ----- Equipment -----
-    const equipment = TOOLS_DIRECTORY_DATA.map(t => ({
-        id: t.id, name: t.name, siteId: t.siteId, category: t.category, status: t.status,
-        ...(t.quantity ? { quantity: t.quantity, unit: t.unit } : {}),
-        lastLogged: t.lastLogged || '', moveRequestedToSiteId: null
-    }));
+    // ----- Equipment: the inventory (scripts/data/tools.js). A single item is an individual record with its own
+    // site and status; an item with several identical units (or bulk stock) is ONE quantity-tracked record whose
+    // units sit in allocation buckets (site, status, quantity). Status follows location (EquipmentRules.statusAt).
+    // Ids are sequential record keys counted per physical unit, so a grouped record keeps the id its first unit
+    // had when units were separate records (saved databases migrate onto the same ids).
+    let equipmentSeq = 0;
+    const equipmentId = () => `eq-${String(++equipmentSeq).padStart(3, '0')}`;
+    const equipment = [], equipmentAllocations = [];
+    EQUIPMENT_INVENTORY.forEach(item => {
+        const site = sites.find(x => x.id === item.location) || null;
+        const status = EquipmentRules.statusAt(site);
+        const base = {
+            name: item.name, category: item.category, lastLogged: '', moveRequestedToSiteId: null,
+            missingReportedAt: null, missingReportedBy: null
+        };
+        const qty = item.quantity || 1;
+        if (qty > 1) {
+            const id = equipmentId();
+            for (let u = 1; u < (item.bulk ? 1 : qty); u++) equipmentId();      // the ids its other units had
+            equipment.push({ ...base, id, trackingType: 'quantity', totalQuantity: qty, siteId: null, status: null,
+                ...(item.unit ? { unit: item.unit } : {}) });
+            equipmentAllocations.push({ id: `AL-${id}-${item.location || 'unassigned'}-${status.replace(/\s+/g, '')}`, toolId: id,
+                siteId: item.location || null, status, quantity: qty, updatedAt: SEEDED_AT });
+        } else {
+            equipment.push({ ...base, id: equipmentId(), trackingType: 'individual', siteId: item.location || null, status });
+        }
+    });
 
     // ----- Leave: the account's history as dated requests, and its balance -----
     const leaveOwner = 'team-1';
@@ -129,5 +190,14 @@ function buildMockSeed(options) {
     });
     const leaveBalances = [{ employeeId: leaveOwner, annualDays: ACCOUNT_DATA.leave.annualDays, personalDays: ACCOUNT_DATA.leave.personalDays }];
 
-    return { sites, employees, roster, costCodes, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, equipment, leaveRequests, leaveBalances, audit: [], seededFor: todayIso };
+    // Availability requests, their responses, structured chat messages and notifications start empty: they
+    // are created by people using the app
+    return {
+        sites, employees, roster, costCodes, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, equipment,
+        leaveRequests, leaveBalances, equipmentAllocations, chats, chatMessages: [], availabilityRequests: [], availabilityResponses: [], notifications: [],
+        audit: [], seededFor: `${todayIso}/${MOCK_SEED_VERSION}`,
+        // A saved database whose table version differs takes that table from this seed (see the mock
+        // provider): equipment v4 = quantity-tracked groups with allocation buckets (v3: one record per unit)
+        tableVersions: { equipment: 4 }
+    };
 }

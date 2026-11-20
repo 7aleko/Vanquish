@@ -17,11 +17,12 @@ test('seed: every record is valid and every reference resolves', async () => {
     const sites = await provider.sites.list();
     const ids = new Set(sites.map(s => s.id));
     const employees = new Set((await provider.employees.list()).map(e => e.id));
-    assert.equal(sites.filter(s => s.active).length, 11);
+    assert.equal(sites.filter(s => s.active && s.kind === 'site').length, 11);     // construction sites
+    assert.deepEqual(sites.filter(s => s.kind === 'factory').map(s => s.id), ['factory']);
     for (const r of await provider.roster.list()) { assert.ok(ids.has(r.siteId)); assert.ok(employees.has(r.employeeId)); }
     for (const t of await provider.timesheets.list()) { app.assertValidEntity('timesheet', t); assert.ok(ids.has(t.siteId)); }
     for (const l of await provider.crewLogs.list()) { app.assertValidEntity('crewLog', l); assert.ok(ids.has(l.siteId)); }
-    for (const tool of await provider.equipment.list()) { app.assertValidEntity('tool', tool); assert.ok(ids.has(tool.siteId)); }
+    for (const tool of await provider.equipment.list()) { app.assertValidEntity('tool', tool); assert.ok(tool.siteId === null || ids.has(tool.siteId)); }
 });
 
 test('reads return copies: changing one never changes stored data', async () => {
@@ -85,5 +86,5 @@ test('simulated network failures surface as NETWORK errors', async () => {
     const { provider } = await app.makeEnv();
     provider.debug.failNext('sites.list');
     await assert.rejects(provider.sites.list(), code('NETWORK'));
-    assert.equal((await provider.sites.list()).length, 12);
+    assert.equal((await provider.sites.list()).length, 13);
 });

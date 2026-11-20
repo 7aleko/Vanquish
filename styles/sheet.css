@@ -1,0 +1,279 @@
+/* ================= Shared sheet system =================
+   Every modal and bottom sheet in the app uses this one design: the Time (timesheet) sheet's. Its values are
+   the tokens below and its parts the components below - the Time sheet's own classes (.ts-sheet...) are
+   listed in the same rules, so there is exactly one source for each.
+
+   Anatomy (markup):
+     .sheet-scrim                       dimmed, lightly blurred backdrop; the sheet rises from its bottom
+       .sheet                           frosted dark liquid glass, 28px top corners, hairline edge
+         .sheet-grab                    drag area: .sheet-handle, then .sheet-head
+           .sheet-head > .sheet-head-text > .sheet-title (+ .sheet-subtitle)  and  .sheet-close
+         .sheet-body                    scrolls on its own; forms use .sheet-label / .sheet-input
+         .sheet-foot                    actions, above the home indicator: .sheet-btn (primary),
+                                        .sheet-btn--secondary, .sheet-btn--text
+   Motion: rises with --sheet-enter / --sheet-ease; the scrim fades with --sheet-scrim-fade. Each sheet's
+   open / closed state stays with its own script; only the look lives here. Add a new modal by composing
+   these classes (or calling openModal) - never by writing new sheet colours, radii or headers. */
+
+:root {
+    --sheet-scrim: rgba(0, 0, 0, 0.55);
+    --sheet-scrim-blur: blur(4px);
+    --sheet-scrim-fade: 320ms;
+    --sheet-bg: rgba(16, 18, 17, 0.92);              /* frosted dark glass; the blur keeps the page from ghosting through */
+    --sheet-bg-solid: #101211;                       /* the same colour, opaque (reduced transparency) */
+    --sheet-blur: blur(24px) saturate(140%);
+    --sheet-edge: rgba(255, 255, 255, 0.08);
+    --sheet-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 -18px 50px rgba(0, 0, 0, 0.6);
+    --sheet-radius: 28px;
+    --sheet-max-w: 520px;
+    --sheet-gutter: 16px;
+    --sheet-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --sheet-enter: 420ms;
+    --sheet-exit: 320ms;
+    --sheet-muted: rgba(255, 255, 255, 0.6);
+    --sheet-mint: #1ED796;
+}
+
+/* ---- Backdrop ---- */
+.sheet-scrim {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: var(--sheet-scrim);
+    -webkit-backdrop-filter: var(--sheet-scrim-blur);
+            backdrop-filter: var(--sheet-scrim-blur);
+}
+
+/* ---- Surface ---- */
+.sheet, .ts-sheet {
+    position: relative;
+    width: 100%;
+    max-width: var(--sheet-max-w);
+    max-height: calc(100% - var(--safe-top, 0px) - 28px);
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+    border: 1px solid var(--sheet-edge);
+    border-bottom: 0;
+    background: var(--sheet-bg);
+    -webkit-backdrop-filter: var(--sheet-blur);
+            backdrop-filter: var(--sheet-blur);
+    box-shadow: var(--sheet-shadow);
+    color: #fff;
+    outline: none;
+}
+
+/* A sheet takes focus when it opens (for screen readers and Escape); it never shows a ring for that */
+.sheet:focus, .sheet:focus-visible, .ts-sheet:focus-visible { outline: none; box-shadow: var(--sheet-shadow); }
+
+/* ---- Grab area: handle + header ---- */
+.sheet-grab, .ts-sheet-grab { flex-shrink: 0; padding: 8px var(--sheet-gutter) 10px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.sheet-handle, .ts-sheet-handle { display: block; width: 40px; height: 5px; margin: 0 auto 10px; border-radius: 9999px; background: rgba(255, 255, 255, 0.22); }
+.sheet-head, .ts-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet-head-text, .ts-sheet-head-text { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sheet-head-text.is-stacked { flex-direction: column; align-items: flex-start; gap: 2px; }
+.sheet-title, .ts-sheet-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-subtitle { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--sheet-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.sheet-close, .ts-sheet-close {
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 15px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press, 120ms) var(--ease-out, ease-out), background-color 160ms ease;
+}
+.sheet-close::before, .ts-sheet-close::before { content: ""; position: absolute; inset: -5px; }   /* 44px tap target */
+.sheet-close:active, .ts-sheet-close:active { scale: 0.92; }
+.sheet-close:focus-visible, .ts-sheet-close:focus-visible { outline: 2px solid var(--focus-ring, #22E562); outline-offset: 2px; }
+
+/* ---- Body: scrolls on its own; the page behind never scrolls with it ---- */
+.sheet-body, .ts-sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px var(--sheet-gutter) var(--sheet-gutter);
+    -webkit-overflow-scrolling: touch;
+    user-select: text;
+    -webkit-user-select: text;
+}
+/* No footer: the body clears the home indicator itself */
+.sheet-body:last-child { padding-bottom: calc(var(--sheet-gutter) + var(--safe-bottom, 0px)); }
+
+/* ---- Footer ---- */
+.sheet-foot, .ts-sheet-foot {
+    flex-shrink: 0;
+    padding: 10px var(--sheet-gutter) calc(14px + var(--safe-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+}
+
+/* ---- Actions ---- */
+/* Primary: a rich emerald glass pill with a mint specular rim */
+.sheet-btn, .ts-save {
+    width: 100%;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(46, 230, 168, 0.45);
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #0D4A38 0%, #18A878 100%);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(24, 168, 120, 0.5);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press, 120ms) var(--ease-out, ease-out), opacity 160ms ease;
+}
+.sheet-btn i, .ts-save i { font-size: 18px; }
+.sheet-btn:active:not(:disabled), .ts-save:active:not(:disabled) { scale: var(--press-scale, 0.97); }
+.sheet-btn:disabled, .ts-save:disabled { opacity: 0.35; box-shadow: none; cursor: default; }
+.sheet-btn:focus-visible, .ts-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Toned primaries, where the action has a status colour (in-use blue, service amber) */
+.sheet-btn.is-tone-blue { border-color: rgba(147, 197, 253, 0.45); background: linear-gradient(135deg, #12305C 0%, #2563EB 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(37, 99, 235, 0.5); }
+.sheet-btn.is-tone-amber { border-color: rgba(251, 191, 36, 0.45); background: linear-gradient(135deg, #5C3A07 0%, #B7791F 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(183, 121, 31, 0.5); }
+/* Secondary: dark glass pill */
+.sheet-btn--secondary, .ts-save-next {
+    width: 100%;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press, 120ms) var(--ease-out, ease-out), background-color 160ms ease;
+}
+.sheet-btn--secondary i, .ts-save-next i { font-size: 16px; color: var(--sheet-mint); }
+.sheet-btn--secondary:active, .ts-save-next:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.1); }
+/* Text: a quiet dismiss / discard */
+.sheet-btn--text, .ts-cancel {
+    display: block;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 0;
+    background: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ---- Form fields ---- */
+.sheet-label, .ts-field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--sheet-muted); }
+.sheet-label { margin-bottom: 6px; text-transform: uppercase; }
+.sheet-input, .ts-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    font: inherit;
+    font-size: 16px;                    /* 16px: iOS doesn't zoom the page on focus */
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color-scheme: dark;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+.sheet-input:focus, .ts-input:focus { outline: none; border-color: rgba(30, 215, 150, 0.55); background: rgba(0, 0, 0, 0.55); }
+.sheet-input::placeholder, .ts-input::placeholder { color: rgba(255, 255, 255, 0.35); font-weight: 500; }
+textarea.sheet-input { min-height: 96px; padding: 12px; line-height: 1.4; resize: vertical; }
+select.sheet-input { padding-right: 36px; background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,.6) 50%), linear-gradient(135deg, rgba(255,255,255,.6) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+/* ---- Segmented control (the Time sheet's lunch toggle): a dark track, the chosen option lifts to emerald glass ---- */
+.sheet-segmented, .ts-segmented {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ts-segmented--sm { flex: 0 1 auto; }
+.sheet-seg, .ts-seg {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, color 160ms ease, scale var(--dur-press) var(--ease-out);
+}
+.sheet-seg:active, .ts-seg:active { scale: 0.96; }
+/* The chosen option: a subtle emerald glass tint with a crisp rim (inset, so the control doesn't shift) */
+.sheet-seg.is-active, .ts-seg.is-active {
+    background: rgba(30, 215, 150, 0.14);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.sheet-seg:focus-visible, .ts-seg:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; }
+
+/* ---- Content written for the old light sheet ----
+   Older feature content inside a sheet still uses the app's shared buttons and plain fields; inside a sheet
+   they take the sheet's own action and field styles, so no feature keeps a look of its own. */
+.sheet .btn.btn--primary.btn--block, .sheet .btn.btn--cta.btn--cta-emerald {
+    height: 52px; min-height: 52px; border-radius: 9999px; border: 1px solid rgba(46, 230, 168, 0.45);
+    background: linear-gradient(135deg, #0D4A38 0%, #18A878 100%); color: #fff; font-size: 16px; font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(24, 168, 120, 0.5);
+}
+.sheet .btn.btn--primary.btn--block:disabled { opacity: 0.35; box-shadow: none; }
+.sheet .btn.btn--cta.btn--cta-blue, .sheet .btn.btn--cta.is-tone-amber { height: 52px; min-height: 52px; border-radius: 9999px; font-size: 16px; font-weight: 800; }
+.sheet .btn.btn--secondary.btn--block {
+    height: 52px; min-height: 52px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.05); color: #fff; font-size: 15px; font-weight: 700; box-shadow: none;
+}
+.sheet .sheet-body :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.search-field-input):not(.tt-qty-input):not(.tt-note-input), select, textarea):not(.ts-input):not(.sheet-input) {
+    min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(0, 0, 0, 0.4); color: #fff; font-size: 16px; font-weight: 600; color-scheme: dark;
+}
+.sheet .sheet-body textarea:not(.ts-input):not(.sheet-input) { padding: 12px; line-height: 1.4; }
+.sheet .sheet-body :is(input, select, textarea):not(.ts-input):not(.sheet-input):focus { outline: none; border-color: rgba(30, 215, 150, 0.55); background-color: rgba(0, 0, 0, 0.55); }
+
+/* Older content's own primary / secondary buttons (.btn-primary, and the light slate pills beside them) */
+:is(.sheet .sheet-body, .account-detail-body) .btn-primary {
+    min-height: 52px; border-radius: 9999px !important; border: 1px solid rgba(46, 230, 168, 0.45);
+    background: linear-gradient(135deg, #0D4A38 0%, #18A878 100%) !important; color: #fff !important;
+    font-size: 16px !important; font-weight: 800; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(24, 168, 120, 0.5) !important;
+}
+:is(.sheet .sheet-body, .account-detail-body) button.rounded-2xl:is(.bg-slate-100, .bg-slate-50):not(.btn-primary) {
+    min-height: 52px; border-radius: 9999px !important; border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    background: rgba(255, 255, 255, 0.05) !important; color: #fff !important; font-size: 15px !important; font-weight: 700;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .sheet, .ts-sheet { background: var(--sheet-bg-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .sheet-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(0, 0, 0, 0.7); }
+}

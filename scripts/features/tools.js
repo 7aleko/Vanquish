@@ -1,7 +1,9 @@
 /**
  * Tools & gear directory: render, search, category filter, status filter (the summary tiles).
  * Reads equipment and site names through the selectors (getTools, getSiteName); transfers go through
- * equipmentService (scripts/features/tool-transfer.js). Re-renders when equipment or sites change.
+ * equipmentService (scripts/features/tool-transfer.js). A tool in use offers Request Availability, and every
+ * card shows its latest availability request (scripts/features/availability.js). Re-renders when equipment,
+ * sites or availability requests change.
  */
 
 let currentToolCategory = 'all';
@@ -44,12 +46,16 @@ function filterToolsDirectory() {
     const query = input.value.toLowerCase().trim();
     if (clearBtn) clearBtn.classList.toggle('hidden', query === '');
 
+    // A grouped tool matches through any of its buckets (its locations and statuses)
     const filtered = getTools().filter(t => {
+        const buckets = isGroupedTool(t) ? getToolAllocations(t.id) : null;
+        const statuses = buckets ? buckets.map(a => a.status) : [t.status];
+        const places = buckets ? buckets.map(a => allocationLocationLabel(a)) : [toolLocationLabel(t)];
         const matchesCategory = (currentToolCategory === 'all' || t.category === currentToolCategory);
-        const matchesStatus = !currentToolStatus || t.status === currentToolStatus;
+        const matchesStatus = !currentToolStatus || statuses.includes(currentToolStatus);
         const matchesSearch = t.name.toLowerCase().includes(query) ||
-                              getSiteName(t.siteId).toLowerCase().includes(query) ||
-                              t.status.toLowerCase().includes(query);
+                              places.some(p => p.toLowerCase().includes(query)) ||
+                              statuses.some(v => toolStatusLabel(v).toLowerCase().includes(query) || v.toLowerCase().includes(query));
         return matchesCategory && matchesStatus && matchesSearch;
     });
 
@@ -67,6 +73,53 @@ function resetToolsView() {
     filterToolsDirectory();
 }
 
+// Where a tool is, as the card shows it: a site, the Factory, or "Location to confirm" (unassigned)
+function toolLocationLabel(tool) {
+    if (!tool.siteId) return 'Location to confirm';
+    return getSiteName(tool.siteId, 'Unknown location');
+}
+function allocationLocationLabel(alloc) { return toolLocationLabel({ siteId: alloc.siteId }); }
+// Service is shown as "Out of Service" on grouped rows (the units are in the workshop / broken)
+function toolStatusLabel(status) { return status === ToolStatus.SERVICE ? 'Out of Service' : status; }
+function toolCountLabel() { return ''; }        // individual tools are single assets: no count chip
+function escTool(v) { return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// A grouped (quantity-tracked) tool: name + "N Total", then one compact row per bucket - location · quantity
+// status, and that bucket's action pill. With a status filter on, only that status's rows show.
+function renderGroupedToolCard(t) {
+    const rows = getToolAllocations(t.id).filter(a => !currentToolStatus || a.status === currentToolStatus);
+    const tone = s => (s === ToolStatus.AVAILABLE ? 'is-available' : s === ToolStatus.SERVICE ? 'is-service' : 'is-in-use');
+    const summary = rows.map(a => `${allocationLocationLabel(a)}, ${a.quantity} ${toolStatusLabel(a.status)}`).join('; ');
+    return `
+        <div onclick="openToolUnitsSheet('${t.id}')" data-tool-id="${t.id}" role="button" tabindex="0"
+             aria-label="${escTool(t.name)}, ${t.totalQuantity} total: ${escTool(summary)}. Change status"
+             onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openToolUnitsSheet('${t.id}');}"
+             class="tool-card tool-card--grouped relative overflow-hidden transition-all group active:scale-[0.985] cursor-pointer select-none">
+            <div class="tool-card-head relative z-10">
+                <h4 class="tool-card-name">${escTool(t.name)}</h4>
+                <span class="tool-card-total">${t.totalQuantity} Total</span>
+            </div>
+            <ul class="tool-alloc-list relative z-10">
+                ${rows.map(a => {
+                    const parts = allocationActionParts(t, a);
+                    return `<li class="tool-alloc">
+                        <div class="tool-alloc-row">
+                            <span class="tool-alloc-text">
+                                <i class="fa-solid ${isFactory(a.siteId) ? 'fa-industry' : 'fa-location-dot'}" aria-hidden="true"></i>
+                                <span class="tool-alloc-loc">${escTool(allocationLocationLabel(a))}</span>
+                                <span class="tool-card-sep" aria-hidden="true">·</span>
+                                <span class="tool-alloc-qty tool-card-status ${tone(a.status)}">${a.quantity} ${toolStatusLabel(a.status)}</span>
+                            </span>
+                            ${parts.action}
+                        </div>
+                        ${parts.strip}
+                    </li>`;
+                }).join('')}
+            </ul>
+            ${t.needsReview ? `<p class="tool-card-review"><i class="ph-fill ph-warning" aria-hidden="true"></i>Counts migrated from older records - please check</p>` : ''}
+        </div>`;
+}
+
 function clearToolsSearch() {
     const input = document.getElementById('tools-search-input');
     if (input) {
@@ -80,10 +133,10 @@ function clearToolsSearch() {
     const container = document.getElementById('tools-groups-container');
     if (!container) return;
 
-    // Dynamically calculate counts using 'Service' strictly
-    const availableCount = getTools().filter(t => t.status === ToolStatus.AVAILABLE).length;
-    const inUseCount = getTools().filter(t => t.status === ToolStatus.IN_USE).length;
-    const serviceCount = getTools().filter(t => t.status === ToolStatus.SERVICE).length;
+    // Tools (cards) with something in each status - the same cards each tile filters to
+    const availableCount = countToolsWithStatus(ToolStatus.AVAILABLE);
+    const inUseCount = countToolsWithStatus(ToolStatus.IN_USE);
+    const serviceCount = countToolsWithStatus(ToolStatus.SERVICE);
 
     // Update the stat cards in the UI
     document.getElementById('stat-available').textContent = availableCount;
@@ -105,19 +158,23 @@ function clearToolsSearch() {
     }
 
     container.innerHTML = items.map(t => {
+        if (isGroupedTool(t)) return renderGroupedToolCard(t);
         const isAvailable = t.status === ToolStatus.AVAILABLE;
         const isService = t.status === ToolStatus.SERVICE;
         const logInfo = parseToolLastLog(t.lastLogged);
 
         // Status colour for the status label; the card is a plain dark surface (.tool-card, styles/tools.css)
         const statusTone = isAvailable ? 'is-available' : (isService ? 'is-service' : 'is-in-use');
+        // The tool's availability request, if any (scripts/features/availability.js): a strip under the
+        // meta line, and for a tool in use the Request Availability action (or its pending state)
+        const avail = toolAvailabilityParts(t);
 
         return `
             <div onclick="openToolTransferModal('${t.id}')"
                  data-tool-id="${t.id}"
                  role="button"
                  tabindex="0"
-                 aria-label="${t.name} at ${getSiteName(t.siteId, 'an unknown site')}, ${t.status}"
+                 aria-label="${t.name}${toolCountLabel(t) ? `, ${toolCountLabel(t)}` : ''}, ${t.siteId ? `at ${toolLocationLabel(t)}` : 'location to confirm'}, ${t.status}"
                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openToolTransferModal('${t.id}');}"
                  class="tool-card relative overflow-hidden transition-all group active:scale-[0.985] cursor-pointer select-none">
 
@@ -126,25 +183,20 @@ function clearToolsSearch() {
                     <h4 class="tool-card-name">${t.name}</h4>
                     <p class="tool-card-meta">
                         <span class="tool-card-site">
-                            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-                            <span>${getSiteName(t.siteId, 'Unknown site')}</span>
+                            <i class="fa-solid ${isFactory(t.siteId) ? 'fa-industry' : 'fa-location-dot'}" aria-hidden="true"></i>
+                            <span>${toolLocationLabel(t)}</span>
                         </span>
-                        ${t.quantity && t.quantity > 1 ? `
+                        ${toolCountLabel(t) ? `
                             <span class="tool-card-sep" aria-hidden="true">·</span>
                             <span class="tool-card-qty">
                                 <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-                                <span>${t.quantity} ${t.unit || 'Units'}</span>
+                                <span>${toolCountLabel(t)}</span>
                             </span>
                         ` : ''}
                         <span class="tool-card-sep" aria-hidden="true">·</span>
                         <span class="tool-card-status ${statusTone}">${t.status === 'Service' ? 'Service • Until Pickup Ready' : t.status}</span>
-                        ${t.moveRequestedToSiteId ? `
-                            <span class="tool-card-request">
-                                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-                                <span>Requested → ${getSiteName(t.moveRequestedToSiteId, 'Unknown site')}</span>
-                            </span>
-                        ` : ''}
                     </p>
+                    ${avail.strip}
                 </div>
 
                 <!-- Footer: last transfer log and the card's action -->
@@ -160,27 +212,17 @@ function clearToolsSearch() {
                         <button type="button"
                                 onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
                                 aria-label="Transfer ${t.name}"
-                                class="btn btn--card btn--glass-emerald tool-card-action">
+                                class="btn btn--card btn--glass-emerald tool-card-action tool-pill">
                             <span>Transfer</span>
-                            <i class="ph-bold ph-arrows-left-right" aria-hidden="true"></i>
                         </button>
                     ` : (isService ? `
                         <button type="button"
                                 onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
                                 aria-label="${t.name} in service, unavailable until pickup ready"
-                                class="btn btn--card btn--glass-amber tool-card-action">
+                                class="btn btn--card btn--glass-amber tool-card-action tool-pill">
                             <span>Pickup Pending</span>
-                            <i class="ph-bold ph-lock-simple" aria-hidden="true"></i>
                         </button>
-                    ` : `
-                        <button type="button"
-                                onclick="event.stopPropagation(); openToolTransferModal('${t.id}')" 
-                                aria-label="Request move for ${t.name}"
-                                class="btn btn--card btn--glass-blue tool-card-action">
-                            <span>Request Move</span>
-                            <i class="ph-bold ph-paper-plane-tilt" aria-hidden="true"></i>
-                        </button>
-                    `)}
+                    ` : avail.action || '')}
                 </div>
             </div>
         `;
@@ -189,7 +231,8 @@ function clearToolsSearch() {
 
 // Sites renamed or archived: redraw the list (names resolve from SITES)
 subscribeSites(() => { if (document.getElementById('tools-search-input')) filterToolsDirectory(); });
-appStore.subscribe(() => { if (document.getElementById('tools-search-input')) filterToolsDirectory(); }, ['equipment']);
+appStore.subscribe(() => { if (document.getElementById('tools-search-input')) filterToolsDirectory(); },
+    ['equipment', 'equipmentAllocations', 'availabilityRequests', 'chats', 'employees']);
 
 // ---------------- Add equipment ----------------
 // "+ Add" beside the Tools & Gear title. The form collects what a Tool needs; equipmentService.register
@@ -201,9 +244,9 @@ function openRegisterToolSheet() {
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     registerToolCategory = (currentToolCategory !== 'all') ? currentToolCategory : null;
     const hereId = getCurrentWorkingSiteId();
-    const sites = getActiveSites();
-    const label = 'block text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-1.5';
-    const field = 'w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-lime text-base';
+    const sites = getEquipmentLocations();
+    const label = 'sheet-label';                          // the shared sheet field (styles/sheet.css)
+    const field = 'sheet-input';
     openModal('Add Equipment', `
         <form id="register-tool-form" class="space-y-4 pt-1" onsubmit="event.preventDefault(); submitRegisterTool();" novalidate>
             <div>
@@ -270,4 +313,86 @@ async function submitRegisterTool() {
         card.classList.add('is-just-added');
         setTimeout(() => card.classList.remove('is-just-added'), 1600);
     });
+}
+
+// ---------------- Grouped tools: change some units' status ----------------
+// Tapping a grouped card: choose a bucket (where + status), how many, and the new status - Available, In Use
+// or Out of Service. equipmentService.setUnitStatus moves them between buckets atomically; transfers stay on
+// the rows' Transfer pills.
+let unitsDraft = null;              // { toolId, from: { siteId, status }, toStatus }
+
+function openToolUnitsSheet(toolId) {
+    const tool = getToolById(toolId);
+    const buckets = tool ? getToolAllocations(tool.id) : [];
+    if (!tool || !buckets.length) return;
+    triggerHaptic('light');
+    const first = buckets[0];
+    unitsDraft = { toolId: tool.id, from: { siteId: first.siteId, status: first.status }, toStatus: null };
+    const label = 'sheet-label';                          // the shared sheet field (styles/sheet.css)
+    openModal(tool.name, `
+        <form id="units-form" class="space-y-4 pt-1" onsubmit="event.preventDefault(); submitToolUnits();" novalidate>
+            <p class="av-sheet-hint">${tool.totalQuantity} total. Mark units available, in use or out of service where they are.</p>
+            <div>
+                <span id="units-from-label" class="${label}">Which units</span>
+                <div class="units-buckets" role="radiogroup" aria-labelledby="units-from-label">
+                    ${buckets.map((a, i) => `<button type="button" role="radio" aria-checked="${i === 0}" data-bucket="${i}"
+                        class="units-bucket${i === 0 ? ' is-active' : ''}" onclick="pickUnitsBucket(${i})">
+                        <span>${escTool(allocationLocationLabel(a))}</span><span class="tool-card-status ${a.status === ToolStatus.AVAILABLE ? 'is-available' : a.status === ToolStatus.SERVICE ? 'is-service' : 'is-in-use'}">${a.quantity} ${toolStatusLabel(a.status)}</span>
+                    </button>`).join('')}
+                </div>
+            </div>
+            <div>
+                <span id="units-to-label" class="${label}">Change to</span>
+                <div id="units-to" class="filter-bar filter-bar--wrap" role="radiogroup" aria-labelledby="units-to-label"></div>
+            </div>
+            <div class="qty-field">
+                <span class="${label}">How many?</span>
+                ${renderQtyStepper('units-qty', first.quantity, 'How many units')}
+            </div>
+            <button type="submit" id="units-submit" class="btn btn--primary btn--block" disabled>
+                <i class="ph-bold ph-check" aria-hidden="true"></i><span>Update Status</span>
+            </button>
+        </form>`);
+    renderUnitsTargets();
+}
+function unitsBuckets() { return unitsDraft ? getToolAllocations(unitsDraft.toolId) : []; }
+function pickUnitsBucket(i) {
+    const a = unitsBuckets()[i];
+    if (!a) return;
+    triggerHaptic('light');
+    unitsDraft.from = { siteId: a.siteId, status: a.status };
+    if (unitsDraft.toStatus === a.status) unitsDraft.toStatus = null;
+    document.querySelectorAll('#units-form .units-bucket').forEach(b => {
+        const on = Number(b.dataset.bucket) === i;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-checked', String(on));
+    });
+    setQtyMax('units-qty', a.quantity);
+    renderUnitsTargets();
+}
+function renderUnitsTargets() {
+    const box = document.getElementById('units-to');
+    if (!box || !unitsDraft) return;
+    box.innerHTML = [ToolStatus.AVAILABLE, ToolStatus.IN_USE, ToolStatus.SERVICE].filter(s => s !== unitsDraft.from.status).map(s =>
+        `<button type="button" role="radio" aria-checked="${s === unitsDraft.toStatus}" class="filter-pill${s === unitsDraft.toStatus ? ' is-active' : ''}"
+            onclick="pickUnitsTarget('${s}')">${toolStatusLabel(s)}</button>`).join('');
+    const submit = document.getElementById('units-submit');
+    if (submit) submit.disabled = !unitsDraft.toStatus;
+}
+function pickUnitsTarget(status) {
+    if (!unitsDraft) return;
+    triggerHaptic('light');
+    unitsDraft.toStatus = status;
+    renderUnitsTargets();
+}
+async function submitToolUnits() {
+    if (!unitsDraft || !unitsDraft.toStatus) return;
+    const draft = { ...unitsDraft };
+    const result = await runUiAction(() => equipmentService.setUnitStatus({
+        toolId: draft.toolId, siteId: draft.from.siteId, fromStatus: draft.from.status, toStatus: draft.toStatus, quantity: readQty('units-qty')
+    }), { button: document.getElementById('units-submit'), errorTitle: 'Status not changed', keepDisabled: () => !unitsDraft || !unitsDraft.toStatus });
+    if (!result.ok) return;
+    triggerHaptic('success');
+    unitsDraft = null;
+    closeModal();
 }

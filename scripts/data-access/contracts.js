@@ -45,16 +45,27 @@
  *   create({ siteId, date, title, body, authorId }) -> SiteLog
  * drawings
  *   list({ siteId })                        -> Drawing[]
+ *   create({ siteId, sheet, title, discipline, revision, updatedOn }) -> Drawing   one record per (siteId, sheet):
+ *                                              a new revision of an existing sheet replaces it; the same
+ *                                              revision again is a CONFLICT
  * sitePhotos
  *   list({ siteId, logId })                 -> SitePhoto[]
  *   create({ siteId, date, caption, tag, src, logId, takenBy }) -> SitePhoto
  * costCodes
  *   list()                                  -> CostCode[]
- * equipment
+ * equipment                                 individual tools carry siteId + status; quantity-tracked tools
+ *                                            (trackingType 'quantity') carry totalQuantity and keep their units
+ *                                            in allocation buckets, unique per (toolId, siteId, status), whose
+ *                                            quantities are positive and add up to totalQuantity
  *   list()                                  -> Tool[]
  *   getById(id)                             -> Tool | null
- *   create(tool)                            -> Tool    (status defaults to Available)
- *   update(id, changes)                     -> Tool
+ *   create(tool)                            -> Tool    (individual: status defaults to Available; quantity:
+ *                                              { totalQuantity, initialAllocation: { siteId, status } })
+ *   update(id, changes)                     -> Tool    (details only: trackingType / totalQuantity are fixed)
+ *   listAllocations({ toolId })             -> EquipmentAllocation[]
+ *   moveUnits(toolId, { from: { siteId, status }, to: { siteId, status }, quantity })
+ *                                           -> { tool, allocations }  atomic: CONFLICT when the source bucket
+ *                                              holds fewer than `quantity`; VALIDATION for a bad quantity
  * leave
  *   listRequests({ employeeId, status })    -> LeaveRequest[]
  *   getRequest(id)                          -> LeaveRequest | null
@@ -62,12 +73,40 @@
  *   updateRequest(id, changes)              -> LeaveRequest
  *   getBalance(employeeId)                  -> LeaveBalance | null
  *   updateBalance(employeeId, changes)      -> LeaveBalance
+ * chats
+ *   list()                                  -> Chat[]
+ *   getForSite(siteId)                      -> Chat | null       (the site's group chat)
+ * chatMessages
+ *   list({ chatId })                        -> ChatMessage[]
+ * availability                              (server functions: a real backend runs each as one RPC /
+ *                                            database function that reads the caller from its auth session)
+ *   listRequests({ toolId, siteId })        -> AvailabilityRequest[]
+ *   getRequest(id)                          -> AvailabilityRequest | null
+ *   listResponses({ requestId })            -> AvailabilityResponse[]
+ *   createRequest({ toolId, requesterId, note, idempotencyKey, siteId, quantity })
+ *                                           -> { request, message, replayed }  creates the request and its
+ *                                              chat message together. CONFLICT while the tool has an active
+ *                                              request (one per tool); VALIDATION when the tool's site is
+ *                                              inactive or has no group chat. A repeated idempotencyKey
+ *                                              returns the first request (replayed: true).
+ *   respond(id, { responderId, responseType, estimatedAvailableAt, canOverride })
+ *                                           -> { request, response, tool, unchanged }  compare-and-set: only
+ *                                              a PENDING request takes a first answer; then only its holder
+ *                                              (or canOverride) may change it. CONFLICT otherwise / expired.
+ *                                              Updates the tool and appends the response history.
+ *   expireDue()                             -> AvailabilityRequest[]   pending requests past expiresAt -> expired
+ * notifications
+ *   list({ recipientId })                   -> Notification[]
+ *   createMany(notifications)               -> Notification[]    (unique per recipient + dedupeKey: repeats skipped)
+ *   markRead(id, recipientId)               -> Notification      (PERMISSION_DENIED for someone else's)
+ *   markAllRead(recipientId)                -> Notification[]
  * audit
  *   record({ entity, entityId, action, actorId, changes }) -> AuditEntry
  *   list({ entity, entityId })              -> AuditEntry[]
  *
  * Provider level
  *   transaction(async (repos) => ...)       runs several writes atomically: all of them or none
+ *   subscribe(fn) (optional)                fn(changedTables) when data changes elsewhere (realtime)
  *   name                                    'mock', 'supabase', ...
  */
 
@@ -79,11 +118,15 @@ const REPOSITORY_CONTRACTS = Object.freeze({
     crewLogs: ['list'],
     attendance: ['list', 'signIn', 'signOut'],
     siteLogs: ['list', 'create'],
-    drawings: ['list'],
+    drawings: ['list', 'create'],
     sitePhotos: ['list', 'create'],
     costCodes: ['list'],
-    equipment: ['list', 'getById', 'create', 'update'],
+    equipment: ['list', 'getById', 'create', 'update', 'listAllocations', 'moveUnits'],
     leave: ['listRequests', 'getRequest', 'createRequest', 'updateRequest', 'getBalance', 'updateBalance'],
+    chats: ['list', 'getForSite'],
+    chatMessages: ['list'],
+    availability: ['listRequests', 'getRequest', 'listResponses', 'createRequest', 'respond', 'expireDue'],
+    notifications: ['list', 'createMany', 'markRead', 'markAllRead'],
     audit: ['record', 'list']
 });
 

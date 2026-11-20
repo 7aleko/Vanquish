@@ -747,99 +747,29 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    -webkit-backdrop-filter: blur(4px);
-            backdrop-filter: blur(4px);
+    background: var(--sheet-scrim);
+    -webkit-backdrop-filter: var(--sheet-scrim-blur);
+            backdrop-filter: var(--sheet-scrim-blur);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 320ms ease, visibility 0s linear 420ms;
+    transition: opacity var(--sheet-scrim-fade) ease, visibility 0s linear var(--sheet-enter);
 }
 .ts-sheet-overlay.is-open { opacity: 1; visibility: visible; transition: opacity 320ms ease; }
 .ts-sheet-overlay.no-anim, .ts-sheet-overlay.no-anim .ts-sheet { transition: none !important; }
+/* The sheet's look - surface, handle, header, close, body, footer, actions, fields - is the app's shared
+   sheet system (styles/sheet.css), which takes its values from this sheet. Only its open state is here. */
 .ts-sheet {
-    position: relative;
-    width: 100%;
-    max-width: 520px;
-    max-height: calc(100% - var(--safe-top, 0px) - 28px);
-    display: flex;
-    flex-direction: column;
-    border-radius: 28px 28px 0 0;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 0;
-    /* Frosted dark liquid glass: the 24px blur keeps the page behind from ghosting through the 92% surface */
-    background: rgba(16, 18, 17, 0.92);
-    -webkit-backdrop-filter: blur(24px) saturate(140%);
-            backdrop-filter: blur(24px) saturate(140%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 -18px 50px rgba(0, 0, 0, 0.6);
-    color: #fff;
-    outline: none;
     transform: translateY(100%);
-    transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform var(--sheet-enter) var(--sheet-ease);
     will-change: transform;
 }
 .ts-sheet-overlay.is-open .ts-sheet { transform: none; }
-.ts-sheet-grab { flex-shrink: 0; padding: 8px 16px 10px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
-.ts-sheet-handle { display: block; width: 40px; height: 5px; margin: 0 auto 10px; border-radius: 9999px; background: rgba(255, 255, 255, 0.22); }
-.ts-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.ts-sheet-head-text { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.ts-sheet-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ts-sheet-close {
-    position: relative;
-    flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 15px;
-    cursor: pointer;
-}
-.ts-sheet-close::before { content: ""; position: absolute; inset: -5px; }
-.ts-sheet-close:active { scale: 0.92; }
-.ts-sheet-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 2px 16px 16px;
-    -webkit-overflow-scrolling: touch;
-    user-select: text;
-    -webkit-user-select: text;
-}
 .ts-sheet-body > * + * { margin-top: 12px; }
 .ts-sheet-body > .ts-inline-error:empty { display: none; }
 .ts-sheet-body > #ts-sheet-crew-slot:empty { display: none; }
-.ts-sheet-foot {
-    flex-shrink: 0;
-    padding: 10px 16px calc(14px + var(--safe-bottom, 0px));
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    background: transparent;                   /* the sheet's own glass shows through */
-}
 .ts-sheet-foot > .ts-save { margin-top: 0 !important; }
-.ts-save-next {
-    width: 100%;
-    height: 46px;
-    margin-top: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    /* Secondary dark glass pill under Submit; shown only while the pay run has another unlogged workday */
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: scale var(--dur-press) var(--ease-out), background-color 160ms ease;
-}
-.ts-save-next i { font-size: 16px; color: #1ED796; }
-.ts-save-next:active { scale: var(--press-scale, 0.97); background: rgba(255, 255, 255, 0.1); }
+/* Secondary pill under Submit (shared: styles/sheet.css); shown only while the pay run has another unlogged workday */
+.ts-save-next { margin-top: 8px; }
 .ts-block.is-editing { border-color: rgba(30, 215, 150, 0.5); box-shadow: 0 0 0 1px rgba(30, 215, 150, 0.25); }
 .ts-block-editing { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ts-lime); }
 
@@ -917,33 +847,13 @@
 
 .ts-block-times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ts-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ts-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: rgba(255, 255, 255, 0.6); }
-.ts-input {
-    width: 100%;
-    min-width: 0;
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
-    font: inherit;
-    font-size: 16px;                    /* 16px: iOS doesn't zoom the page on focus */
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color-scheme: dark;
-    -webkit-appearance: none;
-    appearance: none;
-    transition: border-color 160ms ease, background-color 160ms ease;
-}
-.ts-input:focus { outline: none; border-color: rgba(30, 215, 150, 0.55); background: rgba(0, 0, 0, 0.55); }
+/* .ts-field-label and .ts-input are the shared sheet field (styles/sheet.css) */
 .ts-input::-webkit-date-and-time-value { text-align: left; }
 /* Start / Finish read "7:00 AM", as on Home and the Time screen (iOS writes "am" otherwise) */
 .ts-input[type="time"],
 .ts-input[type="time"]::-webkit-date-and-time-value,
 .ts-input[type="time"]::-webkit-datetime-edit,
 .ts-input[type="time"]::-webkit-datetime-edit-ampm-field { text-transform: uppercase; }
-.ts-input::placeholder { color: rgba(255, 255, 255, 0.35); font-weight: 500; }
 .ts-task { font-weight: 500; }
 
 .ts-block-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -954,39 +864,7 @@
 .ts-block-error.is-invalid { color: var(--ts-amber); }
 
 /* Segmented control (lunch): dark track, the chosen option lifts to a lighter glass */
-.ts-segmented {
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    grid-auto-flow: column;
-    gap: 3px;
-    padding: 3px;
-    border-radius: 12px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-.ts-segmented--sm { flex: 0 1 auto; }
-.ts-seg {
-    min-height: 34px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, color 160ms ease, scale var(--dur-press) var(--ease-out);
-}
-.ts-seg:active { scale: 0.96; }
-/* The chosen option: a subtle emerald glass tint with a crisp rim (inset, so the control doesn't shift) */
-.ts-seg.is-active {
-    background: rgba(30, 215, 150, 0.14);
-    color: #fff;
-    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-.ts-seg:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -2px; }
+/* .ts-segmented / .ts-seg are the shared sheet segmented control (styles/sheet.css) */
 
 .ts-add-line {
     width: 100%;
@@ -1018,30 +896,8 @@
 .ts-total { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ts-lime); }
 .ts-total-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--ts-muted); }
 
-/* Submit: a rich emerald glass pill with a crisp mint specular rim and white ink */
-.ts-save {
-    width: 100%;
-    height: 52px;
-    margin-top: 14px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px solid rgba(46, 230, 168, 0.45);
-    border-radius: 9999px;
-    background: linear-gradient(135deg, #0D4A38 0%, #18A878 100%);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 800;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 24px -10px rgba(24, 168, 120, 0.5);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: scale var(--dur-press) var(--ease-out), opacity 160ms ease;
-}
-.ts-save i { font-size: 18px; }
-.ts-save:active:not(:disabled) { scale: var(--press-scale, 0.97); }
-.ts-save:disabled { opacity: 0.35; box-shadow: none; cursor: default; }
-.ts-save:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Submit: the shared primary sheet action (styles/sheet.css) */
+.ts-save { margin-top: 14px !important; }
 .ts-save-hint { margin-top: 8px !important; font-size: 12px; text-align: center; color: var(--ts-muted); }
 .ts-save-hint:empty { display: none; }
 /* Touch feedback in the sheet: every control presses in smoothly with the app's press timing (system.css
@@ -1061,18 +917,7 @@
     .ts-sheet .ts-code:active, .ts-sheet .ts-input[type="time"]:active { scale: none; }
 }
 
-.ts-cancel {
-    display: block;
-    margin: 4px auto 0 !important;
-    min-height: 40px;
-    padding: 0 16px;
-    border: 0;
-    background: none;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
+.ts-cancel { margin: 4px auto 0 !important; }     /* the shared text action (styles/sheet.css) */
 
 @media (prefers-reduced-motion: reduce) {
     .ts-bar-fill, .ts-drawer, .ts-run-target, .ts-strip-pill, .ts-run-sel { transition-duration: 0.01ms; }

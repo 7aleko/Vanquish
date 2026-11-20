@@ -81,6 +81,11 @@ function createAppStore(loaders) {
             setCollection(c, rows);
             notify([c]);
         },
+        // Replace every record matching `match` with `rows` (e.g. one tool's allocation buckets after a move)
+        replaceWhere(c, match, rows) {
+            setCollection(c, data[c].filter(r => !match(r)).concat(rows || []));
+            notify([c]);
+        },
         remove(c, value, key = 'id') {
             setCollection(c, data[c].filter(r => r[key] !== value));
             notify([c]);

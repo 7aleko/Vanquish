@@ -29,15 +29,11 @@ function openModal(title, htmlContent) {
     const titleEl = document.getElementById('modal-title');
     const headerContainer = document.getElementById('modal-header-container');
     if (titleEl) {
-        if (title && title.trim() !== '') {
-            titleEl.textContent = title;
-            titleEl.classList.remove('hidden');
-            if (headerContainer) headerContainer.className = "flex items-center justify-between pb-3.5 mb-2.5 border-b border-slate-100 shrink-0";
-        } else {
-            titleEl.textContent = '';
-            titleEl.classList.add('hidden');
-            if (headerContainer) headerContainer.className = "flex items-center justify-end pb-1 shrink-0 -mt-2";
-        }
+        // The shared sheet header (styles/sheet.css): the title on the left, or just the close button
+        const hasTitle = !!(title && title.trim() !== '');
+        titleEl.textContent = hasTitle ? title : '';
+        titleEl.hidden = !hasTitle;
+        if (headerContainer) headerContainer.classList.toggle('is-untitled', !hasTitle);
     }
     document.getElementById('modal-body').innerHTML = htmlContent;
     const overlay = document.getElementById('modal-overlay');
@@ -59,7 +55,7 @@ function openModal(title, htmlContent) {
     // Double RAF guarantees frame 1 begins cleanly offscreen, animating with Apple spring curve
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            content.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1)';
+            content.style.transition = 'transform var(--sheet-enter) var(--sheet-ease)';   // the shared sheet motion
             content.style.transform = 'translate3d(0, 0, 0)';
             syncDynamicStatusBar();
         });

@@ -67,37 +67,8 @@
     }
 }
 
-/* ================= Midnight-Emerald Apple Intelligence Modal Sheet ================= */
-#modal-content.poppy-dark-modal {
-    background: 
-        radial-gradient(ellipse 90% 60% at 50% 0%, rgba(16, 185, 129, 0.22) 0%, transparent 60%),
-        linear-gradient(135deg, rgba(2, 26, 17, 0.96) 0%, rgba(4, 16, 11, 0.97) 45%, rgba(2, 6, 23, 0.98) 100%) !important;
-    backdrop-filter: blur(40px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-top: 1px solid rgba(34, 229, 98, 0.4) !important;
-    box-shadow: 
-        0 -20px 60px rgba(0, 0, 0, 0.88), 
-        0 0 40px rgba(34, 229, 98, 0.18), 
-        inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
-    color: white !important;
-}
-#modal-content.poppy-dark-modal #modal-drag-zone div {
-    background-color: rgba(255, 255, 255, 0.3) !important;
-}
-#modal-content.poppy-dark-modal #modal-header-container {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-#modal-content.poppy-dark-modal #modal-header-container button {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    color: white !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-}
-@media (hover: hover) and (pointer: fine) {
-    #modal-content.poppy-dark-modal #modal-header-container button:hover {
-        background-color: rgba(255, 255, 255, 0.18) !important;
-    }
-}
+/* Poppy's sheet is the shared sheet (styles/sheet.css) like every other; only its content (the orb, the
+   conversation) is Poppy's own. */
 
 /* Large 3D Fluid Siri Orb in Modal Hero Showcase */
 .poppy-modal-fluid-img {

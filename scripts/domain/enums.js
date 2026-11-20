@@ -55,13 +55,9 @@ const LeaveStatus = Object.freeze({
 const ToolCategories = Object.freeze([
     { id: 'power tools', label: 'Power Tools' },
     { id: 'access', label: 'Access' },
-    { id: 'concrete', label: 'Concrete' },
-    { id: 'setout', label: 'Setout' },
     { id: 'site', label: 'Site' },
     { id: 'safety', label: 'Safety' },
-    { id: 'trailers', label: 'Trailers' },
-    { id: 'scaffolds', label: 'Scaffolds' },
-    { id: 'bobcat', label: 'Bobcat' }
+    { id: 'scaffolds', label: 'Scaffolds' }
 ].map(Object.freeze));
 
 const AuditAction = Object.freeze({
@@ -76,7 +72,46 @@ const AuditAction = Object.freeze({
     TRANSFER: 'transfer',
     REQUEST_MOVE: 'request_move',
     SIGN_IN: 'sign_in',
-    SIGN_OUT: 'sign_out'
+    SIGN_OUT: 'sign_out',
+    REQUEST_AVAILABILITY: 'request_availability',
+    RESPOND: 'respond',
+    UPDATE_ETA: 'update_eta',
+    EXPIRE: 'expire'
+});
+
+// An equipment availability request's state (AvailabilityRequest.status). PENDING waits for the site's
+// first answer; IN_USE has a holder and an ETA the holder can move; AVAILABLE and MISSING resolve it;
+// EXPIRED: nobody answered within the cooldown.
+const AvailabilityStatus = Object.freeze({
+    PENDING: 'pending',
+    AVAILABLE: 'available',
+    IN_USE: 'in_use',
+    MISSING: 'missing',
+    EXPIRED: 'expired'
+});
+
+// One answer in a request's history (AvailabilityResponse.responseType)
+const AvailabilityResponseType = Object.freeze({
+    AVAILABLE: 'available',
+    IN_USE: 'in_use',
+    MISSING: 'missing',
+    ETA_UPDATED: 'eta_updated'
+});
+
+// Structured chat messages (ChatMessage.type). Plain text and photos still live in the chat seed.
+const ChatMessageType = Object.freeze({
+    TEXT: 'text',
+    AVAILABILITY_REQUEST: 'availability_request'
+});
+
+// What a targeted notification is about (Notification.type)
+const NotificationType = Object.freeze({
+    AVAILABILITY_REQUEST: 'availability_request',
+    AVAILABILITY_AVAILABLE: 'availability_available',
+    AVAILABILITY_IN_USE: 'availability_in_use',
+    AVAILABILITY_ETA_UPDATED: 'availability_eta_updated',
+    AVAILABILITY_MISSING: 'availability_missing',
+    AVAILABILITY_MISSING_ALERT: 'availability_missing_alert'
 });
 
 // Error categories shared by every layer (see scripts/domain/errors.js)

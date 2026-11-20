@@ -49,6 +49,20 @@ function applyTopBarSurface(surface) {
 
     // App-wide dark theme: every surface is dark, so the bar always uses white ink
     topBar.classList.toggle('on-dark', true);
+    // Only the frosted surface blurs what's behind it
+    topBar.style.backdropFilter = topBar.style.webkitBackdropFilter = '';
+
+    if (surface === 'frosted') {
+        // Frosted glass over scrolled content (a screen opts in with data-bar-scrolled="frosted"): dark,
+        // translucent and blurred, with a hairline, so content passing under never shows through the title
+        topBar.style.background = 'rgba(10, 10, 12, 0.72)';
+        topBar.style.backdropFilter = topBar.style.webkitBackdropFilter = 'blur(20px) saturate(180%)';
+        topBar.style.borderColor = 'transparent';
+        topBar.style.boxShadow = '0 0.5px 0 rgba(255, 255, 255, 0.08)';
+        if (titleEl) { titleEl.classList.remove('text-slate-900'); titleEl.classList.add('text-white'); }
+        setStatusBarThemeColor('#0a0a0c', true);
+        return;
+    }
 
     if (surface === 'home-dark') {
         // Home is a dark (Tesla-style) screen: the bar is the same near-black, no edge
@@ -149,5 +163,5 @@ function syncDynamicStatusBar() {
         }
     }
 
-    applyTopBarSurface('light-scrolled');
+    applyTopBarSurface(activeView.dataset.barScrolled === 'frosted' ? 'frosted' : 'light-scrolled');
 }

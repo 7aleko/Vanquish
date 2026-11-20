@@ -11,8 +11,9 @@
 /* ---- Tokens ---- */
 :root {
     /* Surfaces, from back to front */
-    --acct-surface-primary: rgba(24, 24, 27, 0.94);       /* the sheet (glass) */
-    --acct-surface-primary-solid: #18181b;                /* the same colour, opaque: pushed pages, no-blur fallback */
+    /* The sheet itself is the app's shared sheet (styles/sheet.css): its surface, radius, motion and controls */
+    --acct-surface-primary: var(--sheet-bg);              /* the sheet (glass) */
+    --acct-surface-primary-solid: var(--sheet-bg-solid);  /* the same colour, opaque: pushed pages, no-blur fallback */
     --acct-surface-secondary: rgba(255, 255, 255, 0.06);  /* grouped cards */
     --acct-surface-inset: rgba(255, 255, 255, 0.09);      /* icon tiles and round controls */
     --acct-fill-hover: rgba(255, 255, 255, 0.05);         /* one hover and one pressed state for everything */
@@ -29,13 +30,13 @@
     --acct-shadow-elevated-dialog: 0 30px 80px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.35);
 
     /* Geometry */
-    --acct-radius-sheet: 28px;
+    --acct-radius-sheet: var(--sheet-radius);
     --acct-radius-card: 16px;
     --acct-radius-tile: 8px;
     --acct-radius-control: 9999px;
     --acct-gutter: 16px;                                  /* page side padding */
     --acct-row-pad: 14px;                                 /* row side padding */
-    --acct-control-size: 32px;
+    --acct-control-size: 34px;                            /* the shared sheet close button */
     --acct-control-inset: 14px;
     --acct-tile-size: 30px;
 
@@ -48,7 +49,7 @@
     /* Colour */
     --acct-accent: #22E562;                               /* focus only */
     --acct-danger: #FF453A;
-    --acct-ease: cubic-bezier(0.32, 0.72, 0, 1);          /* the app's push and sheet curve */
+    --acct-ease: var(--sheet-ease);                       /* the app's push and sheet curve */
 }
 @supports (corner-shape: squircle) {
     :root { --acct-radius-card: 22px; --acct-radius-tile: 10px; }
@@ -65,9 +66,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--acct-surface-inset);
-    box-shadow: var(--acct-edge);
-    color: var(--acct-text-primary);
+    /* the shared sheet close button (styles/sheet.css .sheet-close) */
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
     font-size: 15px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -119,11 +121,11 @@
 .account-sheet-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    -webkit-backdrop-filter: blur(8px) brightness(0.85);
-    backdrop-filter: blur(8px) brightness(0.85);
+    background: var(--sheet-scrim);
+    -webkit-backdrop-filter: var(--sheet-scrim-blur);
+    backdrop-filter: var(--sheet-scrim-blur);
     opacity: 0;
-    transition: opacity 320ms ease;
+    transition: opacity var(--sheet-scrim-fade) ease;
 }
 .account-sheet-overlay.is-open .account-sheet-backdrop { opacity: 1; }
 
@@ -133,19 +135,22 @@
     left: 0;
     right: 0;
     bottom: 0;
-    max-height: calc(100% - max(16px, env(safe-area-inset-top)) - 12px);
+    margin: 0 auto;
+    width: 100%;
+    max-width: var(--sheet-max-w);
+    max-height: calc(100% - var(--safe-top, 0px) - 28px);
     display: flex;
     flex-direction: column;
-    background: var(--acct-surface-primary);
-    -webkit-backdrop-filter: blur(30px) saturate(150%);
-    backdrop-filter: blur(30px) saturate(150%);
-    border: 1px solid var(--acct-border-subtle);
+    background: var(--sheet-bg);
+    -webkit-backdrop-filter: var(--sheet-blur);
+    backdrop-filter: var(--sheet-blur);
+    border: 1px solid var(--sheet-edge);
     border-bottom: 0;
-    border-radius: var(--acct-radius-sheet) var(--acct-radius-sheet) 0 0;
-    box-shadow: var(--acct-shadow-elevated), inset 0 1px 0 var(--acct-highlight);
+    border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+    box-shadow: var(--sheet-shadow);
     color: var(--acct-text-primary);
     transform: translate3d(0, 100%, 0);
-    transition: transform 420ms var(--acct-ease);
+    transition: transform var(--sheet-enter) var(--sheet-ease);
     outline: none;
     touch-action: pan-y;
     overflow: hidden;                              /* pages slide inside the sheet's rounded shape */
@@ -155,14 +160,13 @@
 
 .account-sheet-grab {
     flex-shrink: 0;
-    height: 22px;
+    padding-top: 8px;                              /* the shared sheet handle (styles/sheet.css) */
     display: flex;
-    align-items: center;
     justify-content: center;
     cursor: grab;
     touch-action: none;
 }
-.account-sheet-grab span { width: 36px; height: 5px; border-radius: var(--acct-radius-control); background: var(--acct-text-tertiary); }
+.account-sheet-grab span { width: 40px; height: 5px; border-radius: 9999px; background: rgba(255, 255, 255, 0.22); }
 
 .account-sheet-close { right: var(--acct-control-inset); z-index: 3; }   /* above a pushed page, so × works on every page */
 
@@ -318,8 +322,8 @@
     height: var(--acct-control-size);
     line-height: var(--acct-control-size);
     text-align: center;
-    font-size: 17px;
-    font-weight: 700;
+    font-size: 19px;                               /* the shared sheet title */
+    font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--acct-text-primary);
     white-space: nowrap;
@@ -365,27 +369,7 @@
     border: 3px solid var(--acct-surface-primary-solid);
 }
 
-/* ---- Wider screens: a centred dialog ---- */
-@media (min-width: 640px) {
-    .account-sheet {
-        left: 50%;
-        right: auto;
-        top: 50%;
-        bottom: auto;
-        width: min(420px, calc(100% - 32px));
-        max-height: calc(100% - 48px);
-        border: 1px solid var(--acct-border-subtle);
-        border-radius: var(--acct-radius-sheet);
-        box-shadow: var(--acct-shadow-elevated-dialog), inset 0 1px 0 var(--acct-highlight);
-        transform: translate(-50%, -50%) scale(0.96);
-        opacity: 0;
-        transition: transform 260ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 200ms ease;
-    }
-    .account-sheet-overlay.is-open .account-sheet { transform: translate(-50%, -50%); opacity: 1; }
-    .account-sheet-grab { display: none; }
-    .account-sheet-body { padding: 26px var(--acct-gutter) 20px; }
-    .account-detail-body { margin-top: 60px; }
-}
+/* Wider screens: a bottom sheet centred at the shared sheet width, as every sheet is */
 
 @media (prefers-reduced-motion: reduce) {
     /* pages cross-fade instead of sliding */
@@ -396,9 +380,6 @@
     .account-sheet, .account-sheet-overlay.is-open .account-sheet { transition: opacity 200ms ease; }
     .account-sheet { transform: none; opacity: 0; }
     .account-sheet-overlay.is-open .account-sheet { opacity: 1; }
-    @media (min-width: 640px) {
-        .account-sheet, .account-sheet-overlay.is-open .account-sheet { transform: translate(-50%, -50%); }
-    }
 }
 @media (prefers-reduced-transparency: reduce) {
     .account-sheet { background: var(--acct-surface-primary-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }

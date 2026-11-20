@@ -1,6 +1,9 @@
 /**
  * Chat threads and seed messages for the Lifestyle chat hub.
  * Pure data - no logic. Loaded before all feature scripts.
+ *
+ * A site group chat names its site (siteId). The mock seed copies each chat's id, name, kind and siteId into
+ * the database's chats table, which is how the server finds the chat an availability request goes to.
  */
 
 const LIFESTYLE_CHATS = [
@@ -42,6 +45,7 @@ const LIFESTYLE_CHATS = [
         role: '350 Bondi Rd',
         category: 'channel',
         isSite: true,
+        siteId: 'bondi',
         isGroup: true,
         isOnline: true,
         preview: 'Jeremy Gillon: "Roof truss delivery on site, crane set up complete"',
@@ -77,6 +81,7 @@ const LIFESTYLE_CHATS = [
         role: '935 Forest Rd',
         category: 'channel',
         isSite: true,
+        siteId: 'lugarno',
         isGroup: true,
         isOnline: true,
         preview: 'Jude Hudson: "Shed B framing underway, rain safe and protected"',

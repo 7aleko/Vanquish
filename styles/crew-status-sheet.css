@@ -17,71 +17,29 @@
 .crew-sheet-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    -webkit-backdrop-filter: blur(6px);
-            backdrop-filter: blur(6px);
+    background: var(--sheet-scrim);
+    -webkit-backdrop-filter: var(--sheet-scrim-blur);
+            backdrop-filter: var(--sheet-scrim-blur);
     opacity: 0;
-    transition: opacity 320ms ease;
+    transition: opacity var(--sheet-scrim-fade) ease;
 }
 .crew-sheet-overlay.is-open .crew-sheet-backdrop { opacity: 1; }
 
-/* ---- Sheet ---- */
+/* ---- Sheet ----
+   The look (surface, handle, header, close, body, footer) is the shared sheet (styles/sheet.css). Here: where
+   it sits and how it moves. */
 .crew-sheet {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    max-height: calc(100% - max(16px, env(safe-area-inset-top)) - 40px);
-    display: flex;
-    flex-direction: column;
-    background: rgba(24, 24, 27, 0.78);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-            backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-bottom: 0;
-    border-radius: 28px 28px 0 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 -24px 60px rgba(0, 0, 0, 0.45);
-    color: #fff;
+    margin: 0 auto;
     transform: translate3d(0, 100%, 0);
-    transition: transform 440ms var(--crew-ease);
-    outline: none;
-    overflow: hidden;
+    transition: transform var(--sheet-enter) var(--sheet-ease);
 }
 .crew-sheet-overlay.is-open .crew-sheet { transform: none; }
 .crew-sheet.is-dragging { transition: none; }
-
-/* The handle and header are the drag area; the list scrolls on its own */
-.crew-sheet-drag { flex-shrink: 0; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
-.crew-sheet-grab { height: 20px; display: flex; align-items: flex-end; justify-content: center; }
-.crew-sheet-grab span { width: 36px; height: 4px; border-radius: 9999px; background: rgba(255, 255, 255, 0.25); }
-
-.crew-sheet-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px 14px 20px;
-}
-.crew-sheet-id { flex: 1; min-width: 0; }
-.crew-sheet-site {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    color: #fff;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.crew-sheet-address {
-    margin: 2px 0 0;
-    font-size: 13px;
-    color: var(--crew-text-2);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* Live headcount: a compact glass pill */
+/* Live headcount beside the title: a compact glass pill */
 .crew-sheet-count {
     flex-shrink: 0;
     display: inline-flex;
@@ -100,35 +58,10 @@
 .crew-sheet-count b { font-weight: 700; color: #fff; }
 .crew-sheet-count.is-live { background: rgba(34, 229, 98, 0.12); box-shadow: inset 0 0 0 1px rgba(34, 229, 98, 0.28); color: #8DF0B1; }
 .crew-sheet-count.is-live b { color: #22E562; }
-.crew-sheet-close {
-    position: relative;
-    flex-shrink: 0;
-    width: 30px;
-    height: 30px;
-    border: 0;
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 14px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, transform 120ms var(--ease-out, ease-out);
-}
-.crew-sheet-close::before { content: ''; position: absolute; inset: -7px; }      /* 44px touch target */
-.crew-sheet-close:active { transform: scale(0.9); background: rgba(255, 255, 255, 0.16); }
+#crew-sheet .sheet-head-text { flex: 1; }
 
 /* ---- Crew list ---- */
-.crew-sheet-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 2px 8px 12px;
-}
+.crew-sheet-list { padding-left: 8px; padding-right: 8px; }     /* rows carry their own 12px inset */
 .crew-section + .crew-section { margin-top: 22px; }
 .crew-section-title {
     margin: 0;
@@ -148,8 +81,49 @@
     border-radius: 14px;
 }
 .crew-row .role-avatar { flex-shrink: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.crew-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.crew-row-role { font-size: 13px; color: var(--crew-text-2); }
+.crew-row-you { font-weight: 500; color: var(--crew-text-2); }
+/* Status: a compact badge - emerald while signed in, neutral glass otherwise */
+.crew-badge {
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.crew-badge.is-live { background: rgba(34, 229, 98, 0.12); box-shadow: inset 0 0 0 1px rgba(34, 229, 98, 0.3); color: #8DF0B1; }
+.crew-badge.is-neutral { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.75); }
+.crew-badge .crew-row-dot { width: 6px; height: 6px; box-shadow: none; }
+/* Call / Message: compact solid-icon buttons */
+.crew-acts { flex-shrink: 0; display: flex; gap: 8px; }
+.crew-act {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press, 120ms) var(--ease-out, ease-out), background-color 160ms ease;
+}
+.crew-act::before { content: ''; position: absolute; inset: -4px; }       /* 44px tap target */
+.crew-act:active { scale: 0.9; background: rgba(255, 255, 255, 0.14); }
+.crew-act:focus-visible { outline: 2px solid var(--focus-ring, #22E562); outline-offset: 2px; }
 .crew-row-name {
-    flex: 1;
+    max-width: 100%;
     min-width: 0;
     font-size: 15px;
     font-weight: 500;
@@ -170,7 +144,7 @@
 }
 .crew-row.is-on .crew-row-status { color: rgba(235, 245, 238, 0.72); }
 .crew-row-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--crew-live); box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.16); }
-.crew-row.is-off { opacity: 0.55; }
+.crew-row.is-off .role-avatar, .crew-row.is-off .crew-row-name { opacity: 0.7; }
 
 /* Empty states */
 .crew-empty {
@@ -191,47 +165,12 @@
 .crew-empty-all strong { font-size: 16px; font-weight: 600; color: #fff; }
 .crew-empty-all span { font-size: 14px; color: var(--crew-text-2); }
 
-/* ---- Sticky footer ---- */
-.crew-sheet-foot {
-    flex-shrink: 0;
-    padding: 12px 16px max(16px, calc(env(safe-area-inset-bottom) + 8px));
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-.crew-sheet-schedule {
-    width: 100%;
-    height: 48px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.08);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, transform 120ms var(--ease-out, ease-out);
-}
-.crew-sheet-schedule:active { transform: scale(0.98); background: rgba(255, 255, 255, 0.12); }
-@media (hover: hover) and (pointer: fine) {
-    .crew-sheet-schedule:hover, .crew-sheet-close:hover { background: rgba(255, 255, 255, 0.12); }
-}
-.crew-sheet-close:focus-visible, .crew-sheet-schedule:focus-visible { outline: 2px solid var(--focus-ring, #22E562); outline-offset: 2px; }
-
-/* Wider screens: a centred card rather than an edge-to-edge sheet */
-@media (min-width: 640px) {
-    .crew-sheet { left: 50%; right: auto; width: 420px; transform: translate3d(-50%, 100%, 0); }
-    .crew-sheet-overlay.is-open .crew-sheet { transform: translate3d(-50%, 0, 0); }
-}
+/* Wider screens: centred at the shared sheet width (styles/sheet.css), as the Time sheet is */
 
 @media (prefers-reduced-motion: reduce) {
     .crew-sheet { transition: opacity 200ms ease; transform: none; opacity: 0; }
     .crew-sheet-overlay.is-open .crew-sheet { opacity: 1; }
-    .crew-sheet-close, .crew-sheet-schedule { transition: none; }
-}
-@media (prefers-reduced-motion: reduce) and (min-width: 640px) {
-    .crew-sheet, .crew-sheet-overlay.is-open .crew-sheet { transform: translate3d(-50%, 0, 0); }
 }
 @media (prefers-reduced-transparency: reduce) {
-    .crew-sheet { background: #18181b; -webkit-backdrop-filter: none; backdrop-filter: none; }
     .crew-sheet-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(0, 0, 0, 0.7); }
 }

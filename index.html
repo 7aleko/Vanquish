@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="styles/tokens.css">
     <link rel="stylesheet" href="styles/base.css">
     <link rel="stylesheet" href="styles/roster.css">
+    <link rel="stylesheet" href="styles/sheet.css">
     <link rel="stylesheet" href="styles/modal.css">
     <link rel="stylesheet" href="styles/view-transitions.css">
     <link rel="stylesheet" href="styles/dock.css">
@@ -52,6 +53,7 @@
     <link rel="stylesheet" href="styles/buttons.css">
     <link rel="stylesheet" href="styles/tools.css">
     <link rel="stylesheet" href="styles/tool-transfer.css">
+    <link rel="stylesheet" href="styles/availability.css">
     <link rel="stylesheet" href="styles/role-avatar.css">
     <link rel="stylesheet" href="styles/timesheets.css">
     <link rel="stylesheet" href="styles/chat.css">
@@ -605,18 +607,16 @@
 </main>
 
         <!-- ================= VIEW 3: SITE HUB TAB (APPLE-ESQUE MODERN UI) ================= -->
-        <main id="view-sitehub" class="view-section site-hub hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Site Hub">
+        <main id="view-sitehub" data-bar-title="Site" class="view-section site-hub hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Site Hub">
             <!-- Site Hub (scripts/features/site-hub.js, styles/site-hub.css). Everything follows one active site
                  (siteHubState.siteId, picked in the top bar's site switcher) and, for the crew, the chosen day. -->
 
-            <!-- Large title (iOS): back and the site pill live in the top bar (scripts/core/top-bar.js) -->
-            <div class="large-title-row px-1">
-                <h2 class="page-title" data-large-title>Site</h2>
-            </div>
+            <!-- No large title: "Site" is the bar's title (data-bar-title), as on Time - the hero carries the site's
+                 name, and the whole hub fits one phone screen -->
 
-            <!-- Hero: site, Mon-Fri day switcher, crew preview and attendance. Tapping it opens the crew sheet. -->
-            <section id="sh-hero" class="sh-hero" role="button" tabindex="0" onclick="openSiteHubCrew()"
-                     onkeydown="if (event.target === this && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openSiteHubCrew(); }">
+            <!-- Hero: the site (name = site switcher, address = Maps), its weather, the Mon-Fri day switcher, and that
+                 day's crew and attendance (tap = Crew Quick-View) -->
+            <section id="sh-hero" class="sh-hero sh-swap" aria-label="Site">
                 <!-- Liquid-glass layers, shared with the Home site card (styles/site-card.css) -->
                 <div class="sc-light" aria-hidden="true">
                     <div class="sc-pool sc-pool-a"></div>
@@ -627,50 +627,78 @@
                 </div>
                 <div class="sc-glass" aria-hidden="true"></div>
                 <div class="sc-grain" aria-hidden="true"></div>
-                <!-- The site name is the site picker (opens a searchable list of every active site) -->
-                <button type="button" id="sh-site-btn" class="sh-hero-head" onclick="openSiteSwitcher(event)" onkeydown="event.stopPropagation()" aria-haspopup="dialog">
-                    <span class="sh-site-line"><span id="sh-site-name" class="sh-site-name"></span><span class="sh-site-chev" aria-hidden="true"><i class="ph-bold ph-caret-down"></i></span></span>
-                    <span id="sh-site-address" class="sh-site-address"></span>
-                </button>
-                <div id="sh-days" class="sh-days" role="tablist" aria-label="Day"></div>
-                <div class="sh-crew-row">
-                    <div id="sh-crew-stack" class="sh-crew-stack" aria-hidden="true"></div>
-                    <span id="sh-crew-pill" class="sh-crew-pill"></span>
+                <div class="sh-hero-top">
+                    <div class="sh-hero-id">
+                        <button type="button" id="sh-site-btn" class="sh-site-btn" onclick="openSiteSwitcher(event)" aria-haspopup="dialog">
+                            <span id="sh-site-name" class="sh-site-name"></span><i class="ph-bold ph-caret-down sh-site-chev" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="sh-site-addr" class="sh-site-addr" onclick="openSiteHubMaps()">
+                            <i class="ph-fill ph-map-pin" aria-hidden="true"></i><span id="sh-site-address"></span>
+                        </button>
+                    </div>
+                    <div class="sh-hero-utils">
+                        <button type="button" id="sh-my-site" class="sh-glass-pill sh-my-site" onclick="returnToMySite()" hidden>
+                            <span>My Site</span><i class="ph-bold ph-arrow-u-up-left" aria-hidden="true"></i>
+                        </button>
+                        <span id="sh-weather" class="sh-glass-pill sh-weather" hidden></span>
+                    </div>
                 </div>
+                <div id="sh-days" class="sh-days" role="tablist" aria-label="Day"></div>
+                <button type="button" id="sh-crew-row" class="sh-crew-row" onclick="openSiteHubCrew()">
+                    <span id="sh-crew-stack" class="sh-crew-stack" aria-hidden="true"></span>
+                    <span id="sh-crew-pill" class="sh-crew-pill"></span>
+                </button>
             </section>
 
             <!-- Universal search: opens the full-height search overlay -->
-            <button type="button" id="sh-search-btn" class="sh-search" onclick="openSiteSearch()">
+            <button type="button" id="sh-search-btn" class="sh-search sh-swap" onclick="openSiteSearch()">
                 <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
                 <span>Search photos, site logs, drawings, schedule...</span>
             </button>
 
-            <!-- Site Logs -->
-            <section class="sh-card" aria-labelledby="sh-logs-title">
-                <header class="sh-card-head">
-                    <h2 id="sh-logs-title" class="sh-card-title">Site Logs</h2>
-                    <button type="button" class="sh-card-action" onclick="openAddSiteLog()"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add Log</button>
+            <!-- Bento: Drawings + Schedule, recent photos, the chosen day's site log -->
+            <div class="sh-bento-pair sh-swap">
+                <button type="button" id="sh-tile-dwg" class="sh-tile" onclick="openSiteHubDrawings()">
+                    <span class="sh-tile-top"><span class="sh-tile-icon"><i class="ph-fill ph-stack" aria-hidden="true"></i></span><i class="ph-bold ph-caret-right sh-tile-chev" aria-hidden="true"></i></span>
+                    <span class="sh-tile-title">Drawings</span>
+                    <span id="sh-tile-dwg-sub" class="sh-tile-sub"></span>
+                </button>
+                <button type="button" id="sh-tile-sched" class="sh-tile" onclick="openSiteHubSchedule()">
+                    <span class="sh-tile-top"><span class="sh-tile-icon is-blue"><i class="ph-fill ph-calendar" aria-hidden="true"></i></span><i class="ph-bold ph-caret-right sh-tile-chev" aria-hidden="true"></i></span>
+                    <span class="sh-tile-title">Schedule</span>
+                    <span id="sh-tile-sched-sub" class="sh-tile-sub"></span>
+                </button>
+            </div>
+
+            <section class="sh-bento sh-swap" aria-labelledby="sh-photos-title">
+                <header class="sh-bento-head">
+                    <h2 id="sh-photos-title" class="sh-bento-title">Site Photos</h2>
+                    <button type="button" id="sh-photos-all" class="sh-bento-link" onclick="openSiteHubPhotos()"></button>
                 </header>
-                <div id="sh-logs" class="sh-list"></div>
+                <div id="sh-photos" class="sh-photo-row"></div>
             </section>
 
-            <!-- Drawings -->
-            <section class="sh-card" aria-labelledby="sh-dwg-title">
-                <header class="sh-card-head">
-                    <h2 id="sh-dwg-title" class="sh-card-title">Drawings</h2>
-                    <button type="button" id="sh-dwg-all" class="sh-card-action" onclick="openSiteSearch('drawings')">See All</button>
+            <section class="sh-bento sh-swap" aria-labelledby="sh-log-title">
+                <header class="sh-bento-head">
+                    <h2 id="sh-log-title" class="sh-bento-title">Site Log</h2>
+                    <button type="button" class="sh-bento-link" onclick="openSiteHubLogs()">All Logs<i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
                 </header>
-                <div id="sh-drawings" class="sh-list"></div>
+                <div id="sh-log" class="sh-log-brief"></div>
             </section>
 
-            <!-- Schedule -->
-            <section class="sh-card" aria-labelledby="sh-sched-title">
-                <header class="sh-card-head">
-                    <h2 id="sh-sched-title" class="sh-card-title">Schedule</h2>
-                    <button type="button" class="sh-card-action" onclick="openSiteHubSchedule()">Full Schedule</button>
-                </header>
-                <div id="sh-schedule" class="sh-list"></div>
-            </section>
+            <!-- Quick actions: an emerald + that opens Add Photo / Add Log / Add Plan (styles/site-hub.css) -->
+            <div class="sh-fab-wrap">
+                <div id="sh-fab-scrim" class="sh-fab-scrim" onclick="toggleSiteHubFab(false)" hidden></div>
+                <div id="sh-fab-menu" class="sh-fab-menu" role="menu" aria-label="Add to this site" hidden>
+                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 2" onclick="siteHubFabAction('photo')"><i class="ph-fill ph-camera" aria-hidden="true"></i><span>Add Photo</span></button>
+                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 1" onclick="siteHubFabAction('log')"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i><span>Add Log</span></button>
+                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 0" onclick="siteHubFabAction('plan')"><i class="ph-fill ph-stack" aria-hidden="true"></i><span>Add Plan</span></button>
+                </div>
+                <button type="button" id="sh-fab" class="sh-fab" onclick="toggleSiteHubFab()" aria-label="Add to this site" aria-expanded="false" aria-controls="sh-fab-menu">
+                    <i class="ph-bold ph-plus" aria-hidden="true"></i>
+                </button>
+                <input type="file" id="sh-fab-photo" accept="image/*" multiple hidden onchange="siteHubPhotosPicked(this)">
+            </div>
         </main>
 
 <!-- ================= VIEW 4: CHAT TAB (WHATSAPP-INSPIRED LIFESTYLE HUB) ================= -->
@@ -746,7 +774,7 @@
     </main>
 
         <!-- ================= VIEW 7: TOOLS & GEAR TAB (FIXED OVERFLOW & NO IDS) ================= -->
-        <main id="view-tools" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-5 py-4 space-y-4 pb-8 relative max-w-full">
+        <main id="view-tools" data-bar-scrolled="frosted" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-5 py-4 space-y-4 pb-8 relative max-w-full">
             
             <!-- Ambient Background Glows (Contained) -->
             <div class="absolute -top-10 left-4 w-36 h-36 bg-emerald-600/15 rounded-full blur-[50px] pointer-events-none"></div>
@@ -774,13 +802,9 @@
                 <button type="button" onclick="filterToolsCategory('all')" id="tool-cat-all" class="filter-pill is-active" aria-pressed="true">All</button>
                 <button type="button" onclick="filterToolsCategory('power tools')" id="tool-cat-power-tools" class="filter-pill" aria-pressed="false">Power Tools</button>
                 <button type="button" onclick="filterToolsCategory('access')" id="tool-cat-access" class="filter-pill" aria-pressed="false">Access</button>
-                <button type="button" onclick="filterToolsCategory('concrete')" id="tool-cat-concrete" class="filter-pill" aria-pressed="false">Concrete</button>
-                <button type="button" onclick="filterToolsCategory('setout')" id="tool-cat-setout" class="filter-pill" aria-pressed="false">Setout</button>
                 <button type="button" onclick="filterToolsCategory('site')" id="tool-cat-site" class="filter-pill" aria-pressed="false">Site</button>
                 <button type="button" onclick="filterToolsCategory('safety')" id="tool-cat-safety" class="filter-pill" aria-pressed="false">Safety</button>
-                <button type="button" onclick="filterToolsCategory('trailers')" id="tool-cat-trailers" class="filter-pill" aria-pressed="false">Trailers</button>
                 <button type="button" onclick="filterToolsCategory('scaffolds')" id="tool-cat-scaffolds" class="filter-pill" aria-pressed="false">Scaffolds</button>
-                <button type="button" onclick="filterToolsCategory('bobcat')" id="tool-cat-bobcat" class="filter-pill" aria-pressed="false">Bobcat</button>
             </div>
 
             <!-- Status tiles: counts for all equipment; tap one to filter the list by that status, tap it again
@@ -978,6 +1002,20 @@
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
     </button>
 </div>
+<!-- Availability notification banner (scripts/features/availability.js): a targeted notification that arrives
+     while the app is open; tapping it opens the site chat at the request's card -->
+<div id="avail-banner" class="notif-banner avail-banner" role="status" aria-live="polite" hidden>
+    <button type="button" class="notif-banner-body" onclick="openAvailabilityFromBanner()">
+        <span id="avail-banner-icon" class="notif-banner-icon" aria-hidden="true"></span>
+        <span class="notif-banner-text">
+            <span id="avail-banner-title" class="notif-banner-title"></span>
+            <span id="avail-banner-message" class="notif-banner-message"></span>
+        </span>
+    </button>
+    <button type="button" class="notif-banner-close" onclick="dismissAvailabilityBanner()" aria-label="Dismiss notification">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+</div>
     </div> <!-- /#app-main-stage -->
     </div> <!-- /#app-stage-wrapper -->
 
@@ -1066,18 +1104,20 @@
         <!-- Site switcher (scripts/features/site-hub.js): the employee's sites -->
         <div id="sh-switch-overlay" class="crew-sheet-overlay sh-switch-overlay" hidden>
             <div class="crew-sheet-backdrop" onclick="closeSiteSwitcher()" aria-hidden="true"></div>
-            <section id="sh-switch-sheet" class="crew-sheet sh-switch-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-switch-title" tabindex="-1">
-                <div class="crew-sheet-grab" aria-hidden="true"><span></span></div>
-                <header class="crew-sheet-head">
-                    <div class="crew-sheet-id"><h2 id="sh-switch-title" class="crew-sheet-site">Choose Site</h2></div>
-                    <button type="button" class="crew-sheet-close" onclick="closeSiteSwitcher()" aria-label="Close"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
-                </header>
+            <section id="sh-switch-sheet" class="sheet crew-sheet sh-switch-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-switch-title" tabindex="-1">
+                <div class="sheet-grab">
+                    <span class="sheet-handle" aria-hidden="true"></span>
+                    <header class="sheet-head">
+                        <div class="sheet-head-text"><h2 id="sh-switch-title" class="sheet-title">Switch Site</h2></div>
+                        <button type="button" class="sheet-close crew-sheet-close" onclick="closeSiteSwitcher()" aria-label="Close"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
+                    </header>
+                </div>
                 <div class="search-field search-field--sheet sh-switch-search">
                     <i class="ph-bold ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                    <input type="search" id="sh-switch-input" class="search-field-input" placeholder="Search sites" aria-label="Search sites" autocomplete="off" enterkeyhint="search" oninput="renderSiteSwitcherList()">
+                    <input type="search" id="sh-switch-input" class="search-field-input" placeholder="Search sites..." aria-label="Search sites" autocomplete="off" enterkeyhint="search" oninput="renderSiteSwitcherList()">
                     <button type="button" id="sh-switch-clear" class="search-field-clear hidden" aria-label="Clear search" onclick="clearSiteSwitcherSearch()"><i class="ph-fill ph-x-circle" aria-hidden="true"></i></button>
                 </div>
-                <div id="sh-switch-list" class="sh-switch-list" role="listbox" aria-labelledby="sh-switch-title"></div>
+                <div id="sh-switch-list" class="sheet-body sh-switch-list" role="listbox" aria-labelledby="sh-switch-title"></div>
             </section>
         </div>
 
@@ -1096,23 +1136,23 @@
              crew button; the footer opens the Roster filtered to the site. Filled by renderCrewStatusSheet(). -->
         <div id="crew-sheet-overlay" class="crew-sheet-overlay" hidden>
             <div class="crew-sheet-backdrop" onclick="closeCrewStatusSheet()" aria-hidden="true"></div>
-            <section id="crew-sheet" class="crew-sheet" role="dialog" aria-modal="true" aria-labelledby="crew-sheet-site" tabindex="-1">
-                <div id="crew-sheet-drag" class="crew-sheet-drag">
-                    <div class="crew-sheet-grab" aria-hidden="true"><span></span></div>
-                    <header class="crew-sheet-head">
-                        <div class="crew-sheet-id">
-                            <h2 id="crew-sheet-site" class="crew-sheet-site"></h2>
-                            <p id="crew-sheet-address" class="crew-sheet-address"></p>
+            <section id="crew-sheet" class="sheet crew-sheet" role="dialog" aria-modal="true" aria-labelledby="crew-sheet-site" tabindex="-1">
+                <div id="crew-sheet-drag" class="sheet-grab">
+                    <span class="sheet-handle" aria-hidden="true"></span>
+                    <header class="sheet-head">
+                        <div class="sheet-head-text is-stacked">
+                            <h2 id="crew-sheet-site" class="sheet-title"></h2>
+                            <p id="crew-sheet-address" class="sheet-subtitle"></p>
                         </div>
                         <span id="crew-sheet-count" class="crew-sheet-count"></span>
-                        <button type="button" class="crew-sheet-close" onclick="closeCrewStatusSheet()" aria-label="Close">
+                        <button type="button" class="sheet-close crew-sheet-close" onclick="closeCrewStatusSheet()" aria-label="Close">
                             <i class="ph-bold ph-x" aria-hidden="true"></i>
                         </button>
                     </header>
                 </div>
-                <div id="crew-sheet-list" class="crew-sheet-list"></div>
-                <footer class="crew-sheet-foot">
-                    <button type="button" class="crew-sheet-schedule" onclick="openCrewSiteSchedule()">View Full Weekly Roster</button>
+                <div id="crew-sheet-list" class="sheet-body crew-sheet-list"></div>
+                <footer class="sheet-foot">
+                    <button type="button" class="sheet-btn sheet-btn--secondary" onclick="openCrewSiteSchedule()">View Full Weekly Roster</button>
                 </footer>
             </section>
         </div>
@@ -1202,64 +1242,40 @@
             </section>
         </div>
 
-        <div id="modal-overlay" aria-hidden="true" class="absolute inset-0 bg-slate-400/20 backdrop-blur-md z-50 flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-0 sm:p-4">
-            <div id="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title" class="w-full sm:max-w-md bg-white/95 backdrop-blur-3xl rounded-t-hero rounded-b-none sm:rounded-hero p-5 pt-2.5 pb-6 shadow-[0_-14px_44px_rgba(15,23,42,0.14),0_0_1px_rgba(15,23,42,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)] border-t border-x sm:border border-white/90 transform translate-y-[120%] transition-transform duration-350 max-h-[88vh] flex flex-col overflow-hidden will-change-transform" style="padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1.25rem));">
-                <!-- iOS Drag Handle Pill Zone (Large hit area) -->
-                <div id="modal-drag-zone" class="w-full pt-1 pb-2.5 flex justify-center cursor-grab active:cursor-grabbing select-none shrink-0 group">
-                    <div class="w-10 h-1 bg-slate-300/90 group-hover:bg-slate-400 group-active:bg-slate-500 rounded-full transition-colors"></div>
+        <!-- Shared modal (scripts/core/modal.js: openModal / closeModal): the app's one sheet design
+             (styles/sheet.css, the Time sheet's). Features pass a title and body content. -->
+        <div id="modal-overlay" aria-hidden="true" class="sheet-scrim sheet-scrim--modal opacity-0 pointer-events-none">
+            <div id="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title" class="sheet translate-y-[120%]">
+                <div id="modal-drag-zone" class="sheet-grab">
+                    <span class="sheet-handle" aria-hidden="true"></span>
+                    <div id="modal-header-container" class="sheet-head">
+                        <div class="sheet-head-text"><h3 id="modal-title" class="sheet-title">Notification</h3></div>
+                        <button type="button" onclick="closeModal()" aria-label="Close" class="sheet-close"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
+                    </div>
                 </div>
-                
-                <!-- Apple Sheet Header -->
-                <div id="modal-header-container" class="flex items-center justify-between pb-3.5 mb-2.5 border-b border-slate-100 shrink-0">
-                    <h3 id="modal-title" class="text-xl font-black text-slate-900 tracking-tight">Notification</h3>
-                    <button onclick="closeModal()" aria-label="Close modal" class="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-slate-100/90 hover:bg-slate-200 active:scale-90 flex items-center justify-center text-slate-600 hover:text-slate-900 cursor-pointer transition-all border border-slate-200/50">
-                        <i class="fa-solid fa-xmark text-xs"></i>
-                    </button>
-                </div>
-                <!-- Scrollable Body with smooth momentum scrolling -->
-                <div id="modal-body" class="space-y-4 text-slate-600 text-sm overflow-y-auto flex-1 no-scrollbar pr-0.5"></div>
+                <div id="modal-body" class="sheet-body space-y-4 no-scrollbar"></div>
             </div>
         </div>
 
-        <div id="tool-transfer-modal-overlay" 
-             aria-hidden="true" 
-             class="absolute inset-0 bg-slate-400/20 backdrop-blur-md z-50 flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300 px-0 pb-0 pt-14 sm:p-4 select-none"
-             style="padding-top: max(3.5rem, calc(var(--safe-top) + 2.25rem));">
-            
-            <div id="tool-transfer-sheet" 
-                 role="dialog" 
-                 aria-modal="true" 
-                 aria-labelledby="transfer-modal-title" 
-                 aria-describedby="transfer-modal-subtitle"
-                 class="relative w-full sm:max-w-md bg-[#121215]/95 backdrop-blur-3xl text-slate-900 rounded-t-hero sm:rounded-hero shadow-[0_-14px_44px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] border-t border-x sm:border border-white/90 transform translate-y-[120%] max-h-[84dvh] sm:max-h-[86vh] flex flex-col overflow-hidden will-change-transform pb-3" style="background-color: rgba(18, 18, 21, 0.97); padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));">
-                
-                <!-- Dynamic Apple Ambient Glow Orbs -->
-                <div id="transfer-sheet-glow-1" class="absolute -top-16 -left-10 w-52 h-52 bg-slate-300/15 rounded-full blur-[65px] pointer-events-none transition-colors duration-500"></div>
-                <div id="transfer-sheet-glow-2" class="absolute top-36 -right-12 w-52 h-52 bg-slate-200/10 rounded-full blur-[65px] pointer-events-none transition-colors duration-500"></div>
-
-                <!-- iOS Drag Handle Zone -->
-                <div id="transfer-drag-zone" class="relative z-10 w-full pt-2.5 pb-1 flex justify-center cursor-grab select-none shrink-0" onclick="closeToolTransferModal()">
-                    <div class="w-9 h-1.5 bg-slate-300/90 rounded-full transition-colors hover:bg-slate-400"></div>
-                </div>
-
-                <!-- Apple Sheet Header: Title on Left, 44x44px Accessible Close Button on Right -->
-                <div class="relative z-10 flex items-center justify-between pt-0.5 pb-2.5 px-4 sm:px-5 shrink-0">
-                    <div class="min-w-0 pr-3">
-                        <h3 id="transfer-modal-title" class="text-xl font-black text-slate-900 tracking-tight leading-tight">Transfer Details</h3>
-                        <p id="transfer-modal-subtitle" class="text-[13px] font-medium text-slate-500 mt-0.5">Choose destination site</p>
+        <!-- Tool transfer sheet (scripts/features/tool-transfer.js): the shared sheet design (styles/sheet.css) -->
+        <div id="tool-transfer-modal-overlay" aria-hidden="true" class="sheet-scrim sheet-scrim--modal opacity-0 pointer-events-none select-none">
+            <div id="tool-transfer-sheet" role="dialog" aria-modal="true" aria-labelledby="transfer-modal-title" aria-describedby="transfer-modal-subtitle"
+                 class="sheet translate-y-[120%]">
+                <div id="transfer-drag-zone" class="sheet-grab">
+                    <span class="sheet-handle" aria-hidden="true" onclick="closeToolTransferModal()"></span>
+                    <div class="sheet-head">
+                        <div class="sheet-head-text is-stacked">
+                            <h3 id="transfer-modal-title" class="sheet-title">Transfer Details</h3>
+                            <p id="transfer-modal-subtitle" class="sheet-subtitle">Choose destination site</p>
+                        </div>
+                        <button type="button" onclick="closeToolTransferModal()" aria-label="Close transfer sheet" class="sheet-close">
+                            <i class="ph-bold ph-x" aria-hidden="true"></i>
+                        </button>
                     </div>
-                    
-                    <!-- iOS Circular Close Button (44x44px accessible touch target) -->
-                    <button type="button" 
-                            onclick="closeToolTransferModal()" 
-                            aria-label="Close transfer sheet" 
-                            class="btn btn--secondary btn--round">
-                        <i class="ph-bold ph-x" aria-hidden="true"></i>
-                    </button>
                 </div>
 
                 <!-- Sheet body (styles/tool-transfer.css): tool, route (From -> To), quantity and note, action -->
-                <div id="transfer-body-scroller" class="tt-body relative z-10 flex-1 overflow-y-auto no-scrollbar px-4 sm:px-5 pb-2">
+                <div id="transfer-body-scroller" class="sheet-body tt-body no-scrollbar">
 
                     <!-- 1. The tool -->
                     <div id="transfer-hero-card" class="tt-tool">
@@ -1269,6 +1285,8 @@
                         <div class="min-w-0 flex-1">
                             <h4 id="transfer-tool-name" class="tt-tool-name">Equipment</h4>
                             <p id="transfer-tool-meta" class="tt-tool-meta"></p>
+                            <!-- Grouped tools with more than one unit at the source: how many to move -->
+                            <div id="transfer-qty-row" class="tt-qty-row" hidden></div>
                         </div>
                     </div>
 
@@ -1299,88 +1317,59 @@
                         </button>
                     </div>
 
-                    <!-- Destination list: opens under the route when the To card is tapped -->
+                    <!-- Quick destinations: My Site (where you're signed in), a few likely sites, More (the full list) -->
+                    <div id="transfer-chips" class="tt-chips" role="group" aria-label="Quick destinations"></div>
+
+                    <!-- Destination list: opens under the route when the To card is tapped (or More) -->
                     <div id="transfer-site-list" class="tt-site-list" role="listbox" aria-label="Destination site" tabindex="-1" hidden></div>
 
                     <!-- 3. Quantity (bulk items only) and note -->
                     <div id="transfer-inputs-wrapper" class="tt-inputs">
-                        <div id="transfer-quantity-section" class="tt-qty" hidden>
-                            <div class="min-w-0">
-                                <label for="transfer-input-qty" class="tt-qty-label">Units to Move</label>
-                                <span id="transfer-amount-available" class="tt-qty-sub">Available: 24 Props</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="adjustTransferQuantity(-1)" aria-label="Decrease units" class="btn btn--secondary btn--icon">
-                                    <i class="ph-bold ph-minus" aria-hidden="true"></i>
-                                </button>
-                                <input type="number" id="transfer-input-qty" min="1" max="999" value="10" inputmode="numeric" oninput="onTransferQuantityChange(this.value)" aria-describedby="transfer-input-unit" class="tt-qty-input">
-                                <span id="transfer-input-unit" class="sr-only">Props</span>
-                                <button type="button" onclick="adjustTransferQuantity(1)" aria-label="Increase units" class="btn btn--secondary btn--icon">
-                                    <i class="ph-bold ph-plus" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                        </div>
                         <div id="transfer-notes-section" class="tt-note">
-                            <label id="transfer-notes-label" for="transfer-input-desc" class="tt-note-label">Note</label>
-                            <input type="text" id="transfer-input-desc" placeholder="e.g. Framing stage" autocomplete="off" enterkeyhint="done" class="tt-note-input">
+                            <label id="transfer-notes-label" for="transfer-input-desc" class="sheet-label">Note</label>
+                            <input type="text" id="transfer-input-desc" placeholder="e.g. Framing stage" autocomplete="off" enterkeyhint="done" class="sheet-input">
                         </div>
                     </div>
 
-                    <!-- 4. Primary action: shared button (styles/buttons.css), coloured by the action -->
-                    <div class="tt-action">
-                        <button type="button" 
-                                id="transfer-confirm-btn"
-                                onclick="confirmToolTransfer()" 
-                                class="btn btn--cta btn--cta-emerald btn--block">
-                            <span id="transfer-confirm-btn-label">Transfer Equipment</span>
-                            <i id="transfer-confirm-btn-icon" class="ph-bold ph-arrows-left-right" aria-hidden="true"></i>
-                        </button>
-                    </div>
+                </div>
 
+                <!-- 4. Primary action: the shared sheet action (styles/sheet.css), toned by the action -->
+                <div class="sheet-foot">
+                    <!-- Status at destination: the status the equipment arrives in (sent with the transfer) -->
+                    <div id="transfer-status-section" class="tt-arrival">
+                        <span id="transfer-status-label" class="sheet-label">Status at destination</span>
+                        <div class="sheet-segmented" role="radiogroup" aria-labelledby="transfer-status-label">
+                            <button type="button" role="radio" class="sheet-seg is-active" data-status="In Use" aria-checked="true" onclick="setTransferArrivalStatus('In Use')">In Use</button>
+                            <button type="button" role="radio" class="sheet-seg" data-status="Available" aria-checked="false" onclick="setTransferArrivalStatus('Available')">Available</button>
+                        </div>
+                    </div>
+                    <button type="button" id="transfer-confirm-btn" onclick="confirmToolTransfer()" class="sheet-btn">
+                        <span id="transfer-confirm-btn-label">Transfer Equipment</span>
+                        <i id="transfer-confirm-btn-icon" class="ph-bold ph-arrows-left-right" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
         </div>
 
 
         <!-- Apple Dark Calendar Modal (Matches Reference Design 1:1) -->
-        <div id="apple-calendar-modal-overlay" 
-             aria-hidden="true" 
-             onclick="handleAppleCalendarOverlayClick(event)"
-             class="fixed inset-0 bg-black/60 backdrop-blur-md z-[70] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 px-4 py-6 select-none">
-            
-            <div id="apple-calendar-card-container" 
-                 role="dialog" 
-                 aria-modal="true" 
-                 aria-labelledby="apple-cal-month-year" 
-                 class="w-full max-w-[340px] flex flex-col items-center transform scale-95 transition-all duration-300 will-change-transform">
-                
-                <!-- Dark Calendar Card -->
-                <div class="w-full bg-[#18181b] rounded-card p-5 sm:p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_1px_1px_rgba(255,255,255,0.08)] border border-zinc-800/80 text-white flex flex-col">
-                    
-                    <!-- Calendar Header -->
-                    <div class="flex items-center justify-between mb-3.5">
-                        <h3 id="apple-cal-month-year" class="text-[17px] sm:text-lg font-bold text-white tracking-tight">November 2026</h3>
-                        <div class="flex items-center gap-1">
-                            <button type="button" 
-                                    onclick="jumpAppleCalendarToday()" 
-                                    class="text-[13px] font-medium text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer active:scale-95 focus:outline-none">
-                                Today
-                            </button>
-                            <button type="button" 
-                                    onclick="navigateAppleCalendarMonth(-1)" 
-                                    aria-label="Previous month" 
-                                    class="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors cursor-pointer active:scale-90 focus:outline-none">
-                                <i class="fa-solid fa-chevron-left text-[11px]" aria-hidden="true"></i>
-                            </button>
-                            <button type="button" 
-                                    onclick="navigateAppleCalendarMonth(1)" 
-                                    aria-label="Next month" 
-                                    class="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-lg transition-colors cursor-pointer active:scale-90 focus:outline-none">
-                                <i class="fa-solid fa-chevron-right text-[11px]" aria-hidden="true"></i>
-                            </button>
+        <!-- Date picker (scripts/components/apple-calendar.js): the shared sheet design (styles/sheet.css) -->
+        <div id="apple-calendar-modal-overlay" aria-hidden="true" onclick="handleAppleCalendarOverlayClick(event)"
+             class="sheet-scrim sheet-scrim--calendar opacity-0 pointer-events-none select-none">
+            <div id="apple-calendar-card-container" role="dialog" aria-modal="true" aria-labelledby="apple-cal-month-year" class="sheet">
+                <div class="sheet-grab">
+                    <span class="sheet-handle" aria-hidden="true"></span>
+                    <div class="sheet-head">
+                        <div class="sheet-head-text"><h3 id="apple-cal-month-year" class="sheet-title">November 2026</h3></div>
+                        <div class="cal-sheet-nav">
+                            <button type="button" onclick="jumpAppleCalendarToday()" class="cal-sheet-today">Today</button>
+                            <button type="button" onclick="navigateAppleCalendarMonth(-1)" aria-label="Previous month" class="cal-sheet-step"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button>
+                            <button type="button" onclick="navigateAppleCalendarMonth(1)" aria-label="Next month" class="cal-sheet-step"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
+                            <button type="button" onclick="closeAppleCalendarModal()" aria-label="Close calendar" class="sheet-close"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
                         </div>
                     </div>
-
+                </div>
+                <div class="sheet-body">
                     <!-- Weekdays Header -->
                     <div class="grid grid-cols-7 text-center mb-1">
                         <div class="text-[13px] font-medium text-zinc-400">Su</div>
@@ -1396,21 +1385,11 @@
                     <div id="apple-cal-days-grid" class="grid grid-cols-7 gap-y-1 text-center">
                         <!-- Populated dynamically via renderAppleCalendar() -->
                     </div>
+                    <p id="apple-cal-subtitle" class="cal-sheet-caption">Launch set for Sunday, November 8</p>
                 </div>
-
-                <!-- Subtitle Caption Underneath Card -->
-                <p id="apple-cal-subtitle" class="text-[13px] font-medium text-zinc-400 text-center mt-3.5 tracking-tight transition-all duration-200">
-                    Launch set for Sunday, November 8
-                </p>
-
-                <!-- Subtle Dismiss Button -->
-                <button type="button"
-                        onclick="closeAppleCalendarModal()"
-                        aria-label="Close calendar"
-                        class="mt-4 px-4 py-1.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold backdrop-blur-xl transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-sm focus:outline-none">
-                    <i class="fa-solid fa-check text-[11px] text-zinc-400"></i>
-                    <span>Done</span>
-                </button>
+                <div class="sheet-foot">
+                    <button type="button" onclick="closeAppleCalendarModal()" class="sheet-btn"><i class="ph-bold ph-check" aria-hidden="true"></i><span>Done</span></button>
+                </div>
             </div>
         </div>
     </div>
@@ -1435,6 +1414,7 @@
     <script src="scripts/domain/rules/time.js"></script>
     <script src="scripts/domain/rules/pay-run.js"></script>
     <script src="scripts/domain/rules/timesheets.js"></script>
+    <script src="scripts/domain/rules/availability.js"></script>
     <script src="scripts/domain/validation.js"></script>
     <!-- Mock database contents (read only by the mock provider's seed mapper) -->
     <script src="scripts/data/sites.js"></script>
@@ -1471,6 +1451,7 @@
     <script src="scripts/application/services/site-content-service.js"></script>
     <script src="scripts/application/services/equipment-service.js"></script>
     <script src="scripts/application/services/leave-service.js"></script>
+    <script src="scripts/application/services/availability-service.js"></script>
     <script src="scripts/application/bootstrap.js"></script>
     <script src="scripts/core/boot.js"></script>
     <script src="scripts/features/attendance.js"></script>
@@ -1492,6 +1473,7 @@
     <script src="scripts/features/team.js"></script>
     <script src="scripts/features/tools.js"></script>
     <script src="scripts/features/tool-transfer.js"></script>
+    <script src="scripts/features/availability.js"></script>
     <script src="scripts/features/notifications.js"></script>
     <script src="scripts/features/today-summary.js"></script>
     <script src="scripts/features/home-nav.js"></script>

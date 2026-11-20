@@ -26,6 +26,7 @@ const EntitySchemas = (() => {
             suburb: { type: 'string', required: true },
             active: { type: 'boolean', required: true },
             icon: { type: 'string' },
+            kind: { type: 'string', enum: ['site', 'factory'] },
             createdAt: { type: 'timestamp', required: true },
             updatedAt: { type: 'timestamp', required: true }
         },
@@ -117,13 +118,93 @@ const EntitySchemas = (() => {
         tool: {
             id: { type: 'id', required: true },
             name: { type: 'string', required: true },
-            siteId: { type: 'id', required: true },
+            // 'individual' (one asset: siteId + status here) or 'quantity' (identical units: totalQuantity here,
+            // their locations and statuses in equipmentAllocation rows; siteId and status are null)
+            trackingType: { type: 'string', enum: ['individual', 'quantity'] },
+            totalQuantity: { type: 'number', nullable: true, min: 1 },
+            siteId: { type: 'id', nullable: true },          // individual: null = unassigned, location to confirm
             category: { type: 'string', required: true },
-            status: { type: 'string', required: true, enum: Object.values(ToolStatus) },
+            status: { type: 'string', nullable: true, enum: Object.values(ToolStatus) },
+            mergedIds: { type: 'array' },                    // ids of per-unit records folded into this one (history)
+            needsReview: { type: 'boolean' },
             quantity: { type: 'number', min: 1 },
             unit: { type: 'string' },
             lastLogged: { type: 'string' },
-            moveRequestedToSiteId: { type: 'id', nullable: true }
+            moveRequestedToSiteId: { type: 'id', nullable: true },
+            missingReportedAt: { type: 'timestamp', nullable: true },
+            missingReportedBy: { type: 'id', nullable: true }
+        },
+        // Where a grouped tool's units are: unique per (toolId, siteId, status); quantities add up to the tool's
+        // totalQuantity, Service (out of service) units included
+        equipmentAllocation: {
+            id: { type: 'id', required: true },
+            toolId: { type: 'id', required: true },
+            siteId: { type: 'id', nullable: true },          // null = location to confirm
+            status: { type: 'string', required: true, enum: Object.values(ToolStatus) },
+            quantity: { type: 'number', required: true, min: 1 },
+            updatedAt: { type: 'timestamp', required: true }
+        },
+        chat: {
+            id: { type: 'id', required: true },
+            name: { type: 'string', required: true },
+            kind: { type: 'string', required: true, enum: ['site', 'channel', 'direct', 'ai'] },
+            siteId: { type: 'id', nullable: true }
+        },
+        chatMessage: {
+            id: { type: 'id', required: true },
+            chatId: { type: 'id', required: true },
+            type: { type: 'string', required: true, enum: Object.values(ChatMessageType) },
+            senderId: { type: 'id', required: true },
+            senderName: { type: 'string', required: true },
+            text: { type: 'string', max: 2000 },
+            requestId: { type: 'id', nullable: true },
+            createdAt: { type: 'timestamp', required: true }
+        },
+        availabilityRequest: {
+            id: { type: 'id', required: true },
+            toolId: { type: 'id', required: true },
+            siteId: { type: 'id', required: true },
+            chatId: { type: 'id', required: true },
+            messageId: { type: 'id', required: true },
+            requesterId: { type: 'id', required: true },
+            requesterName: { type: 'string', required: true },
+            requesterNote: { type: 'string', max: 200 },
+            quantity: { type: 'number', min: 1 },             // units asked about (grouped tools; 1 otherwise)
+            status: { type: 'string', required: true, enum: Object.values(AvailabilityStatus) },
+            responderId: { type: 'id', nullable: true },
+            responderName: { type: 'string', nullable: true },
+            respondedAt: { type: 'timestamp', nullable: true },
+            holderId: { type: 'id', nullable: true },
+            estimatedAvailableAt: { type: 'timestamp', nullable: true },
+            idempotencyKey: { type: 'string', nullable: true, max: 80 },
+            version: { type: 'number', required: true, min: 1 },
+            createdAt: { type: 'timestamp', required: true },
+            updatedAt: { type: 'timestamp', required: true },
+            expiresAt: { type: 'timestamp', required: true }
+        },
+        availabilityResponse: {
+            id: { type: 'id', required: true },
+            requestId: { type: 'id', required: true },
+            responderId: { type: 'id', required: true },
+            responderName: { type: 'string', required: true },
+            responseType: { type: 'string', required: true, enum: Object.values(AvailabilityResponseType) },
+            estimatedAvailableAt: { type: 'timestamp', nullable: true },
+            previousEstimatedAvailableAt: { type: 'timestamp', nullable: true },
+            createdAt: { type: 'timestamp', required: true }
+        },
+        notification: {
+            id: { type: 'id', required: true },
+            recipientId: { type: 'id', required: true },
+            type: { type: 'string', required: true, enum: Object.values(NotificationType) },
+            title: { type: 'string', required: true, max: 80 },
+            body: { type: 'string', required: true, max: 300 },
+            actorId: { type: 'id', nullable: true },
+            requestId: { type: 'id', nullable: true },
+            chatId: { type: 'id', nullable: true },
+            messageId: { type: 'id', nullable: true },
+            dedupeKey: { type: 'string', required: true },
+            createdAt: { type: 'timestamp', required: true },
+            readAt: { type: 'timestamp', nullable: true }
         },
         leaveRequest: {
             id: { type: 'id', required: true },

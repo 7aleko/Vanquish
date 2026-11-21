@@ -1,7 +1,7 @@
 /**
  * Crew Status sheet ("Site Crew"): who is rostered at a site on a day and who has signed in, as an iOS bottom
  * sheet (styles/crew-status-sheet.css). Opened by the Home site card's crew button ("N crew ›": the card's
- * site, today) and by the Site Hub's hero (its active site and chosen day). Nothing is hardcoded:
+ * site, today) and by the Site Hub's On Site headcount (its active site and chosen day). Nothing is hardcoded:
  *
  *   site      passed in (openCrewSheetFor) - any site works
  *   day       passed in; today / past / future is judged against the app's today (homeAttendanceDay)

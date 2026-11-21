@@ -1,6 +1,6 @@
 # Lifestyle App
 
-A mobile-first site-management dashboard (roster, site, schedule whiteboard, team, tools, chat, notifications).
+A mobile-first site-management dashboard (roster, Site Hub and its Schedule, team, tools, chat, notifications).
 It is a **no-build vanilla JS app**: open `index.html` directly in a browser (`file://` works) or serve the folder with any static server.
 
 ## Project structure
@@ -19,7 +19,10 @@ styles/                     Plain CSS, loaded in cascade order (see index.html)
   account-sheet.css         Top-bar avatar + account sheet (grouped rows, pages pushed inside it)
   data-status.css           Data load error banner + inline action errors
   attendance.css            Home hero attendance card
-  whiteboard.css            Schedule whiteboard
+  site-hub.css              Site Hub: switcher pill, hero + schedule footer, On Site roster, search, bento, + speed dial
+  schedule.css              Schedule (Site Hub sub-page): Overview, 2-Week Plan Gantt, Month
+  snack.css                 Snack bar (one transient confirmation, app-wide)
+  progress-ring.css         Milestone progress ring (Site Hub hero, Schedule)
   notification-banner.css   iOS-style notification banner (birthday reminders)
   top-bar.css               Top bar: Home brand/notifications/menu vs pushed-screen back + inline title
   home-dark.css             Home screen dark mode (Tesla-style)

@@ -57,6 +57,8 @@ const appStore = createAppStore({
     sitePhotos: () => dataProvider.sitePhotos.list(),
     equipment: () => dataProvider.equipment.list(),
     equipmentAllocations: () => dataProvider.equipment.listAllocations(),
+    scheduleTasks: () => dataProvider.schedule.listTasks(),
+    scheduleTrades: () => dataProvider.schedule.listTrades(),
     chats: () => dataProvider.chats.list(),
     chatMessages: () => dataProvider.chatMessages.list(),
     availabilityRequests: () => dataProvider.availability.listRequests(),
@@ -83,6 +85,7 @@ const siteContentService = createSiteContentService(serviceKit);
 const equipmentService = createEquipmentService(serviceKit);
 const leaveService = createLeaveService(serviceKit);
 const availabilityService = createAvailabilityService(serviceKit);
+const scheduleService = createScheduleService(serviceKit);
 
 appStore.load().catch(err => console.error('Initial data load failed:', err));
 
@@ -90,8 +93,8 @@ appStore.load().catch(err => console.error('Initial data load failed:', err));
 // subscribed to them redraws. Coming back online or to the tab re-fetches the live collections too, in case
 // a change was missed while away.
 const STORE_COLLECTIONS = new Set(['sites', 'employees', 'roster', 'costCodes', 'timesheets', 'crewLogs', 'attendance', 'siteLogs', 'drawings',
-    'sitePhotos', 'equipment', 'equipmentAllocations', 'chats', 'chatMessages', 'availabilityRequests', 'notifications', 'leaveRequests', 'leaveBalances']);
-const LIVE_COLLECTIONS = ['equipment', 'equipmentAllocations', 'chatMessages', 'availabilityRequests', 'notifications', 'attendance'];
+    'sitePhotos', 'equipment', 'equipmentAllocations', 'scheduleTasks', 'scheduleTrades', 'chats', 'chatMessages', 'availabilityRequests', 'notifications', 'leaveRequests', 'leaveBalances']);
+const LIVE_COLLECTIONS = ['equipment', 'equipmentAllocations', 'scheduleTasks', 'chatMessages', 'availabilityRequests', 'notifications', 'attendance'];
 function refreshCollections(names) {
     if (appStore.status !== 'ready') return;
     names.filter(c => STORE_COLLECTIONS.has(c)).forEach(c => appStore.refresh(c).catch(err => console.warn(`Refresh of ${c} failed:`, err)));

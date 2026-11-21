@@ -5,7 +5,7 @@
  */
 
 // The app's "today": the anchor day the roster, sites and hero date are built around
-// (Wednesday 14 October 2026 - see activeTodayCardId in week-roster.js; the Site Hub and Home crew use it too).
+// (Monday 23 November 2026, APP_CONFIG.siteDemoDay - the Roster, Site Hub, Schedule and Home crew use it too).
 const APP_TODAY = DateRules.fromIso(APP_CONFIG.siteDemoDay);
 
 const BIRTHDAY_LOOKAHEAD_DAYS = 5;

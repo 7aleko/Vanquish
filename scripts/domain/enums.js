@@ -76,7 +76,9 @@ const AuditAction = Object.freeze({
     REQUEST_AVAILABILITY: 'request_availability',
     RESPOND: 'respond',
     UPDATE_ETA: 'update_eta',
-    EXPIRE: 'expire'
+    EXPIRE: 'expire',
+    DELETE: 'delete',
+    TICK: 'tick'
 });
 
 // An equipment availability request's state (AvailabilityRequest.status). PENDING waits for the site's

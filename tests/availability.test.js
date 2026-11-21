@@ -1,6 +1,6 @@
 // Equipment availability requests end to end over a fresh mock database: the Tools request, the site chat
 // card's state, targeted notifications, first-answer-wins, the holder's ETA, expiry and the cooldown.
-// Demo day: Wed 14 Oct 2026. Lugarno that day: Alexander Floratos (team-1, rostered), James Begg (team-31,
+// Demo day: Mon 23 Nov 2026. Lugarno that day: Alexander Floratos (team-1, rostered), James Begg (team-31,
 // crew + signed in), David Hilt (team-8, site supervisor, crew + signed in).
 // The inventory starts all Available, so each test's fixtures put some of it to work first:
 //   eq-001 Air Compressor -> Lugarno, In Use      eq-006 Drop Saw (Factory, Available)
@@ -11,7 +11,7 @@ const { loadApp } = require('./helpers/load-app');
 
 const app = loadApp();
 const code = c => err => err && err.code === c;
-const at = (h, m = 0) => new Date(2026, 9, 14, h, m);
+const at = (h, m = 0) => new Date(2026, 10, 23, h, m);
 const baseEnv = app.makeEnv;
 app.makeEnv = async opts => {
     const env = await baseEnv(opts);
@@ -117,7 +117,7 @@ test('respond: the first answer wins; later answers from others are rejected by 
     assert.equal(saved.holderId, 'team-31');
     // a site member who is not the holder can't change it
     env.session.signInAs('team-1');
-    await env.provider.roster.assign({ date: '2026-10-14', employeeId: 'team-4', siteId: 'lugarno' });   // Caleb, apprentice
+    await env.provider.roster.assign({ date: '2026-11-23', employeeId: 'team-4', siteId: 'lugarno' });   // Caleb, apprentice
     await env.store.refresh('roster');
     env.session.signInAs('team-4');
     await assert.rejects(env.availability.respond({ requestId: request.id, response: 'available' }), code('CONFLICT'));

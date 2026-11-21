@@ -65,6 +65,7 @@ objects, which are copies of the stored data.
 | `costCodes` | `list` |
 | `equipment` | `list`, `getById`, `create`, `update` (details only), `listAllocations`, `moveUnits` (atomic: checks the source bucket, decrements it and removes it at 0, increments or creates the destination, reconciles the total) |
 | `leave` | `listRequests`, `getRequest`, `createRequest`, `updateRequest`, `getBalance`, `updateBalance` |
+| `schedule` | `listTasks`, `getTask`, `createTask` (an id may be given: undo), `updateTask`, `removeTask`, `addChecklistItem` / `updateChecklistItem` / `removeChecklistItem` (one item at a time), `listTrades`, `saveTrades` (a trade in use can't be removed) |
 | `chats` | `list`, `getForSite` (a site's group chat) |
 | `chatMessages` | `list({chatId})` |
 | `availability` | `listRequests`, `getRequest`, `listResponses`, `createRequest` (one active request per tool; a repeated idempotency key replays the first; site and chat come from the tool's record, and the request and its chat message are created together), `respond` (compare-and-set: the first answer wins, then only the holder or an override; updates the tool and appends the response history), `expireDue` |
@@ -85,12 +86,14 @@ The entities are:
 - Attendance (a site sign-in: who, which site, which day, signed in and out timestamps)
 - SiteLog (a daily site log: site, day, title, notes, author)
 - Drawing (the current revision of a drawing sheet: sheet number, title, discipline, revision, issue date)
-- SitePhoto (a photo taken on site, usually attached to a SiteLog)
+- SitePhoto (a photo taken on site, usually attached to a SiteLog). SiteLogs and SitePhotos carry `tradeIds` (the schedule's trades) - the tags Site search filters by; `SiteSearchRules` (domain) does the matching
 - CostCode
 - Tool (`trackingType` 'individual': one asset with its own `siteId` and `status`, `siteId` null = unassigned; 'quantity': identical units under one record with `totalQuantity`)
 - EquipmentAllocation (where a quantity-tracked tool's units are: unique per tool, site and status; positive quantities that add up to `totalQuantity`, out-of-service units included)
 - LeaveRequest
 - LeaveBalance
+- ScheduleTrade (a trade on the schedule: name, colour) and ScheduleTask (a site booking: trade, what, company (`crew`), arrival window, where, scope (`notes`), from - to; a milestone is a stage gate on its due day and owns a checklist whose ticks record who and when - progress is always counted from the checklist, `ScheduleRules.progress`)
+- Site also carries its construction `stage` and, for a site with a key safe, `lockbox` / `accessNotes` (the Site Hub's Site Access sheet)
 - Chat (the server's view of a chat: id, name, kind and, for a site group chat, its site)
 - ChatMessage (a structured chat message; an availability card references its request and stores no copy of its state)
 - AvailabilityRequest (one "is this tool free?" asked of a tool's site: the one record the Tools card, the chat card and the notifications all show)
@@ -116,8 +119,9 @@ The rules every model follows:
 | `timesheetService` | `submit`: validates, works out ROSTERED / TRANSFERRED / MANUAL from the roster, upserts and audits. `approve` and `reject`: needs a supervisor or above, and never on your own timesheet. |
 | `crewLogService` | `forSiteOnDate`: matched on date and site id. `copyBlocks`: returns fresh draft blocks and never submits. |
 | `attendanceService` | `signIn` and `signOut` for the signed-in employee on a given day (the Home card's day). Refuses an archived site or signing in at a second site while still signed in elsewhere. Timestamps come from the provider; every change is audited. |
-| `siteContentService` | `addDrawing`: validates the sheet, title, discipline and revision and records it in the site's drawing register (a new revision of a sheet replaces the old; the same revision is a conflict). `addLog`: validates the title, notes, active site and up to 6 photos, then saves the log and its photos in one transaction with audit entries. |
+| `siteContentService` | `addDrawing`: validates the sheet, title, discipline and revision and records it in the site's drawing register (a new revision of a sheet replaces the old; the same revision is a conflict). `addLog`: validates the title, notes, active site and up to 6 photos, then saves the log and its photos in one transaction with audit entries. `addPhotos` (Add Photo): up to 6 photos with one description, tag and trade tags, not tied to a log. `setPhotoTrades`: re-tag a photo's trades. A log's photos take its trade tags. |
 | `equipmentService` | `transferUnits` / `setUnitStatus`: move N units of a quantity-tracked tool between buckets (only available units transfer; they arrive In Use at a site, Available at the factory). `transfer`: an available tool moves, a tool in use gets a move request, and a tool in service is refused. `register`: validates name, category (`ToolCategories`), active site and quantity, refuses a duplicate name at the same site, and adds the tool as Available with an audit entry. |
+| `scheduleService` | `saveTask` (create / edit, with company, arrival window and scope; a new milestone starts from a checklist template), `deleteTask` / `restoreTask` (undo), `copyTask` (+1 week, checklist unticked), `makeMilestone`, `toggleItem` / `setItemNote` / `addItem` / `removeItem` / `restoreItem`, `saveTrades` (supervisors and above). |
 | `availabilityService` | `request`: asks a tool's site whether an in-use tool is free; the database refuses a second active request for the tool (30-minute cooldown), a tool that is available, in service, at an inactive site or at a site without a group chat, and replays a retried submit. Notifies the site's members today (rostered there or signed in there, active, not the requester), each once. `respond` (available / in use with an ETA / missing) and `updateEta`: only site members, never your own request (admins excepted), supervisors and above may override; ETAs are worked out from a preset or a clock time by the service. Tells the requester; a missing tool also alerts the site's supervisors (or the directors). Notifications are delivered after the change is saved, so a failed delivery never undoes it. `sweepExpired`, `markNotificationRead`, `markAllNotificationsRead`. |
 | `leaveService` | `request`: checks working days, the balance and overlaps. `approve` and `reject`: the balance is deducted in the same transaction. |
 
@@ -196,7 +200,10 @@ class; don't copy utility strings onto a new element.
 | Filter pills (`.filter-bar`, `.filter-pill`, `--inset` variant) | `styles/filter-bar.css`, `setActiveFilterPill()` | Messages, Notifications, Team, Tools & Gear, Trade Schedule (trades and weeks) |
 | Buttons (`.btn` + `--primary`, `--secondary`, `--card` pill with glass tones `--glass` / `--glass-emerald` / `--glass-blue` / `--glass-amber` and `--compact`, `--cta` with `--cta-emerald` / `--cta-blue`, `--destructive`, `--icon`, `--round`, `--block`) | `styles/buttons.css` | Tools (cards, + Add, the add sheet, the transfer sheet); use for every new button |
 | Sheets and modals (`.sheet-scrim`, `.sheet`, `.sheet-grab`, `.sheet-handle`, `.sheet-head`, `.sheet-title` / `.sheet-subtitle`, `.sheet-close`, `.sheet-body`, `.sheet-foot`, `.sheet-btn` / `--secondary` / `--text` / `.is-tone-blue` / `.is-tone-amber`, `.sheet-label`, `.sheet-input`; `--sheet-*` tokens) | `styles/sheet.css` (the Time sheet's design, the single source; the Time sheet's own classes share its rules) | Every modal: `openModal`, Time, Tool Transfer, Crew, Choose Site, the account sheet (via its tokens), the date picker. New modals call `openModal` or compose these classes. |
-| Header round buttons (`.nav-back`, `.nav-action`) | `styles/top-bar.css`, `--nav-circle-*` tokens | Every pushed screen |
+| Header round buttons (`.nav-back`, `.nav-action`) | `styles/top-bar.css`, `--nav-circle-*` tokens | Every pushed screen (the Schedule shows its site's name in the back pill: "‹ Lugarno") |
+| Snack bar (`showSnack(message, action?, fn?)`, `#app-snack`) | `scripts/components/snack.js`, `styles/snack.css` | "Copied", "Booking deleted · Undo", "Photos added": the one transient confirmation, above every screen and sheet (toasts stay off) |
+| Progress ring (`renderProgressRing(p, { size, stroke, key, tone })` + `animateProgressRings(root)`, `progressRingTone(status)`, `lightProgressCard(card, tone)` / `.ring-lit`) | `scripts/components/progress-ring.js`, `styles/progress-ring.css` | A milestone checklist's done / total as the Time screen's chunky conic ring, coloured by state (amber→gold under way, emerald→mint complete, crimson→coral overdue): the Site Hub milestone card and the Schedule's cards and booking sheet draw it from the same record. `.ring-lit` cards get a bloom behind the ring and a directional edge in the same colour (the Site Hub milestone card). |
+| Conic arc (`conicArcSvg(o)`, `conicPolar`) | `scripts/components/conic-arc.js` | The angular-gradient arc (Fitness-ring style) used by the Time screen's rings and the progress ring |
 | Account sheet parts (`.account-control`, `.account-tile`, `--acct-*` tokens) | `styles/account-sheet.css` | The account sheet and its pages |
 
 A view whose side padding isn't 20px sets `--page-gutter` (see `filter-bar.css`) so pill rows still bleed
@@ -232,8 +239,8 @@ changes data, a service:
    sign-off, currently change the data in place.
 4. **Procore projects** (`PROCORE_PROJECTS`): this should become an integration adapter in `infrastructure/`.
 5. **Chats, notifications and the schedule whiteboard**: each needs its own repository.
-6. **Two demo "todays"**: Home and Roster use 14 Oct (`APP_TODAY`), while Timesheets and the services use
-   13 Nov (`appClock`). These should be one clock.
+6. **Two demo "todays"**: Home, Roster, Site Hub and Schedule use Mon 23 Nov (`APP_CONFIG.siteDemoDay`,
+   `APP_TODAY`), while Timesheets and the services use 13 Nov (`appClock`). These should be one clock.
 7. **Shared UI components:** the site pickers (Timesheets list, transfer roller, schedule select and Site
    switcher) look different on purpose. A shared data source for them already exists through the
    selectors; a shared component would mean a visual change, which needs a design decision.

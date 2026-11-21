@@ -7,7 +7,10 @@
  */
 
 // Bump when the seed's shape changes: a saved mock database from an older seed is then started again
-const MOCK_SEED_VERSION = 2;
+const MOCK_SEED_VERSION = 4;          // 4: trade tags on site logs and photos; photos attached to their day's log
+
+// The schedule's trade ids (scripts/data/whiteboard.js): the tags site logs and photos may carry
+function scheduleTradeIds() { return Object.keys(typeof WHITEBOARD_TRADE_THEMES === 'undefined' ? {} : WHITEBOARD_TRADE_THEMES); }
 
 function buildMockSeed(options) {
     const { today, payRunPolicy } = options;
@@ -18,7 +21,9 @@ function buildMockSeed(options) {
     // ----- Sites -----
     const sites = SITES.map(s => ({
         id: s.id, shortName: s.shortName, address: s.address, suburb: s.suburb, active: !!s.active,
-        icon: s.icon, kind: s.kind || 'site', createdAt: SEEDED_AT, updatedAt: SEEDED_AT
+        icon: s.icon, kind: s.kind || 'site',
+        ...(s.stage ? { stage: s.stage } : {}), ...(s.lockbox ? { lockbox: s.lockbox, accessNotes: s.accessNotes || '' } : {}),
+        createdAt: SEEDED_AT, updatedAt: SEEDED_AT
     }));
 
     // ----- Employees (the team directory) -----
@@ -128,19 +133,26 @@ function buildMockSeed(options) {
         siteId: c.siteId || null
     }));
 
-    // ----- Site content: daily logs and drawings (scripts/data/site-content.js). No sample photos. -----
-    const siteLogs = (typeof SITE_LOG_SAMPLE === 'undefined' ? [] : SITE_LOG_SAMPLE).map((l, i) => {
+    // ----- Site content: daily logs, drawings and photos (scripts/data/site-content.js) -----
+    // A log's photos are SitePhotos attached to it: captioned with its title, tagged with its trades
+    const tradeIdsKnown = new Set(scheduleTradeIds());
+    const siteLogs = [], sitePhotos = [];
+    (typeof SITE_LOG_SAMPLE === 'undefined' ? [] : SITE_LOG_SAMPLE).forEach((l, i) => {
         const author = employeeByName(l.author);
-        return {
-            id: `LOG-${l.siteId}-${l.date}-${i + 1}`, siteId: l.siteId, date: l.date, title: l.title, body: l.body,
-            authorId: author ? author.id : null, authorName: l.author, createdAt: stamp(l.date, '16:00')
-        };
+        const id = `LOG-${l.siteId}-${l.date}-${i + 1}`;
+        const tradeIds = (l.trades || []).filter(t => tradeIdsKnown.has(t));
+        siteLogs.push({ id, siteId: l.siteId, date: l.date, title: l.title, body: l.body, tradeIds,
+            authorId: author ? author.id : null, authorName: l.author, createdAt: stamp(l.date, '16:00') });
+        (l.photos || []).forEach((img, n) => sitePhotos.push({
+            id: `PH-${l.siteId}-${l.date}-${i + 1}-${n + 1}`, siteId: l.siteId, date: l.date, caption: l.title, tag: l.photoTag || 'Progress',
+            tradeIds, src: `assets/images/site-photos/${img}.jpg`, logId: id, takenBy: author ? author.id : null,
+            createdAt: stamp(l.date, `14:${String(10 + n).padStart(2, '0')}`)
+        }));
     });
     const drawings = (typeof DRAWING_SAMPLE === 'undefined' ? [] : DRAWING_SAMPLE).map(d => ({
         id: `DWG-${d.siteId}-${d.sheet}`, siteId: d.siteId, sheet: d.sheet, title: d.title, discipline: d.discipline,
         revision: d.revision, updatedOn: d.updated
     }));
-    const sitePhotos = [];
 
     // ----- Equipment: the inventory (scripts/data/tools.js). A single item is an individual record with its own
     // site and status; an item with several identical units (or bulk stock) is ONE quantity-tracked record whose
@@ -190,11 +202,26 @@ function buildMockSeed(options) {
     });
     const leaveBalances = [{ employeeId: leaveOwner, annualDays: ACCOUNT_DATA.leave.annualDays, personalDays: ACCOUNT_DATA.leave.personalDays }];
 
+    // ----- Site schedule: trades (scripts/data/whiteboard.js themes) and bookings -----
+    const scheduleTrades = (typeof WHITEBOARD_TRADE_THEMES === 'undefined' ? {} : WHITEBOARD_TRADE_THEMES);
+    const scheduleTradeRows = Object.keys(scheduleTrades).map(id => ({ id, name: scheduleTrades[id].name, color: scheduleTrades[id].color, icon: scheduleTrades[id].icon }));
+    // A milestone's checklist item: [text] to do, or [text, who ticked it, 'YYYY-MM-DD'] done
+    const scheduleTasks = (typeof whiteboardTradeTasks === 'undefined' ? [] : whiteboardTradeTasks).map(t => ({
+        id: t.id, siteId: t.siteId, tradeId: t.trade, title: t.title, where: t.where || '', crew: t.crew || '', notes: t.notes || '',
+        arrival: t.arrival || '', startDate: t.startDate, endDate: t.endDate, milestone: !!t.milestone,
+        checklist: (t.checklist || []).map(([text, by, on], i) => {
+            const who = by ? employeeByName(by) : null;
+            return { id: `CK-${t.id}-${i + 1}`, text, done: !!by, doneBy: who ? who.id : null, doneByName: by || null,
+                doneAt: on ? stamp(on, '15:00') : null, note: '', requestedBy: null };
+        }),
+        createdAt: SEEDED_AT, updatedAt: SEEDED_AT
+    }));
+
     // Availability requests, their responses, structured chat messages and notifications start empty: they
     // are created by people using the app
     return {
         sites, employees, roster, costCodes, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, equipment,
-        leaveRequests, leaveBalances, equipmentAllocations, chats, chatMessages: [], availabilityRequests: [], availabilityResponses: [], notifications: [],
+        leaveRequests, leaveBalances, equipmentAllocations, scheduleTrades: scheduleTradeRows, scheduleTasks, chats, chatMessages: [], availabilityRequests: [], availabilityResponses: [], notifications: [],
         audit: [], seededFor: `${todayIso}/${MOCK_SEED_VERSION}`,
         // A saved database whose table version differs takes that table from this seed (see the mock
         // provider): equipment v4 = quantity-tracked groups with allocation buckets (v3: one record per unit)

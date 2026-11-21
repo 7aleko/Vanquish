@@ -27,6 +27,9 @@ const EntitySchemas = (() => {
             active: { type: 'boolean', required: true },
             icon: { type: 'string' },
             kind: { type: 'string', enum: ['site', 'factory'] },
+            stage: { type: 'string', max: 60 },                   // the construction stage now ('Frame & Roof')
+            lockbox: { type: 'string', max: 12 },                 // key safe code
+            accessNotes: { type: 'string', max: 500 },
             createdAt: { type: 'timestamp', required: true },
             updatedAt: { type: 'timestamp', required: true }
         },
@@ -86,6 +89,7 @@ const EntitySchemas = (() => {
             date: { type: 'date', required: true },
             title: { type: 'string', required: true, min: 3, max: 120 },
             body: { type: 'string', max: 4000 },
+            tradeIds: { type: 'array' },                          // schedule trade ids: what the day's work was for
             authorId: { type: 'id', nullable: true },
             authorName: { type: 'string', required: true },
             createdAt: { type: 'timestamp', required: true }
@@ -105,6 +109,7 @@ const EntitySchemas = (() => {
             date: { type: 'date', required: true },
             caption: { type: 'string', max: 200 },
             tag: { type: 'string', max: 40 },
+            tradeIds: { type: 'array' },                          // schedule trade ids ("Plumbing") - search filters by them
             src: { type: 'string', required: true },
             logId: { type: 'id', nullable: true },
             takenBy: { type: 'id', nullable: true },
@@ -142,6 +147,37 @@ const EntitySchemas = (() => {
             siteId: { type: 'id', nullable: true },          // null = location to confirm
             status: { type: 'string', required: true, enum: Object.values(ToolStatus) },
             quantity: { type: 'number', required: true, min: 1 },
+            updatedAt: { type: 'timestamp', required: true }
+        },
+        scheduleTrade: {
+            id: { type: 'id', required: true },
+            name: { type: 'string', required: true, min: 1, max: 40 },
+            color: { type: 'string', required: true },            // '#RRGGBB'
+            icon: { type: 'string' }                              // Font Awesome / Phosphor name for the trade
+        },
+        scheduleTask: {
+            id: { type: 'id', required: true },
+            siteId: { type: 'id', required: true },
+            tradeId: { type: 'id', required: true },
+            title: { type: 'string', required: true, min: 2, max: 120 },
+            where: { type: 'string', max: 60 },
+            crew: { type: 'string', max: 80 },
+            notes: { type: 'string', max: 2000 },
+            arrival: { type: 'string', max: 40 },                 // arrival window ('7:00 AM – 3:30 PM')
+            startDate: { type: 'date', required: true },
+            endDate: { type: 'date', required: true },
+            milestone: { type: 'boolean', required: true },
+            checklist: { type: 'array', items: {
+                id: { type: 'id', required: true },
+                text: { type: 'string', required: true, min: 1, max: 200 },
+                done: { type: 'boolean', required: true },
+                doneBy: { type: 'id', nullable: true },
+                doneByName: { type: 'string', nullable: true },
+                doneAt: { type: 'timestamp', nullable: true },
+                note: { type: 'string', max: 500 },
+                requestedBy: { type: 'string', nullable: true, max: 80 }
+            } },
+            createdAt: { type: 'timestamp', required: true },
             updatedAt: { type: 'timestamp', required: true }
         },
         chat: {

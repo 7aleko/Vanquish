@@ -42,7 +42,7 @@
  *   signOut(id)                             -> Attendance         (CONFLICT if already signed out)
  * siteLogs
  *   list({ siteId })                        -> SiteLog[]
- *   create({ siteId, date, title, body, authorId }) -> SiteLog
+ *   create({ siteId, date, title, body, authorId, tradeIds }) -> SiteLog
  * drawings
  *   list({ siteId })                        -> Drawing[]
  *   create({ siteId, sheet, title, discipline, revision, updatedOn }) -> Drawing   one record per (siteId, sheet):
@@ -50,7 +50,8 @@
  *                                              revision again is a CONFLICT
  * sitePhotos
  *   list({ siteId, logId })                 -> SitePhoto[]
- *   create({ siteId, date, caption, tag, src, logId, takenBy }) -> SitePhoto
+ *   create({ siteId, date, caption, tag, tradeIds, src, logId, takenBy }) -> SitePhoto
+ *   setTrades(id, tradeIds)                 -> SitePhoto         (re-tag a photo's trades)
  * costCodes
  *   list()                                  -> CostCode[]
  * equipment                                 individual tools carry siteId + status; quantity-tracked tools
@@ -73,6 +74,15 @@
  *   updateRequest(id, changes)              -> LeaveRequest
  *   getBalance(employeeId)                  -> LeaveBalance | null
  *   updateBalance(employeeId, changes)      -> LeaveBalance
+ * schedule                                  a site's trade bookings and milestone checklists, and the trades
+ *   listTasks({ siteId }) / getTask(id)     -> ScheduleTask[] / ScheduleTask | null
+ *   createTask(task)                        -> ScheduleTask      (an id may be given: undo of a delete)
+ *   updateTask(id, changes)                 -> ScheduleTask      (the checklist changes item by item below)
+ *   removeTask(id)                          -> ScheduleTask      (the removed booking)
+ *   addChecklistItem(taskId, item, index) / updateChecklistItem(taskId, itemId, patch) /
+ *   removeChecklistItem(taskId, itemId)     -> ScheduleTask
+ *   listTrades()                            -> ScheduleTrade[]
+ *   saveTrades(trades)                      -> ScheduleTrade[]   (CONFLICT when a dropped trade is still used)
  * chats
  *   list()                                  -> Chat[]
  *   getForSite(siteId)                      -> Chat | null       (the site's group chat)
@@ -119,10 +129,11 @@ const REPOSITORY_CONTRACTS = Object.freeze({
     attendance: ['list', 'signIn', 'signOut'],
     siteLogs: ['list', 'create'],
     drawings: ['list', 'create'],
-    sitePhotos: ['list', 'create'],
+    sitePhotos: ['list', 'create', 'setTrades'],
     costCodes: ['list'],
     equipment: ['list', 'getById', 'create', 'update', 'listAllocations', 'moveUnits'],
     leave: ['listRequests', 'getRequest', 'createRequest', 'updateRequest', 'getBalance', 'updateBalance'],
+    schedule: ['listTasks', 'getTask', 'createTask', 'updateTask', 'removeTask', 'addChecklistItem', 'updateChecklistItem', 'removeChecklistItem', 'listTrades', 'saveTrades'],
     chats: ['list', 'getForSite'],
     chatMessages: ['list'],
     availability: ['listRequests', 'getRequest', 'listResponses', 'createRequest', 'respond', 'expireDue'],

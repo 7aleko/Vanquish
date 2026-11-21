@@ -2,13 +2,17 @@
  * My Week roster: week navigation, rain-site switching, accordion cards.
  */
 
-let activeTodayCardId = 'card-wed';
+const ROSTER_DAY_IDS = ['card-mon', 'card-tue', 'card-wed', 'card-thu', 'card-fri'];
+// The sites' day (APP_CONFIG.siteDemoDay): its week opens first and its card is "today"
+const ROSTER_ANCHOR_DAY = DateRules.fromIso(APP_CONFIG.siteDemoDay);
+const ROSTER_ANCHOR_MONDAY = DateRules.mondayOf(ROSTER_ANCHOR_DAY);
+const ROSTER_ANCHOR_CARD = ROSTER_DAY_IDS[ROSTER_ANCHOR_DAY.getDay() - 1] || '';
+let activeTodayCardId = ROSTER_ANCHOR_CARD;
 const expandedRosterCards = {};
 const rosterCardStates = {};
 
-let currentRosterMonday = new Date(2026, 9, 12); // Mon 12 Oct 2026
+let currentRosterMonday = new Date(ROSTER_ANCHOR_MONDAY);
 const ROSTER_SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const ROSTER_DAY_IDS = ['card-mon', 'card-tue', 'card-wed', 'card-thu', 'card-fri'];
 // Site filter (the Crew Status sheet's "View Full Site Schedule"): only the days at this site show.
 // null = every day. Cleared by "All Sites" or by opening Roster afresh.
 let rosterSiteFilter = null;
@@ -36,12 +40,8 @@ function applyRosterWeek(mondayDate, pickedDate = null) {
         }
     });
 
-    const isAnchorWeek = (
-        currentRosterMonday.getFullYear() === 2026 &&
-        currentRosterMonday.getMonth() === 9 &&
-        currentRosterMonday.getDate() === 12
-    );
-    activeTodayCardId = isAnchorWeek ? 'card-wed' : '';
+    const isAnchorWeek = DateRules.toIso(currentRosterMonday) === DateRules.toIso(ROSTER_ANCHOR_MONDAY);
+    activeTodayCardId = isAnchorWeek ? ROSTER_ANCHOR_CARD : '';
 
     if (pickedDate) {
         const dow = pickedDate.getDay();

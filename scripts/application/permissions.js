@@ -22,7 +22,10 @@ const Permissions = (() => {
         'timesheets.approve': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],
         'attendance.recordOwn': ALL_STAFF,
         'siteLogs.create': ALL_STAFF,
+        'sitePhotos.create': ALL_STAFF,
         'drawings.create': ALL_STAFF,
+        'schedule.edit': ALL_STAFF,                      // book, change, copy, delete; milestone checklists
+        'schedule.trades': [R.ADMIN, R.PROJECT_MANAGER, R.SUPERVISOR],   // edit the trade list
         'equipment.transfer': ALL_STAFF,
         'equipment.register': ALL_STAFF,
         'equipment.setStatus': ALL_STAFF,                // in use / available / out of service

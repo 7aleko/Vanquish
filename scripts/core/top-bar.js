@@ -50,7 +50,9 @@ function syncTopBarMode() {
 
     if (mode === 'nav' && view !== topBarView) {
         const parent = (typeof getBackTargetForSubpage === 'function') ? getBackTargetForSubpage(view, 'home') : 'home';
-        const label = TOP_BAR_BACK_LABELS[parent] || 'Back';
+        // The Schedule is its site's page: "‹ Lugarno"
+        const label = (view === 'schedule' && typeof siteHubState !== 'undefined' && siteHubState.siteId)
+            ? getSiteName(siteHubState.siteId, 'Site') : (TOP_BAR_BACK_LABELS[parent] || 'Back');
         document.getElementById('nav-back-label').textContent = label;
         document.getElementById('nav-back-btn').setAttribute('aria-label', `Back to ${label}`);
 
@@ -74,6 +76,14 @@ function syncTopBarMode() {
     bar.dataset.view = view;               // per-screen bar layouts (e.g. the conversation's left-aligned contact)
 
     updateTopBarInlineTitle();
+}
+
+// A screen whose large title changes while it's open (the Site Hub's site name) refreshes the bar's copy
+function refreshTopBarTitle(view) {
+    if (topBarMode !== 'nav' || currentActiveViewName !== view) return;
+    const large = document.querySelector(`#view-${view} [data-large-title]`);
+    const titleEl = document.getElementById('nav-inline-title');
+    if (large && titleEl) titleEl.textContent = large.textContent.trim();
 }
 
 // Inline title shows once the large title has scrolled up under the bar

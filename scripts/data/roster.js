@@ -12,6 +12,7 @@
  * ("Indoor Hub", in "Shed B").
  */
 
+// ROSTER_CONFIG describes the sites' demo week (Mon 23 Nov 2026, APP_CONFIG.siteDemoDay).
 // Migrated from the two rosters that existed before: the Roster screen's week of 12 Oct (Lugarno Mon-Thu,
 // Yowie Bay Fri) and Timesheets' fortnightly pattern for the pay runs from 19 Oct (Lugarno, Lugarno,
 // Yowie Bay, Yowie Bay, Castlecrag, Lugarno, Lugarno, not rostered, Lugarno, Lugarno).
@@ -57,47 +58,47 @@ const ROSTER = [
 const ROSTER_CONFIG = {
     'card-mon': {
         day: 'MON',
-        dateNum: '12',
-        baseDate: 'MON 12 OCT',
-        subtitle: 'Block A • Framing Stage',
+        dateNum: '23',
+        baseDate: 'MON 23 NOV',
+        subtitle: 'Lock-Up • Electrical Rough-In',
         rainSite: { siteId: 'castlecrag' },
-        team: ['David Hilt', 'Jude Hudson', 'Trent Jamieson', 'Lachlan Swatosch'],
+        team: ['David Hilt', 'James Begg'],
         isRainRisk: false
     },
     'card-tue': {
         day: 'TUE',
-        dateNum: '13',
-        baseDate: 'TUE 13 OCT',
-        subtitle: 'Block A • Steel & Rebar',
-        rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Shed B' },
-        team: ['James Begg', 'David Hilt'],
+        dateNum: '24',
+        baseDate: 'TUE 24 NOV',
+        subtitle: 'Lock-Up • Roofing & Plumbing',
+        rainSite: { siteId: 'castlecrag' },
+        team: ['David Hilt', 'James Begg', 'Trent Jamieson'],
         isRainRisk: false
     },
     'card-wed': {
         day: 'WED',
-        dateNum: '14',
-        baseDate: 'WED 14 OCT',
-        subtitle: 'Block A • Concrete Pour',
-        rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Shed B' },
-        team: ['James Begg', 'David Hilt'],
+        dateNum: '25',
+        baseDate: 'WED 25 NOV',
+        subtitle: 'Lock-Up • Window Delivery',
+        rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Garage' },
+        team: ['David Hilt', 'Trent Jamieson', 'Tom Robbins'],
         isRainRisk: false
     },
     'card-thu': {
         day: 'THU',
-        dateNum: '15',
-        baseDate: 'THUR 15 OCT',
-        subtitle: 'Block A • Curing & Checks',
-        rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Shed B' },
-        team: ['James Begg', 'David Hilt'],
-        isRainRisk: false
+        dateNum: '26',
+        baseDate: 'THU 26 NOV',
+        subtitle: 'Lock-Up • Window Installation',
+        rainSite: { siteId: 'castlecrag' },
+        team: ['David Hilt', 'James Begg', 'Lachlan Swatosch'],
+        isRainRisk: true
     },
     'card-fri': {
         day: 'FRI',
-        dateNum: '16',
-        baseDate: 'FRI 16 OCT',
-        subtitle: 'Lot 14 • Waterfront Groundworks',
-        rainSite: { siteId: 'castlecrag' },
-        team: ['Curtis Bell', 'Shaun Terry', 'Labour Hire 1'],
-        isRainRisk: true
+        dateNum: '27',
+        baseDate: 'FRI 27 NOV',
+        subtitle: 'Lock-Up • Envelope Inspection',
+        rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Garage' },
+        team: ['David Hilt', 'James Begg', 'Trent Jamieson'],
+        isRainRisk: false
     }
 };

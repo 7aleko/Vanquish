@@ -11,6 +11,9 @@
  * - `active: false` archives a site: it drops out of every picker, but records that point at it still
  *   resolve (historical timesheets, tools last logged there).
  * - `icon` is the Font Awesome icon the tool transfer picker shows for the site.
+ * - `stage`: the construction stage the site is in now ('Frame & Roof'), shown on the Site Hub and switcher.
+ * - `lockbox` / `accessNotes`: the key safe code and how to get in (the Site Hub's Site Access sheet). Only
+ *   sites with a key safe have them.
  * - `kind`: 'site' (a construction site, the default) or 'factory' (the Lifestyle Tradie factory / office).
  *   The factory is a real location for equipment - it can be transferred to, searched and shown on Tools -
  *   but it is not a construction site: it never appears in site pickers (Site Hub, roster, timesheets).
@@ -23,10 +26,13 @@
 const SITES = [
     // The Lifestyle Tradie factory / office: an equipment location, not a construction site. No street address was supplied.
     { id: 'factory',          shortName: 'Factory',          address: 'Lifestyle Tradie factory & office', suburb: '', active: true, icon: 'fa-solid fa-industry', kind: 'factory' },
-    { id: 'lugarno',          shortName: 'Lugarno',          address: '935 Forest Road',            suburb: 'Lugarno',    active: true,  icon: 'fa-solid fa-building-user' },
+    { id: 'lugarno',          shortName: 'Lugarno',          address: '935 Forest Road',            suburb: 'Lugarno',    active: true,  icon: 'fa-solid fa-building-user',
+      stage: 'Frame & Roof', lockbox: '4829', accessNotes: 'Key safe mounted behind left brick pier. Side gate sticks — lift handle up before turning.' },
     { id: 'yowie-bay',        shortName: 'Yowie Bay',        address: '1a Yelambie Street',         suburb: 'Yowie Bay',  active: true,  icon: 'fa-solid fa-house-flood-water' },
-    { id: 'castlecrag',       shortName: 'Castlecrag',       address: '8c The Bulwark',             suburb: 'Castlecrag', active: true,  icon: 'fa-solid fa-hammer' },
-    { id: 'bondi',            shortName: 'Bondi',            address: '350 Bondi Road',             suburb: 'Bondi',      active: true,  icon: 'fa-solid fa-compass-drafting' },
+    { id: 'castlecrag',       shortName: 'Castlecrag',       address: '8c The Bulwark',             suburb: 'Castlecrag', active: true,  icon: 'fa-solid fa-hammer',
+      stage: 'Internal Fit-Off', lockbox: '9104', accessNotes: 'Lockbox on the meter box by the garage. Owners still living downstairs — use the side path and keep the laundry door shut.' },
+    { id: 'bondi',            shortName: 'Bondi',            address: '350 Bondi Road',             suburb: 'Bondi',      active: true,  icon: 'fa-solid fa-compass-drafting',
+      stage: 'Excavation & Footings', lockbox: '3310', accessNotes: 'Site gate padlock on the Bondi Road frontage. Keep the excavation exclusion zone taped off; no access past the batter without the supervisor.' },
     { id: 'coogee',           shortName: 'Coogee',           address: '14 Arden Street',            suburb: 'Coogee',     active: true,  icon: 'fa-solid fa-umbrella-beach' },
     { id: 'sutherland-depot', shortName: 'Sutherland Depot', address: 'Flora St Storage Yard',      suburb: 'Sutherland', active: true,  icon: 'fa-solid fa-truck-ramp-box' },
     { id: 'cronulla',         shortName: 'Cronulla',         address: 'Lot 4 Waterfront Esplanade', suburb: 'Cronulla',   active: true,  icon: 'fa-solid fa-water' },

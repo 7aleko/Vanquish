@@ -61,7 +61,7 @@ test('a saved database from before the replacement takes the new inventory and k
     const storage = { getItem: k => (saved.has(k) ? saved.get(k) : null), setItem: (k, v) => saved.set(k, v) };
     const app2 = loadApp({ localStorage: storage });
     const policy = { anchor: app2.TIMESHEET_CONFIG.payRunAnchor, lengthDays: app2.TIMESHEET_CONFIG.payRunLengthDays };
-    const seed = app2.buildMockSeed({ today: new Date(2026, 10, 13), payRunPolicy: policy, siteDay: new Date(2026, 9, 14) });
+    const seed = app2.buildMockSeed({ today: new Date(2026, 10, 13), payRunPolicy: policy, siteDay: new Date(2026, 10, 23) });
     const old = JSON.parse(JSON.stringify(seed));
     delete old.tableVersions;
     old.equipment = [{ id: 'tool-1', name: 'Hilti Rotary Hammer Drill', siteId: 'lugarno', category: 'power tools', status: 'In Use' }];
@@ -84,7 +84,7 @@ test('a saved database with one record per unit (v3) is folded into groups, keep
     const storage = { getItem: k => (saved.has(k) ? saved.get(k) : null), setItem: (k, v) => saved.set(k, v) };
     const app2 = loadApp({ localStorage: storage });
     const policy = { anchor: app2.TIMESHEET_CONFIG.payRunAnchor, lengthDays: app2.TIMESHEET_CONFIG.payRunLengthDays };
-    const seed = app2.buildMockSeed({ today: new Date(2026, 10, 13), payRunPolicy: policy, siteDay: new Date(2026, 9, 14) });
+    const seed = app2.buildMockSeed({ today: new Date(2026, 10, 13), payRunPolicy: policy, siteDay: new Date(2026, 10, 23) });
     const old = JSON.parse(JSON.stringify(seed));
     old.tableVersions = { equipment: 3 };
     delete old.equipmentAllocations;

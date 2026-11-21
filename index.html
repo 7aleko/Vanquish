@@ -41,7 +41,7 @@
     <link rel="stylesheet" href="styles/quick-actions.css">
     <link rel="stylesheet" href="styles/accessibility.css">
     <link rel="stylesheet" href="styles/attendance.css">
-    <link rel="stylesheet" href="styles/whiteboard.css">
+    <link rel="stylesheet" href="styles/schedule.css">
     <link rel="stylesheet" href="styles/notification-banner.css">
     <link rel="stylesheet" href="styles/system.css">
     <link rel="stylesheet" href="styles/top-bar.css">
@@ -60,6 +60,8 @@
     <link rel="stylesheet" href="styles/account-sheet.css">
     <link rel="stylesheet" href="styles/crew-status-sheet.css">
     <link rel="stylesheet" href="styles/site-hub.css">
+    <link rel="stylesheet" href="styles/snack.css">
+    <link rel="stylesheet" href="styles/progress-ring.css">
     <link rel="stylesheet" href="styles/data-status.css">
     <link rel="stylesheet" href="styles/dark-theme.css">
 </head>
@@ -142,14 +144,16 @@
                 </button>
                 <span id="nav-inline-title" class="nav-inline-title" aria-hidden="true"></span>
                 <div id="nav-actions" class="nav-actions">
-                    <div class="nav-actions-group" data-view="schedule" hidden>
-                        <button onclick="openNewWhiteboardTradeModal()" aria-label="Add trade to schedule" title="Add trade" class="top-bar-icon nav-action"> <i class="fa-solid fa-plus" aria-hidden="true"></i> </button>
-                    </div>
                     <div class="nav-actions-group" data-view="week" hidden>
                         <button aria-label="Refresh Roster" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Roster', 'Roster synced with Procore')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i> </button>
                     </div>
                     <div class="nav-actions-group" data-view="sitehub" hidden>
-                        <button aria-label="Sync Site" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Site', 'Sites, crew & field ops synced with Procore')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
+                        <!-- Site Access (scripts/features/site-hub.js): the active site's lockbox PIN and access notes -->
+                        <button type="button" id="sh-lock" aria-label="Site access" title="Site access" class="top-bar-icon nav-action" onclick="openSiteAccess()" aria-haspopup="dialog"> <i class="ph-fill ph-key" aria-hidden="true"></i> </button>
+                        <button type="button" aria-label="Sync Site" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Site', 'Sites, crew & field ops synced with Procore')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="nav-actions-group" data-view="schedule" hidden>
+                        <button type="button" aria-label="Add a booking" title="Add a booking" class="top-bar-icon nav-action" onclick="openScheduleEdit(null, scheduleUi.sel)"> <i class="ph-bold ph-plus" aria-hidden="true"></i> </button>
                     </div>
                     <div class="nav-actions-group" data-view="chat" hidden>
                         <button onclick="openNewMessageModal()" aria-label="New message" title="New conversation" class="top-bar-icon nav-action"> <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> </button>
@@ -168,118 +172,29 @@
             </div>
         </header>
 
-<!-- ================= VIEW: SCHEDULE WHITEBOARD (MULTI-WEEK TRADE GANTT ROSTER) ================= -->
-<main id="view-schedule" data-statusbar-surface="slate" class="view-section hidden flex-1 flex flex-col overflow-y-auto overflow-x-hidden no-scrollbar px-3.5 sm:px-5 py-3 space-y-3.5 pb-8 relative max-w-full select-none">
-    
-    <!-- Atmospheric Ambient Glows (Apple Depth) -->
-    <div class="absolute -top-16 -left-10 w-64 h-64 bg-emerald-500/15 rounded-full blur-[90px] pointer-events-none"></div>
-    <div class="absolute top-48 -right-10 w-64 h-64 bg-blue-500/10 rounded-full blur-[90px] pointer-events-none"></div>
+<!-- ================= VIEW: SCHEDULE (scripts/features/schedule.js, styles/schedule.css) =================
+     The Site Hub's sub-page ("‹ Lugarno" in the bar): the active site's schedule. Overview (milestones with their
+     checklists, then the next 14 days of trades and deliveries), 2-Week Plan (a Gantt of the fortnight) and Month
+     (calendar, legend, the chosen day and the month's key dates). Same site and records as the Site Hub. -->
+<main id="view-schedule" data-bar-title="Schedule" class="view-section schedule hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Schedule">
+    <p class="sch-context"><i class="ph-fill ph-map-pin" aria-hidden="true"></i><span id="sch-site-line"></span><span id="sch-stage" class="sch-stage"></span></p>
 
-    <!-- Large title (iOS): back, inline title and actions live in the top bar (scripts/core/top-bar.js) -->
-    <div class="large-title-row relative z-10 px-1">
-        <h2 class="page-title" data-large-title>Trade Schedule</h2>
-        <div class="flex items-center gap-1 text-slate-700 text-xs font-bold mt-0.5">
-                    <i class="fa-solid fa-location-dot text-emerald-600 text-[11px]" aria-hidden="true"></i>
-                    <!-- Options: the active sites, from SITES (renderScheduleSiteSelect, scripts/features/schedule-whiteboard.js) -->
-                    <select id="schedule-site-select" onchange="onScheduleSiteChange()" aria-label="Select construction site" class="min-w-0 max-w-full truncate bg-transparent font-extrabold text-slate-900 focus:outline-none cursor-pointer text-xs"></select>
-                </div>
+    <!-- Overview | 2-Week Plan | Month: one glass segment slides to the chosen view -->
+    <div id="sch-seg" class="sch-seg" role="tablist" aria-label="Schedule view">
+        <span class="sch-seg-pill" aria-hidden="true"></span>
+        <button type="button" role="tab" id="sch-tab-overview" data-view="overview" aria-controls="sch-body" onclick="setScheduleView('overview')">Overview</button>
+        <button type="button" role="tab" id="sch-tab-2w" data-view="2w" aria-controls="sch-body" onclick="setScheduleView('2w')">2-Week Plan</button>
+        <button type="button" role="tab" id="sch-tab-month" data-view="month" aria-controls="sch-body" onclick="setScheduleView('month')">Month</button>
     </div>
 
-    <!-- Apple Multi-Week Runway & Switcher Card (Fits 100% Mobile Width) -->
-    <div class="relative z-10 bg-white/90 backdrop-blur-3xl rounded-card p-3 sm:p-4 border border-white/95 shadow-apple space-y-3">
-        
-        <!-- Week Header & Stepper -->
-        <div class="flex items-center justify-between">
-            <button onclick="navigateWhiteboardWeek(-1)" aria-label="Previous week" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-90 flex items-center justify-center text-slate-800 transition-all cursor-pointer border border-slate-200/60 shadow-xs">
-                <i class="fa-solid fa-chevron-left text-xs" aria-hidden="true"></i>
-            </button>
-
-            <div onclick="openAppleCalendarModal({ target: 'schedule' })" role="button" tabindex="0" aria-label="Open trade calendar date picker" class="text-center px-2 py-1 rounded-xl hover:bg-slate-100/80 active:scale-95 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900">
-                <div class="flex items-center justify-center gap-1.5">
-                    <span id="wb-week-title" class="text-base font-black text-slate-900 tracking-tight">This Week (Oct 5 – 11)</span>
-                    <i class="fa-regular fa-calendar text-[11px] text-slate-400"></i>
-                </div>
-                <span id="wb-week-subtitle" class="text-[11px] font-extrabold text-emerald-600 uppercase tracking-wider block">Week 2 • Active On Site</span>
-            </div>
-
-            <button onclick="navigateWhiteboardWeek(1)" aria-label="Next week" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-90 flex items-center justify-center text-slate-800 transition-all cursor-pointer border border-slate-200/60 shadow-xs">
-                <i class="fa-solid fa-chevron-right text-xs" aria-hidden="true"></i>
-            </button>
-        </div>
-
-        <!-- Apple Horizontal Scrollable Week Pills (Quickly Jump: This Week, Next Week, Week After) -->
-        <div id="wb-week-pills-row" class="filter-bar filter-bar--inset" role="toolbar" aria-label="Choose week">
-            <!-- Injected via renderWhiteboardWeekPills() -->
-        </div>
-
-        <!-- 7-Day Week Strip with Direct "+" Action for Each Day (Fits 100% Mobile Screen Width) -->
-        <div class="pt-2 border-t border-slate-200/60">
-            <div class="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-                <span>7-Day Week Calendar</span>
-                <span class="text-slate-500 font-bold">Tap day or + to add trade</span>
-            </div>
-            <div id="wb-7day-strip" class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center">
-                <!-- Injected via render7DayStrip() -->
-            </div>
-        </div>
+    <!-- Period (2-Week Plan and Month): back, the fortnight or month (tap: today), forward -->
+    <div id="sch-datebar" class="sch-datebar" hidden>
+        <button type="button" class="sch-datebar-step" onclick="shiftSchedule(-1)" aria-label="Previous"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button>
+        <button type="button" class="sch-datebar-mid" onclick="scheduleToToday()" aria-label="Go to today"><i class="ph-fill ph-calendar-dots" aria-hidden="true"></i><span id="sch-period"></span></button>
+        <button type="button" class="sch-datebar-step" onclick="shiftSchedule(1)" aria-label="Next"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
     </div>
 
-    <!-- Apple Visual Weekly Gantt Card (Fits 100% Mobile Screen Width!) -->
-    <div class="relative z-10 bg-white/90 backdrop-blur-3xl rounded-card p-3.5 sm:p-4 border border-white/95 shadow-apple space-y-2.5">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="w-2.5 h-2.5 rounded-full bg-brand-lime border border-slate-900 shadow-xs"></div>
-                <h3 class="text-xs font-black uppercase tracking-wider text-slate-900">Trade Timeline</h3>
-                <span id="wb-active-trades-badge" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-black">5 Trades</span>
-            </div>
-            <button onclick="openNewWhiteboardTradeModal()" class="text-[11px] font-black text-emerald-700 hover:text-emerald-800 flex items-center gap-1 active:scale-95 transition-all">
-                <i class="fa-solid fa-plus text-[11px]"></i>
-                <span>Add Trade</span>
-            </button>
-        </div>
-
-        <!-- 7-Day Timeline Canvas (100% Mobile Width Responsive Spanning Bars) -->
-        <div id="wb-week-timeline-card" class="bg-slate-950 rounded-2xl p-2.5 border border-slate-800 shadow-inner space-y-2">
-            <!-- Timeline Header (M T W T F S S) -->
-            <div id="wb-timeline-day-headers" class="grid grid-cols-7 gap-1 text-center text-[11px] font-black uppercase text-slate-400 pb-1.5 border-b border-slate-800/80">
-                <!-- Injected dynamically -->
-            </div>
-            <!-- Stacked Trade Spanning Bars -->
-            <div id="wb-timeline-bars" class="space-y-1.5 py-1">
-                <!-- Injected dynamically -->
-            </div>
-        </div>
-
-        <div class="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-0.5">
-            <span>Bars span active days for this week</span>
-            <span class="text-slate-700 font-extrabold">Tap any bar for details</span>
-        </div>
-    </div>
-
-    <!-- Trade filters: shared pill bar, scrolls edge to edge (styles/filter-bar.css) -->
-    <div class="filter-bar relative z-10" role="toolbar" aria-label="Filter by trade">
-        <button type="button" onclick="filterTradeWhiteboard('all', this)" class="filter-pill is-active" aria-pressed="true">All Trades <span id="wb-count-all" class="filter-pill-count">11</span></button>
-        <button type="button" onclick="filterTradeWhiteboard('formwork', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-cubes-stacked" aria-hidden="true"></i>Formwork</button>
-        <button type="button" onclick="filterTradeWhiteboard('plumbing', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-faucet-drip" aria-hidden="true"></i>Plumbing</button>
-        <button type="button" onclick="filterTradeWhiteboard('electrical', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-bolt-lightning" aria-hidden="true"></i>Electrical</button>
-        <button type="button" onclick="filterTradeWhiteboard('steel', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-weight-hanging" aria-hidden="true"></i>Steel & Pour</button>
-        <button type="button" onclick="filterTradeWhiteboard('carpentry', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-hammer" aria-hidden="true"></i>Carpentry</button>
-        <button type="button" onclick="filterTradeWhiteboard('masonry', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-trowel-bricks" aria-hidden="true"></i>Masonry</button>
-        <button type="button" onclick="filterTradeWhiteboard('scaffold', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-network-wired" aria-hidden="true"></i>Scaffold</button>
-        <button type="button" onclick="filterTradeWhiteboard('finishes', this)" class="filter-pill" aria-pressed="false"><i class="fa-solid fa-layer-group" aria-hidden="true"></i>Linings</button>
-    </div>
-
-    <!-- Daily Site Roster Cards for This Week (Site Manager's Day-by-Day Focus with "+" buttons on every day) -->
-    <div class="relative z-10 space-y-3">
-        <div class="flex items-center justify-between px-1">
-            <h3 class="text-xs font-black uppercase tracking-wider text-slate-500">Day-by-Day Site Roster</h3>
-            <span class="text-[11px] font-bold text-slate-400">All crew & trades on site</span>
-        </div>
-
-        <div id="wb-daily-cards-container" class="space-y-3">
-            <!-- Injected dynamically via renderDailyRosterCards() -->
-        </div>
-    </div>
+    <div id="sch-body" class="sch-body" role="tabpanel" aria-live="polite"></div>
 </main>
         <!-- ================= VIEW 1: HOME TAB ================= -->
 <main id="view-home" class="view-section flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-4 pb-8">
@@ -606,98 +521,127 @@
     <div id="roster-scroll-spacer" aria-hidden="true" style="height: 0px; margin-top: 0px !important; margin-bottom: 0px !important; pointer-events: none;"></div>
 </main>
 
-        <!-- ================= VIEW 3: SITE HUB TAB (APPLE-ESQUE MODERN UI) ================= -->
-        <main id="view-sitehub" data-bar-title="Site" class="view-section site-hub hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Site Hub">
-            <!-- Site Hub (scripts/features/site-hub.js, styles/site-hub.css). Everything follows one active site
-                 (siteHubState.siteId, picked in the top bar's site switcher) and, for the crew, the chosen day. -->
+        <!-- ================= VIEW 3: SITE HUB (scripts/features/site-hub.js, styles/site-hub.css) =================
+             Everything about one construction site. One active site (siteHubState.siteId) drives every section;
+             the Schedule (view-schedule) is its sub-page and shares the same site and data. -->
+        <main id="view-sitehub" class="view-section site-hub hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Site Hub">
 
-            <!-- No large title: "Site" is the bar's title (data-bar-title), as on Time - the hero carries the site's
-                 name, and the whole hub fits one phone screen -->
-
-            <!-- Hero: the site (name = site switcher, address = Maps), its weather, the Mon-Fri day switcher, and that
-                 day's crew and attendance (tap = Crew Quick-View) -->
-            <section id="sh-hero" class="sh-hero sh-swap" aria-label="Site">
-                <!-- Liquid-glass layers, shared with the Home site card (styles/site-card.css) -->
-                <div class="sc-light" aria-hidden="true">
-                    <div class="sc-pool sc-pool-a"></div>
-                    <div class="sc-pool sc-pool-b"></div>
-                    <div class="sc-pool sc-pool-c"></div>
-                    <div class="sc-channel"></div>
-                    <div class="sc-edges"></div>
+            <!-- Site switcher: opened from the hero's street name; a glass panel that grows over the hero from it -->
+            <div id="sh-switcher" class="sh-switcher">
+                <div id="sh-switch-box" class="sh-switch-box" role="dialog" aria-label="Switch site">
+                    <div class="sh-switch-head">
+                        <i class="ph-fill ph-magnifying-glass sh-switch-icon" aria-hidden="true"></i>
+                        <input type="search" id="sh-switch-input" class="sh-switch-input" placeholder="Search active sites..." aria-label="Search active sites" autocomplete="off" enterkeyhint="search" tabindex="-1" oninput="renderSiteSwitcherList()">
+                        <button type="button" class="sh-switch-chev" onclick="closeSiteSwitcher(true)" aria-label="Close" tabindex="-1"><i class="ph-bold ph-caret-up" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="sh-switch-body">
+                        <div class="sh-switch-body-inner">
+                            <div id="sh-switch-list" class="sh-switch-list" role="listbox" aria-label="Active sites"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="sc-glass" aria-hidden="true"></div>
-                <div class="sc-grain" aria-hidden="true"></div>
+            </div>
+            <div id="sh-switch-scrim" class="sh-switch-scrim" onclick="closeSiteSwitcher()" hidden></div>
+
+            <!-- Site identity, on the page itself: the name (= site switcher) and its street address (Maps) on the left,
+                 today's weather on the right. Site Access is the key in the top bar. -->
+            <header id="sh-hero" class="sh-head sh-swap" aria-label="Site">
                 <div class="sh-hero-top">
                     <div class="sh-hero-id">
-                        <button type="button" id="sh-site-btn" class="sh-site-btn" onclick="openSiteSwitcher(event)" aria-haspopup="dialog">
-                            <span id="sh-site-name" class="sh-site-name"></span><i class="ph-bold ph-caret-down sh-site-chev" aria-hidden="true"></i>
-                        </button>
+                        <!-- The large title, as on every screen: here it's the site's name (and the switcher); it collapses
+                             into the bar's inline title on scroll -->
+                        <h2 class="page-title sh-site-title" data-large-title>
+                            <button type="button" id="sh-site-btn" class="sh-site-btn" onclick="openSiteSwitcher(event)" aria-haspopup="listbox" aria-expanded="false" aria-controls="sh-switch-list">
+                                <span id="sh-site-name" class="sh-site-name"></span><i class="ph-bold ph-caret-down sh-site-chev" aria-hidden="true"></i>
+                            </button>
+                        </h2>
                         <button type="button" id="sh-site-addr" class="sh-site-addr" onclick="openSiteHubMaps()">
                             <i class="ph-fill ph-map-pin" aria-hidden="true"></i><span id="sh-site-address"></span>
                         </button>
                     </div>
-                    <div class="sh-hero-utils">
-                        <button type="button" id="sh-my-site" class="sh-glass-pill sh-my-site" onclick="returnToMySite()" hidden>
-                            <span>My Site</span><i class="ph-bold ph-arrow-u-up-left" aria-hidden="true"></i>
-                        </button>
-                        <span id="sh-weather" class="sh-glass-pill sh-weather" hidden></span>
+                    <!-- Weather: borderless, right-aligned - today's high, then rain chance and wind -->
+                    <div id="sh-weather" class="sh-weather" role="img" hidden>
+                        <span class="sh-weather-now"><i id="sh-weather-icon" class="ph-fill ph-sun" aria-hidden="true"></i><span id="sh-weather-temp"></span></span>
+                        <span id="sh-weather-meta" class="sh-weather-meta"></span>
                     </div>
                 </div>
-                <div id="sh-days" class="sh-days" role="tablist" aria-label="Day"></div>
-                <button type="button" id="sh-crew-row" class="sh-crew-row" onclick="openSiteHubCrew()">
-                    <span id="sh-crew-stack" class="sh-crew-stack" aria-hidden="true"></span>
-                    <span id="sh-crew-pill" class="sh-crew-pill"></span>
-                </button>
-            </section>
+            </header>
 
-            <!-- Universal search: opens the full-height search overlay -->
-            <button type="button" id="sh-search-btn" class="sh-search sh-swap" onclick="openSiteSearch()">
-                <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
-                <span>Search photos, site logs, drawings, schedule...</span>
+            <!-- Search this site: opens the search page (photos, site logs, plans and days on site, by trade) -->
+            <button type="button" id="sh-search-btn" class="sh-search-trigger sh-swap" onclick="openSiteSearch()" aria-haspopup="dialog">
+                <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i><span>Search photos, logs, plans, trades...</span>
             </button>
 
-            <!-- Bento: Drawings + Schedule, recent photos, the chosen day's site log -->
+            <!-- Upcoming milestone: its own card (the On Site card's surface); opens the Schedule with it open -->
+            <button type="button" id="sh-sched" class="sh-card sh-sched sh-swap" onclick="openScheduleFromHub()">
+                <span class="sh-sched-head">
+                    <span class="sh-sched-eyebrow"><i class="ph-fill ph-calendar-dots" aria-hidden="true"></i>Schedule • Upcoming Milestone</span>
+                    <span class="sh-sched-pill">Full Schedule<i class="ph-bold ph-caret-right" aria-hidden="true"></i></span>
+                </span>
+                <span class="sh-sched-main">
+                    <span class="sh-sched-text">
+                        <span id="sh-ms-title" class="sh-ms-title"></span>
+                        <span id="sh-ms-due" class="sh-ms-due"></span>
+                        <span id="sh-ms-next" class="sh-ms-next"></span>
+                    </span>
+                    <span id="sh-ms-ring" class="sh-ring" aria-hidden="true"></span>
+                </span>
+            </button>
+
+            <!-- On Site: who is scheduled at the site each weekday, and today's sign-ins -->
+            <section id="sh-onsite" class="sh-card sh-onsite sh-swap" aria-labelledby="sh-onsite-title">
+                <header class="sh-card-head">
+                    <h2 id="sh-onsite-title" class="sh-card-title">On Site</h2>
+                    <button type="button" id="sh-crew-pill" class="sh-crew-pill" onclick="openSiteHubCrew()"></button>
+                </header>
+                <div id="sh-days" class="sh-days" role="tablist" aria-label="Day"></div>
+                <!-- Collapsed: who's on site as an avatar stack (+ who hasn't signed in today); tap to open the list -->
+                <button type="button" id="sh-roster-toggle" class="sh-roster-toggle" aria-expanded="false" aria-controls="sh-roster-panel" onclick="toggleSiteHubRoster()">
+                    <span id="sh-stack" class="sh-stack" aria-hidden="true"></span>
+                    <span id="sh-roster-hint" class="sh-roster-hint"></span>
+                    <i class="ph-bold ph-caret-down sh-roster-chev" aria-hidden="true"></i>
+                </button>
+                <div id="sh-roster-panel" class="sh-roster-panel" inert>
+                    <div class="sh-roster-inner">
+                        <ul id="sh-roster" class="sh-roster" aria-live="polite"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reference: Drawings | Site Diary, then Site Photos -->
             <div class="sh-bento-pair sh-swap">
-                <button type="button" id="sh-tile-dwg" class="sh-tile" onclick="openSiteHubDrawings()">
+                <button type="button" id="sh-tile-dwg" class="sh-tile" onclick="openSiteDrawings()" aria-haspopup="dialog">
                     <span class="sh-tile-top"><span class="sh-tile-icon"><i class="ph-fill ph-stack" aria-hidden="true"></i></span><i class="ph-bold ph-caret-right sh-tile-chev" aria-hidden="true"></i></span>
                     <span class="sh-tile-title">Drawings</span>
                     <span id="sh-tile-dwg-sub" class="sh-tile-sub"></span>
                 </button>
-                <button type="button" id="sh-tile-sched" class="sh-tile" onclick="openSiteHubSchedule()">
-                    <span class="sh-tile-top"><span class="sh-tile-icon is-blue"><i class="ph-fill ph-calendar" aria-hidden="true"></i></span><i class="ph-bold ph-caret-right sh-tile-chev" aria-hidden="true"></i></span>
-                    <span class="sh-tile-title">Schedule</span>
-                    <span id="sh-tile-sched-sub" class="sh-tile-sub"></span>
+                <button type="button" id="sh-tile-diary" class="sh-tile" onclick="openSiteDiary()" aria-haspopup="dialog">
+                    <span class="sh-tile-top"><span class="sh-tile-icon is-blue"><i class="ph-fill ph-notebook" aria-hidden="true"></i></span><i class="ph-bold ph-caret-right sh-tile-chev" aria-hidden="true"></i></span>
+                    <span class="sh-tile-title">Site Diary</span>
+                    <span id="sh-tile-diary-sub" class="sh-tile-sub"></span>
                 </button>
             </div>
 
-            <section class="sh-bento sh-swap" aria-labelledby="sh-photos-title">
-                <header class="sh-bento-head">
-                    <h2 id="sh-photos-title" class="sh-bento-title">Site Photos</h2>
-                    <button type="button" id="sh-photos-all" class="sh-bento-link" onclick="openSiteHubPhotos()"></button>
-                </header>
+            <section class="sh-bento sh-photos sh-swap" aria-labelledby="sh-photos-title">
+                <button type="button" class="sh-photos-head" onclick="openSitePhotos()" aria-haspopup="dialog">
+                    <span class="sh-tile-icon is-amber"><i class="ph-fill ph-camera" aria-hidden="true"></i></span>
+                    <h2 id="sh-photos-title" class="sh-card-title">Site Photos</h2>
+                    <span id="sh-photos-count" class="sh-photos-count"></span>
+                </button>
                 <div id="sh-photos" class="sh-photo-row"></div>
             </section>
 
-            <section class="sh-bento sh-swap" aria-labelledby="sh-log-title">
-                <header class="sh-bento-head">
-                    <h2 id="sh-log-title" class="sh-bento-title">Site Log</h2>
-                    <button type="button" class="sh-bento-link" onclick="openSiteHubLogs()">All Logs<i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
-                </header>
-                <div id="sh-log" class="sh-log-brief"></div>
-            </section>
-
-            <!-- Quick actions: an emerald + that opens Add Photo / Add Log / Add Plan (styles/site-hub.css) -->
+            <!-- Speed dial: an emerald + that opens Add Photo / New Site Log / Upload Drawing for this site -->
             <div class="sh-fab-wrap">
                 <div id="sh-fab-scrim" class="sh-fab-scrim" onclick="toggleSiteHubFab(false)" hidden></div>
                 <div id="sh-fab-menu" class="sh-fab-menu" role="menu" aria-label="Add to this site" hidden>
                     <button type="button" role="menuitem" class="sh-fab-item" style="--i: 2" onclick="siteHubFabAction('photo')"><i class="ph-fill ph-camera" aria-hidden="true"></i><span>Add Photo</span></button>
-                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 1" onclick="siteHubFabAction('log')"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i><span>Add Log</span></button>
-                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 0" onclick="siteHubFabAction('plan')"><i class="ph-fill ph-stack" aria-hidden="true"></i><span>Add Plan</span></button>
+                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 1" onclick="siteHubFabAction('log')"><i class="ph-fill ph-notebook" aria-hidden="true"></i><span>New Site Log</span></button>
+                    <button type="button" role="menuitem" class="sh-fab-item" style="--i: 0" onclick="siteHubFabAction('plan')"><i class="ph-fill ph-file-arrow-up" aria-hidden="true"></i><span>Upload Drawing</span></button>
                 </div>
                 <button type="button" id="sh-fab" class="sh-fab" onclick="toggleSiteHubFab()" aria-label="Add to this site" aria-expanded="false" aria-controls="sh-fab-menu">
                     <i class="ph-bold ph-plus" aria-hidden="true"></i>
                 </button>
-                <input type="file" id="sh-fab-photo" accept="image/*" multiple hidden onchange="siteHubPhotosPicked(this)">
             </div>
         </main>
 
@@ -1086,38 +1030,20 @@
         </div>
 
         <!-- Universal Modal Overlay with Apple Bottom Sheet (Light Frosted Backdrop) -->
-        <!-- Site Hub search (scripts/features/site-hub.js): full-height, Spotlight-style, over everything -->
+        <!-- Site search (scripts/features/site-hub.js): a full-height page over the hub. Trade chips filter; the results are
+             Photos, Site Logs and Plans as carousels, then the days each trade was booked on site. -->
         <div id="sh-search-overlay" class="sh-search-overlay" hidden>
             <section class="sh-search-panel" role="dialog" aria-modal="true" aria-label="Search site">
                 <div class="sh-search-head">
-                    <label class="sh-search-field">
-                        <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
-                        <input id="sh-search-input" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Search" aria-label="Search this site">
-                    </label>
+                    <div class="search-field sh-search-field">
+                        <i class="ph-bold ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                        <input type="search" id="sh-search-input" class="search-field-input" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Search photos, logs, plans..." aria-label="Search this site">
+                        <button type="button" id="sh-search-clear" class="search-field-clear" onclick="clearSiteSearch()" aria-label="Clear search" hidden><i class="ph-fill ph-x-circle" aria-hidden="true"></i></button>
+                    </div>
                     <button type="button" class="sh-search-cancel" onclick="closeSiteSearch()">Cancel</button>
                 </div>
-                <div id="sh-search-filters" class="filter-bar sh-search-filters" role="toolbar" aria-label="Filter results"></div>
+                <div id="sh-search-chips" class="filter-bar sh-search-chips" role="toolbar" aria-label="Filter by trade"></div>
                 <div id="sh-search-results" class="sh-search-results" aria-live="polite"></div>
-            </section>
-        </div>
-
-        <!-- Site switcher (scripts/features/site-hub.js): the employee's sites -->
-        <div id="sh-switch-overlay" class="crew-sheet-overlay sh-switch-overlay" hidden>
-            <div class="crew-sheet-backdrop" onclick="closeSiteSwitcher()" aria-hidden="true"></div>
-            <section id="sh-switch-sheet" class="sheet crew-sheet sh-switch-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-switch-title" tabindex="-1">
-                <div class="sheet-grab">
-                    <span class="sheet-handle" aria-hidden="true"></span>
-                    <header class="sheet-head">
-                        <div class="sheet-head-text"><h2 id="sh-switch-title" class="sheet-title">Switch Site</h2></div>
-                        <button type="button" class="sheet-close crew-sheet-close" onclick="closeSiteSwitcher()" aria-label="Close"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
-                    </header>
-                </div>
-                <div class="search-field search-field--sheet sh-switch-search">
-                    <i class="ph-bold ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                    <input type="search" id="sh-switch-input" class="search-field-input" placeholder="Search sites..." aria-label="Search sites" autocomplete="off" enterkeyhint="search" oninput="renderSiteSwitcherList()">
-                    <button type="button" id="sh-switch-clear" class="search-field-clear hidden" aria-label="Clear search" onclick="clearSiteSwitcherSearch()"><i class="ph-fill ph-x-circle" aria-hidden="true"></i></button>
-                </div>
-                <div id="sh-switch-list" class="sheet-body sh-switch-list" role="listbox" aria-labelledby="sh-switch-title"></div>
             </section>
         </div>
 
@@ -1128,8 +1054,12 @@
             <div class="sh-lightbox-info">
                 <p id="sh-lightbox-caption" class="sh-lightbox-caption"></p>
                 <p id="sh-lightbox-meta" class="sh-lightbox-meta"></p>
+                <div id="sh-lightbox-tags" class="sh-lightbox-tags" aria-label="Trades"></div>
             </div>
         </div>
+
+        <!-- Snack bar (scripts/components/snack.js, styles/snack.css): "Copied", "Booking deleted · Undo" -->
+        <div id="app-snack" class="app-snack" role="status" aria-live="polite" hidden></div>
 
         <!-- Crew Status sheet (scripts/features/crew-status-sheet.js, styles/crew-status-sheet.css): today's crew at the
              Home card's site, split into On Site / Not Signed In from the attendance records. Opened by the card's
@@ -1405,6 +1335,9 @@
     <script src="scripts/components/role-avatar.js"></script>
     <script src="scripts/utils/feedback.js"></script>
     <script src="scripts/utils/clipboard.js"></script>
+    <script src="scripts/components/snack.js"></script>
+    <script src="scripts/components/conic-arc.js"></script>
+    <script src="scripts/components/progress-ring.js"></script>
     <script src="scripts/utils/dates.js"></script>
     <script src="scripts/utils/async-ui.js"></script>
     <!-- Domain: entities, controlled values, rules and validation (no UI, no storage) -->
@@ -1415,6 +1348,8 @@
     <script src="scripts/domain/rules/pay-run.js"></script>
     <script src="scripts/domain/rules/timesheets.js"></script>
     <script src="scripts/domain/rules/availability.js"></script>
+    <script src="scripts/domain/rules/schedule.js"></script>
+    <script src="scripts/domain/rules/site-search.js"></script>
     <script src="scripts/domain/validation.js"></script>
     <!-- Mock database contents (read only by the mock provider's seed mapper) -->
     <script src="scripts/data/sites.js"></script>
@@ -1452,6 +1387,7 @@
     <script src="scripts/application/services/equipment-service.js"></script>
     <script src="scripts/application/services/leave-service.js"></script>
     <script src="scripts/application/services/availability-service.js"></script>
+    <script src="scripts/application/services/schedule-service.js"></script>
     <script src="scripts/application/bootstrap.js"></script>
     <script src="scripts/core/boot.js"></script>
     <script src="scripts/features/attendance.js"></script>
@@ -1469,7 +1405,7 @@
     <script src="scripts/features/chat.js"></script>
     <script src="scripts/features/poppy-assistant.js"></script>
     <script src="scripts/components/apple-calendar.js"></script>
-    <script src="scripts/features/schedule-whiteboard.js"></script>
+    <script src="scripts/features/schedule.js"></script>
     <script src="scripts/features/team.js"></script>
     <script src="scripts/features/tools.js"></script>
     <script src="scripts/features/tool-transfer.js"></script>

@@ -1,5 +1,5 @@
-/* Home site card ("Lugarno"): liquid-glass surface (its light, glass, grain and rim layers are shared with the
-   Site Hub hero, .sh-hero - see styles/site-hub.css): CSS gradients plus a small WebGL plasma in the fill.
+/* Home site card ("Lugarno"): liquid-glass surface - its light, glass, grain and rim layers: CSS gradients plus
+   a small WebGL plasma in the fill.
    Static gradients, painted once; progress and drift only change transform / opacity, which the
    compositor handles without repainting. The light changes hue as it brightens, not just opacity:
    near-black blue-teal -> deep teal -> emerald -> jade -> mint at the rim.
@@ -32,7 +32,7 @@
 }
 
 /* 1. Light */
-:is(#site-hero-card, .sh-hero) .sc-light {
+#site-hero-card .sc-light {
     position: absolute;
     inset: 0;
     z-index: -4;
@@ -41,27 +41,27 @@
     border-radius: inherit;
 }
 /* Big, asymmetric pools give the light a shape */
-:is(#site-hero-card, .sh-hero) .sc-pool {
+#site-hero-card .sc-pool {
     position: absolute;
     border-radius: 50%;
     will-change: transform;
     opacity: calc(0.6 + var(--on) * 0.4);
 }
-:is(#site-hero-card, .sh-hero) .sc-pool-a {                   /* tall bright right flank */
+#site-hero-card .sc-pool-a {                   /* tall bright right flank */
     width: 62%; height: 190%; right: -30%; top: -45%;
     background: radial-gradient(closest-side,
         rgba(150, 255, 215, 0.55), rgba(47, 224, 160, 0.5) 22%, rgba(20, 160, 115, 0.38) 42%,
         rgba(10, 95, 85, 0.22) 64%, rgba(6, 50, 55, 0.08) 84%, transparent);
     animation: sc-drift-a 24s ease-in-out infinite alternate;
 }
-:is(#site-hero-card, .sh-hero) .sc-pool-b {                   /* glow pooling in the bottom-left */
+#site-hero-card .sc-pool-b {                   /* glow pooling in the bottom-left */
     width: 80%; height: 110%; left: -32%; bottom: -60%;
     background: radial-gradient(closest-side,
         rgba(130, 255, 205, 0.5), rgba(47, 224, 160, 0.44) 24%, rgba(20, 150, 110, 0.3) 46%,
         rgba(8, 85, 80, 0.15) 68%, rgba(6, 50, 55, 0.05) 86%, transparent);
     animation: sc-drift-b 29s ease-in-out infinite alternate;
 }
-:is(#site-hero-card, .sh-hero) .sc-pool-c {                   /* light rising from inside the bottom edge */
+#site-hero-card .sc-pool-c {                   /* light rising from inside the bottom edge */
     width: 140%; height: 60%; left: -20%; bottom: -40%;
     background: radial-gradient(closest-side,
         rgba(80, 240, 185, 0.4), rgba(20, 160, 115, 0.26) 40%, rgba(8, 80, 75, 0.1) 70%, transparent);
@@ -71,10 +71,10 @@
 @keyframes sc-drift-b { to { transform: translate(7%, -5%) scale(1.08); } }
 @keyframes sc-drift-c { to { transform: translate(-5%, -4%) scale(1.04); } }
 /* The flowing plasma provides the motion, so the pools hold still (static layers cost nothing) */
-:is(#site-hero-card, .sh-hero) .sc-pool { animation: none; will-change: auto; }
+#site-hero-card .sc-pool { animation: none; will-change: auto; }
 /* Dark channel through the text area keeps the centre near-black; it fades out low down so the
    progress light can glow along the bottom */
-:is(#site-hero-card, .sh-hero) .sc-channel {
+#site-hero-card .sc-channel {
     position: absolute;
     inset: 0;
     background:
@@ -148,7 +148,7 @@
 }
 /* Thick-glass rim: light strongest right at the edge and wrapping the corners, shifting from mint at
    the rim to deep teal further in */
-:is(#site-hero-card, .sh-hero) .sc-edges {
+#site-hero-card .sc-edges {
     position: absolute;
     inset: 0;
     border-radius: inherit;
@@ -165,7 +165,7 @@
 }
 
 /* 2. Glass depth: curved top specular + soft bevel highlight (static) */
-:is(#site-hero-card, .sh-hero) .sc-glass {
+#site-hero-card .sc-glass {
     position: absolute;
     inset: 0;
     z-index: -1;
@@ -179,7 +179,7 @@
         radial-gradient(140% 70% at 50% -38%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02) 55%, transparent 72%);
 }
 /* 3. Grain */
-:is(#site-hero-card, .sh-hero) .sc-grain {
+#site-hero-card .sc-grain {
     position: absolute;
     inset: 0;
     z-index: -1;
@@ -188,7 +188,7 @@
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 /* 4. Glass rim, catching more light as the shift fills */
-:is(#site-hero-card, .sh-hero)::after {
+#site-hero-card::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -207,8 +207,8 @@
 }
 
 /* Every surface layer carries the card's own rounded corners */
-:is(#site-hero-card, .sh-hero) .sc-glass,
-:is(#site-hero-card, .sh-hero) .sc-grain {
+#site-hero-card .sc-glass,
+#site-hero-card .sc-grain {
     border-radius: inherit;
 }
 

@@ -70,7 +70,8 @@ const VIEW_FRESH_RESETTERS = {
     sitehub: () => typeof resetSiteHubView === 'function' && resetSiteHubView(),
     team: () => typeof resetTeamView === 'function' && resetTeamView(),
     tools: () => typeof resetToolsView === 'function' && resetToolsView(),
-    time: () => typeof resetTimeView === 'function' && resetTimeView()
+    time: () => typeof resetTimeView === 'function' && resetTimeView(),
+    schedule: () => typeof resetScheduleView === 'function' && resetScheduleView()
 };
 
 function resetViewForFreshOpen(viewName, view) {
@@ -239,10 +240,12 @@ function switchTab(tabName, options = {}) {
 
     // Both branches above have displayed the incoming screen by now
     if (isFreshOpen) resetViewScroll(incomingView);
+    // Back on the Site Hub from its Schedule: where it was
+    else if (toViewName === 'sitehub' && fromViewName === 'schedule' && typeof restoreSiteHubScroll === 'function') restoreSiteHubScroll();
 
     requestAnimationFrame(syncDynamicStatusBar);
 
-    if (tabName === 'schedule' && typeof initWhiteboardRoster === 'function') {
-        setTimeout(initWhiteboardRoster, 40);
+    if (tabName === 'schedule' && typeof initSchedule === 'function') {
+        setTimeout(initSchedule, 40);
     }
 }

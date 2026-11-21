@@ -174,6 +174,21 @@ function countToolUnits(status) {
         appStore.get('equipmentAllocations').filter(a => a.status === status).reduce((n, a) => n + a.quantity, 0));
 }
 
+// ---------- Site schedule ----------
+// A site's bookings, by start date (longer first on the same day)
+function getScheduleTasks(siteId) {
+    return appStore.get('scheduleTasks').filter(t => t.siteId === siteId).slice().sort((a, b) =>
+        (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : (a.endDate < b.endDate ? 1 : a.endDate > b.endDate ? -1 : 0)));
+}
+function getScheduleTask(id) { return appStore.get('scheduleTasks').find(t => t.id === id) || null; }
+function getScheduleTrades() { return appStore.get('scheduleTrades'); }
+function getScheduleTrade(id) { return getScheduleTrades().find(t => t.id === id) || { id, name: 'Other', color: '#8E8E93' }; }
+// The site's milestones by due day, the one to work towards, and the next booking from a day ('YYYY-MM-DD')
+function getSiteMilestones(siteId) { return ScheduleRules.milestones(getScheduleTasks(siteId)); }
+function getUpcomingMilestone(siteId) { return siteId ? ScheduleRules.upcomingMilestone(getScheduleTasks(siteId)) : null; }
+function getNextOnSite(siteId, fromIso) { return siteId ? ScheduleRules.nextOnSite(getScheduleTasks(siteId), fromIso) : null; }
+function subscribeSchedule(fn) { return appStore.subscribe(() => fn(), ['scheduleTasks', 'scheduleTrades', 'sites']); }
+
 // ---------- Chats ----------
 function getChatForSite(siteId) {
     if (!siteId) return null;

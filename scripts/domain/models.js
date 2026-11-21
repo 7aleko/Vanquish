@@ -18,8 +18,10 @@
  *   Attendance       → Employee (when known), Site
  *   SiteLog          → Site, Employee (author)
  *   Drawing          → Site
- *   SitePhoto        → Site, Employee (taken by), SiteLog (when attached to one)
+ *   SiteLog          → Site, Employee (author), ScheduleTrade[] (trade tags)
+ *   SitePhoto        → Site, Employee (taken by), SiteLog (when attached to one), ScheduleTrade[] (trade tags)
  *   Tool             → Site (where it is), Site (move requested to), Employee (missing reported by)
+ *   ScheduleTask     → Site, ScheduleTrade; owns its milestone checklist (items → Employee who ticked)
  *   EquipmentAllocation → Tool, Site (a quantity-tracked tool's units at one place in one status)
  *   Chat             → Site (a site group chat)
  *   ChatMessage      → Chat, Employee (sender), AvailabilityRequest (an availability card)
@@ -40,6 +42,9 @@
  * @property {string} suburb             ('Lugarno')
  * @property {boolean} active            false = archived: hidden from pickers, still resolvable
  * @property {string} [icon]             Font Awesome class used by the transfer picker
+ * @property {string} [stage]            construction stage now ('Frame & Roof')
+ * @property {string} [lockbox]          key safe code ('4829'); only sites with a key safe
+ * @property {string} [accessNotes]      how to get in (the Site Hub's Site Access sheet)
  * @property {string} createdAt
  * @property {string} updatedAt
  */
@@ -123,6 +128,7 @@
  * @property {string} date               the day it describes
  * @property {string} title
  * @property {string} body
+ * @property {string[]} tradeIds         the schedule trades the day's work was for (ScheduleTrade ids) - search tags
  * @property {?string} authorId          employeeId
  * @property {string} authorName         as written (an author may later leave the directory)
  * @property {string} createdAt
@@ -146,6 +152,7 @@
  * @property {string} date               the day it was taken
  * @property {string} caption
  * @property {string} tag                a category label ('Progress', 'Defect', ...)
+ * @property {string[]} tradeIds         the trades it shows (ScheduleTrade ids) - 'every plumbing photo'
  * @property {string} src                the image (a URL, or a data URL from the device)
  * @property {?string} logId             the site log it is attached to
  * @property {?string} takenBy           employeeId
@@ -176,6 +183,32 @@
  * @property {boolean} [needsReview]     migrated data that could not be reconciled with confidence
  * @property {?string} [missingReportedAt]   set when someone answers an availability request "Not here"
  * @property {?string} [missingReportedBy]   employeeId
+ */
+
+/**
+ * @typedef {Object} ScheduleTrade        a trade on the site schedule (Formwork, Plumbing ...): its colour
+ * @property {string} id
+ * @property {string} name
+ * @property {string} color              '#RRGGBB'
+ * @property {string} [icon]
+ */
+
+/**
+ * @typedef {Object} ScheduleTask         a booking on a site's schedule: a trade, what, where, from - to
+ * @property {string} id
+ * @property {string} siteId
+ * @property {string} tradeId
+ * @property {string} title
+ * @property {string} [where]            area on site ('L2', 'Units 1-4')
+ * @property {string} [crew]             the company or crew ('VoltEdge Electrical')
+ * @property {string} [notes]            the scope of work
+ * @property {string} [arrival]          arrival window ('7:00 AM – 3:30 PM', '8:00 – 9:00 AM')
+ * @property {string} startDate
+ * @property {string} endDate
+ * @property {boolean} milestone         a milestone has a checklist to complete before it happens
+ * @property {Array<{id, text, done, doneBy, doneByName, doneAt, note, requestedBy}>} [checklist]
+ * @property {string} createdAt
+ * @property {string} updatedAt
  */
 
 /**

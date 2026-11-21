@@ -110,8 +110,8 @@ function selectAppleCalendarDate(year, month, day) {
     } else if (appleCalTarget === 'roster' && typeof handleRosterDatePick === 'function') {
         const iso = formatIsoDateLocal(appleCalSelectedDate);
         handleRosterDatePick(iso);
-    } else if (appleCalTarget === 'schedule') {
-        if (typeof jumpWhiteboardToday === 'function') jumpWhiteboardToday();
+    } else if (appleCalTarget === 'schedule' && typeof openScheduleForSite === 'function') {
+        openScheduleForSite(null, formatIsoDateLocal(appleCalSelectedDate));
     }
 
     if (appleCalTarget || appleCalCallback) {

@@ -18,7 +18,7 @@ const APP_CONFIG = Object.freeze({
         provider: 'mock',           // a real identity provider plugs in at scripts/infrastructure/auth.js
         defaultEmployeeId: 'team-1' // mock sign-in: Alexander Floratos
     }),
-    // The day the sites run on (Home, Roster, Site Hub, attendance, who is at a site): Wed 14 Oct 2026.
+    // The day the sites run on (Home, Roster, Site Hub, Schedule, attendance, who is at a site): Mon 23 Nov 2026.
     // Timesheets keeps its own demo day (TIMESHEET_CONFIG).
-    siteDemoDay: '2026-10-14'
+    siteDemoDay: '2026-11-23'
 });

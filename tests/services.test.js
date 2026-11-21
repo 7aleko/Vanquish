@@ -229,12 +229,13 @@ test('the cache freezes records: screens cannot change data without a service', 
 
 test('attendance: seeded sign-ins resolve to employees; labour hire keeps its name', async () => {
     const env = await app.makeEnv();
-    const day = env.store.get('attendance').filter(a => a.date === '2026-10-14');
+    const day = env.store.get('attendance').filter(a => a.date === '2026-11-23');
     const james = day.find(a => a.name === 'James Begg');
     assert.equal(james.employeeId, 'team-31');
     assert.equal(james.siteId, 'lugarno');
     assert.equal(james.signedOutAt, null);
     assert.equal(day.find(a => a.name === 'Labour Hire 1').employeeId, null);
+    assert.equal(day.find(a => a.name === 'VoltEdge Electrical').employeeId, null);   // a subcontractor, by company
     assert.ok(!day.some(a => a.employeeId === 'team-1'));          // the worker starts not signed in
 });
 
@@ -271,14 +272,20 @@ test('attendance: validation and failures leave nothing behind', async () => {
     assert.equal((await env.provider.attendance.list({ employeeId: 'team-1' })).length, 0);
 });
 
-test('site content: seeded logs and drawings per site, authors resolved, no sample photos', async () => {
+test('site content: seeded logs, drawings and photos per site, authors resolved', async () => {
     const env = await app.makeEnv();
     const logs = env.store.get('siteLogs').filter(l => l.siteId === 'lugarno');
     assert.ok(logs.length >= 3);
-    assert.equal(logs.find(l => l.title.startsWith('Termite')).authorId, 'team-31');
-    const a102 = env.store.get('drawings').find(d => d.siteId === 'lugarno' && d.sheet === 'A102');
-    assert.equal(a102.revision, 'C');
-    assert.equal(env.store.get('sitePhotos').length, 0);
+    const latest = logs.slice().sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    assert.deepEqual([latest.date, latest.title, latest.authorId], ['2026-11-20', 'Frame inspection passed, timber stacked', 'team-8']);
+    const dwgs = env.store.get('drawings').filter(d => d.siteId === 'lugarno');
+    assert.equal(dwgs.length, 14);
+    assert.equal(dwgs.slice().sort((a, b) => (a.updatedOn < b.updatedOn ? 1 : -1))[0].revision, 'C');
+    const photos = env.store.get('sitePhotos').filter(p => p.siteId === 'lugarno');
+    assert.equal(photos.length, 48);
+    assert.ok(photos.every(p => /^assets\/images\/site-photos\/[a-z-]+\.jpg$/.test(p.src) && p.takenBy));
+    const site = env.store.get('sites').find(s => s.id === 'lugarno');
+    assert.deepEqual([site.stage, site.lockbox], ['Frame & Roof', '4829']);
 });
 
 test('site content: add a log with photos in one transaction; audited; cache updated', async () => {
@@ -332,4 +339,16 @@ test('drawings: add a sheet; a new revision replaces it; the same revision is re
     assert.equal(env.store.get('drawings').filter(x => x.siteId === 'lugarno' && x.sheet === 'A103').length, 1);
     await assert.rejects(env.siteContent.addDrawing({ siteId: 'lugarno', sheet: 'A103', title: 'First Floor Plan', discipline: 'Architectural', revision: 'B', date: '2026-10-15' }), code('CONFLICT'));
     await assert.rejects(env.siteContent.addDrawing({ siteId: 'lugarno', sheet: '', title: 'x', discipline: 'Nope', revision: '', date: '2026-10-15' }), code('VALIDATION'));
+});
+
+test('site content: Add Photo saves photos on their own, with one description and tag', async () => {
+    const env = await app.makeEnv();
+    const src = 'data:image/jpeg;base64,AAAA';
+    const before = env.store.get('sitePhotos').filter(p => p.siteId === 'lugarno').length;
+    const added = await env.siteContent.addPhotos({ siteId: 'lugarno', date: '2026-11-23', caption: ' Sparky  conduits ', tag: 'Progress', photos: [{ src }, { src }] });
+    assert.equal(added.length, 2);
+    assert.ok(added.every(p => p.caption === 'Sparky conduits' && p.takenBy === 'team-1' && p.logId === null));
+    assert.equal(env.store.get('sitePhotos').filter(p => p.siteId === 'lugarno').length, before + 2);
+    await assert.rejects(env.siteContent.addPhotos({ siteId: 'lugarno', date: '2026-11-23', photos: [] }), err => err.code === 'VALIDATION');
+    await assert.rejects(env.siteContent.addPhotos({ siteId: 'lugarno', date: '2026-11-23', tag: 'Nope', photos: [{ src }] }), err => err.code === 'VALIDATION');
 });

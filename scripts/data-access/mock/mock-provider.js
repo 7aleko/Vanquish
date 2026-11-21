@@ -25,7 +25,7 @@ function createMockDataProvider(options = {}) {
 
     // ----- Storage -----
     const TABLES = ['sites', 'employees', 'roster', 'costCodes', 'timesheets', 'crewLogs', 'attendance', 'siteLogs', 'drawings', 'sitePhotos',
-        'equipment', 'equipmentAllocations', 'leaveRequests', 'leaveBalances', 'chats', 'chatMessages', 'availabilityRequests', 'availabilityResponses', 'notifications', 'audit'];
+        'equipment', 'equipmentAllocations', 'scheduleTrades', 'scheduleTasks', 'leaveRequests', 'leaveBalances', 'chats', 'chatMessages', 'availabilityRequests', 'availabilityResponses', 'notifications', 'audit'];
     const storage = (() => {
         try {
             if (config.persistence === 'session') return sessionStorage;
@@ -280,10 +280,10 @@ function createMockDataProvider(options = {}) {
 
     const siteLogs = {
         list: ({ siteId } = {}) => op('siteLogs.list', () => db.siteLogs.filter(l => !siteId || l.siteId === siteId)),
-        create: ({ siteId, date, title, body, authorId }) => write('siteLogs.create', () => {
+        create: ({ siteId, date, title, body, authorId, tradeIds }) => write('siteLogs.create', () => {
             requireFk('sites', siteId, 'site');
             const author = requireRow('employees', 'id', authorId, 'Employee');
-            const row = { id: newId('LOG'), siteId, date, title, body: body || '', authorId, authorName: author.name, createdAt: nowIso() };
+            const row = { id: newId('LOG'), siteId, date, title, body: body || '', tradeIds: tradeIds || [], authorId, authorName: author.name, createdAt: nowIso() };
             assertValidEntity('siteLog', row);
             db.siteLogs.push(row);
             return row;
@@ -314,9 +314,17 @@ function createMockDataProvider(options = {}) {
             requireFk('sites', input.siteId, 'site');
             requireFk('siteLogs', input.logId, 'siteLog');
             requireFk('employees', input.takenBy, 'employee');
-            const row = { id: newId('PH'), caption: '', tag: '', logId: null, takenBy: null, ...input, createdAt: nowIso() };
+            const row = { id: newId('PH'), caption: '', tag: '', tradeIds: [], logId: null, takenBy: null, ...input, createdAt: nowIso() };
             assertValidEntity('sitePhoto', row);
             db.sitePhotos.push(row);
+            return row;
+        }),
+        // Re-tag a photo (its trades); nothing else about a photo changes after it's taken
+        setTrades: (id, tradeIds) => write('sitePhotos.setTrades', () => {
+            const row = requireRow('sitePhotos', 'id', id, 'Photo');
+            const next = { ...row, tradeIds: [...tradeIds] };
+            assertValidEntity('sitePhoto', next);
+            Object.assign(row, next);
             return row;
         })
     };
@@ -445,6 +453,92 @@ function createMockDataProvider(options = {}) {
             assertValidEntity('leaveBalance', next);
             Object.assign(row, next);
             return row;
+        })
+    };
+
+    // ----- Site schedule -----
+    // Constraints: a booking's site and trade exist; it ends on or after it starts; a trade in use can't be
+    // removed. Checklist changes are made one item at a time (two people ticking different items never
+    // overwrite each other).
+    function validTask(row) {
+        requireFk('sites', row.siteId, 'site');
+        if (!find('scheduleTrades', 'id', row.tradeId)) throw appErrors.validation(`Trade ${row.tradeId} does not exist`, [{ field: 'tradeId', message: 'does not exist' }], 'Choose a trade.');
+        if (row.endDate < row.startDate) throw appErrors.validation('End before start', [{ field: 'endDate', message: 'is before the start' }], 'The end date is before the start date.');
+        assertValidEntity('scheduleTask', row);
+    }
+    function requireItem(task, itemId) {
+        const item = (task.checklist || []).find(x => x.id === itemId);
+        if (!item) throw appErrors.notFound('Checklist item', itemId);
+        return item;
+    }
+    const schedule = {
+        listTasks: ({ siteId } = {}) => op('schedule.listTasks', () => db.scheduleTasks.filter(t => !siteId || t.siteId === siteId)),
+        getTask: id => op('schedule.getTask', () => find('scheduleTasks', 'id', id)),
+        // A new booking; `id` may be given (undo of a delete puts the same booking back)
+        createTask: input => write('schedule.createTask', () => {
+            const t = nowIso();
+            const row = { where: '', crew: '', notes: '', milestone: false, checklist: [], ...input, id: input.id || newId('SCH'), createdAt: input.createdAt || t, updatedAt: t };
+            if (find('scheduleTasks', 'id', row.id)) throw appErrors.conflict(`Task ${row.id} exists`, 'That booking already exists.');
+            validTask(row);
+            db.scheduleTasks.push(row);
+            return row;
+        }),
+        updateTask: (id, changes) => write('schedule.updateTask', () => {
+            const row = requireRow('scheduleTasks', 'id', id, 'Booking');
+            const { id: _i, createdAt: _c, checklist: _k, ...rest } = changes || {};
+            const next = { ...row, ...rest, updatedAt: nowIso() };
+            if (changes && Array.isArray(changes.checklist) && !(row.checklist || []).length) next.checklist = changes.checklist;   // a new milestone's starting list
+            validTask(next);
+            Object.assign(row, next);
+            return row;
+        }),
+        removeTask: id => write('schedule.removeTask', () => {
+            const row = requireRow('scheduleTasks', 'id', id, 'Booking');
+            db.scheduleTasks = db.scheduleTasks.filter(t => t !== row);
+            return row;
+        }),
+        addChecklistItem: (taskId, item, index) => write('schedule.addChecklistItem', () => {
+            const task = requireRow('scheduleTasks', 'id', taskId, 'Booking');
+            const row = { done: false, doneBy: null, doneByName: null, doneAt: null, note: '', requestedBy: null, ...item, id: item.id || newId('CK') };
+            const list = (task.checklist || []).slice();
+            list.splice(Number.isInteger(index) ? Math.max(0, Math.min(index, list.length)) : list.length, 0, row);
+            const next = { ...task, checklist: list, updatedAt: nowIso() };
+            validTask(next);
+            Object.assign(task, next);
+            return task;
+        }),
+        updateChecklistItem: (taskId, itemId, patch) => write('schedule.updateChecklistItem', () => {
+            const task = requireRow('scheduleTasks', 'id', taskId, 'Booking');
+            requireItem(task, itemId);
+            const next = { ...task, checklist: task.checklist.map(x => (x.id === itemId ? { ...x, ...patch, id: x.id } : x)), updatedAt: nowIso() };
+            validTask(next);
+            Object.assign(task, next);
+            return task;
+        }),
+        removeChecklistItem: (taskId, itemId) => write('schedule.removeChecklistItem', () => {
+            const task = requireRow('scheduleTasks', 'id', taskId, 'Booking');
+            requireItem(task, itemId);
+            Object.assign(task, { checklist: task.checklist.filter(x => x.id !== itemId), updatedAt: nowIso() });
+            return task;
+        }),
+        listTrades: () => op('schedule.listTrades', () => db.scheduleTrades),
+        // The whole trade list at once (the Trades sheet). A trade still used by a booking can't be dropped.
+        saveTrades: trades => write('schedule.saveTrades', () => {
+            const ids = new Set();
+            (trades || []).forEach(t => {
+                assertValidEntity('scheduleTrade', t);
+                if (!/^#[0-9a-f]{6}$/i.test(t.color)) throw appErrors.validation(`Bad colour ${t.color}`, [{ field: 'color', message: 'must be #RRGGBB' }], 'Choose a colour for each trade.');
+                if (ids.has(t.id)) throw appErrors.validation(`Duplicate trade ${t.id}`, [{ field: 'id', message: 'is repeated' }]);
+                ids.add(t.id);
+            });
+            const dropped = db.scheduleTrades.filter(t => !ids.has(t.id));
+            const used = dropped.find(t => db.scheduleTasks.some(x => x.tradeId === t.id));
+            if (used) {
+                const n = db.scheduleTasks.filter(x => x.tradeId === used.id).length;
+                throw appErrors.conflict(`Trade ${used.id} in use`, `${used.name} is used by ${n} booking${n === 1 ? '' : 's'}. Delete or move those first.`);
+            }
+            db.scheduleTrades = (trades || []).map(t => ({ ...t }));
+            return db.scheduleTrades;
         })
     };
 
@@ -651,7 +745,7 @@ function createMockDataProvider(options = {}) {
     };
 
     const repos = { sites, employees, roster, timesheets, crewLogs, attendance, siteLogs, drawings, sitePhotos, costCodes, equipment, leave,
-        chats, chatMessages, availability, notifications, audit };
+        schedule, chats, chatMessages, availability, notifications, audit };
 
     // All-or-nothing: one transaction at a time; any throw restores the database as it was before.
     // (A real backend runs the same work as one database transaction or server-side function.)

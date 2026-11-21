@@ -572,21 +572,24 @@
                 <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i><span>Search photos, logs, plans, trades...</span>
             </button>
 
-            <!-- Upcoming milestone: its own card (the On Site card's surface); opens the Schedule with it open -->
-            <button type="button" id="sh-sched" class="sh-card sh-sched sh-swap" onclick="openScheduleFromHub()">
-                <span class="sh-sched-head">
-                    <span class="sh-sched-eyebrow"><i class="ph-fill ph-calendar-dots" aria-hidden="true"></i>Schedule • Upcoming Milestone</span>
-                    <span class="sh-sched-pill">Full Schedule<i class="ph-bold ph-caret-right" aria-hidden="true"></i></span>
-                </span>
-                <span class="sh-sched-main">
-                    <span class="sh-sched-text">
-                        <span id="sh-ms-title" class="sh-ms-title"></span>
-                        <span id="sh-ms-due" class="sh-ms-due"></span>
-                        <span id="sh-ms-next" class="sh-ms-next"></span>
-                    </span>
-                    <span id="sh-ms-ring" class="sh-ring" aria-hidden="true"></span>
-                </span>
-            </button>
+            <!-- Upcoming milestone: its own card (the On Site card's surface, lit by its ring). The body reads at a glance;
+                 the full-width footer row opens the Schedule with this milestone open. -->
+            <section id="sh-sched" class="sh-card sh-sched sh-swap" aria-labelledby="sh-ms-eyebrow sh-ms-title">
+                <div class="sh-sched-body">
+                    <p id="sh-ms-eyebrow" class="sh-sched-eyebrow"><i class="ph-fill ph-calendar-blank" aria-hidden="true"></i>Upcoming Milestone</p>
+                    <div class="sh-sched-main">
+                        <div class="sh-sched-text">
+                            <h3 id="sh-ms-title" class="sh-ms-title"></h3>
+                            <p id="sh-ms-due" class="sh-ms-due"></p>
+                            <p id="sh-ms-next" class="sh-ms-next"></p>
+                        </div>
+                        <span id="sh-ms-ring" class="sh-ring"></span>
+                    </div>
+                </div>
+                <button type="button" id="sh-sched-open" class="sh-sched-foot" onclick="openScheduleFromHub()">
+                    <span>Full Schedule</span><i class="ph-bold ph-caret-right" aria-hidden="true"></i>
+                </button>
+            </section>
 
             <!-- On Site: who is scheduled at the site each weekday, and today's sign-ins -->
             <section id="sh-onsite" class="sh-card sh-onsite sh-swap" aria-labelledby="sh-onsite-title">

@@ -7,8 +7,8 @@
  *             right (high, chance of rain, wind). The key in the top bar opens Site Access (lockbox PIN with
  *             Copy, access notes) for the active site.
  *   Milestone its own card, on the On Site card's surface: the upcoming milestone, its due day, the next trade
- *             on site and the checklist ring (coloured by the milestone's state); it opens the Schedule with that
- *             milestone open
+ *             on site (one line) and the checklist ring (coloured by the milestone's state); its full-width
+ *             footer row, Full Schedule, opens the Schedule with that milestone open
  *   On Site   Mon-Fri; each day's crew (the roster), subcontractors and inspectors booked that day (the schedule)
  *             and deliveries, with today's sign-ins ("In • 6:48 AM", "Not Signed In") and a headcount. Collapsed
  *             (the default) it shows an avatar stack and who hasn't signed in; tapping it expands the full list
@@ -205,13 +205,15 @@ function renderSiteHubHero() {
     lock.setAttribute('aria-label', site ? `Site access for ${site.address}: lockbox PIN and access notes` : 'Site access');
 }
 
-// The hero's schedule footer: the milestone to work towards, its due day and checklist ring, and the next trade
+// The upcoming milestone card: the milestone to work towards, its due day, the next trade on site (one line) and
+// the checklist ring; its footer row opens the Schedule
 function renderSiteHubSchedule() {
-    const siteId = siteHubState.siteId, btn = document.getElementById('sh-sched');
-    if (!btn) return;
+    const siteId = siteHubState.siteId, card = document.getElementById('sh-sched');
+    if (!card) return;
     const ms = getUpcomingMilestone(siteId), next = getNextOnSite(siteId, shTodayIso());
     const title = document.getElementById('sh-ms-title'), due = document.getElementById('sh-ms-due');
     const nextEl = document.getElementById('sh-ms-next'), ring = document.getElementById('sh-ms-ring');
+    const open = document.getElementById('sh-sched-open');
     if (ms) {
         const p = ScheduleRules.progress(ms), done = ScheduleRules.isComplete(ms);
         title.textContent = ms.title;
@@ -219,17 +221,25 @@ function renderSiteHubSchedule() {
         ring.hidden = false;
         const tone = progressRingTone(ScheduleRules.milestoneStatus(ms, shTodayIso()).key);
         ring.innerHTML = renderProgressRing(p, { size: 56, stroke: 7, key: `ms:${ms.id}`, tone });
-        lightProgressCard(btn, tone);                     // the ring lights the card in its state's colour
-        btn.setAttribute('aria-label', `Upcoming milestone: ${ms.title}, ${done ? 'complete' : `due ${shLongDate(ms.endDate)}`}, ${p.done} of ${p.total} prerequisites complete${next ? `. Next on site: ${next.title}, ${shLongDate(next.startDate)}` : ''}. Open the full schedule`);
+        lightProgressCard(card, tone);                    // the ring lights the card in its state's colour
+        open.setAttribute('aria-label', `Full schedule, with ${ms.title} open`);
     } else {
         title.textContent = 'No milestones yet';
         due.textContent = 'Add one on the schedule';
         ring.hidden = true; ring.innerHTML = '';
-        lightProgressCard(btn, null);
-        btn.setAttribute('aria-label', 'No milestones yet. Open the full schedule');
+        lightProgressCard(card, null);
+        open.setAttribute('aria-label', 'Full schedule');
     }
-    nextEl.innerHTML = next ? `Next on site: <b>${shEsc(next.title)}</b> • ${shDate(next.startDate, true)}` : 'Nothing booked yet';
-    animateProgressRings(btn);
+    // The next trade on site, on one line: "● Mon 23 · Sparky Rough-In"
+    if (next) {
+        const d = DateRules.fromIso(next.startDate);
+        nextEl.innerHTML = `<span class="sh-next-dot" aria-hidden="true"></span><span class="sh-next-text">${SH_DAYS[d.getDay()]} ${d.getDate()} · ${shEsc(next.title)}</span>`;
+        nextEl.setAttribute('aria-label', `Next on site: ${next.title}, ${shLongDate(next.startDate)}`);
+    } else {
+        nextEl.innerHTML = `<span class="sh-next-dot is-idle" aria-hidden="true"></span><span class="sh-next-text">Nothing booked yet</span>`;
+        nextEl.removeAttribute('aria-label');
+    }
+    animateProgressRings(card);
 }
 
 // ---------- On Site: the weekday's crew, subcontractors, inspectors and deliveries ----------

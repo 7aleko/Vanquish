@@ -202,46 +202,44 @@
 .sh-site-addr:active { background: rgba(255, 255, 255, 0.07); color: #fff; transform: scale(0.97); }
 .sh-site-addr:disabled { cursor: default; }
 .sh-site-addr:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: 2px; }
-/* Upcoming milestone: its own card - the surface is .sh-card (as On Site), only the layout is here */
-.sh-sched {
+/* Upcoming milestone: its own card - the surface is .sh-card (as On Site), only the layout is here. A glanceable
+   body (eyebrow; title, due, next trade | ring), then a full-width iOS list row that opens the Schedule. */
+.sh-sched { display: flex; flex-direction: column; width: 100%; padding: 0; color: #fff; }
+.sh-sched-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
+.sh-sched-eyebrow { margin: 0; display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+.sh-sched-eyebrow i { flex-shrink: 0; font-size: 14px; color: rgba(255, 255, 255, 0.5); }
+.sh-sched-main { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.sh-sched-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sh-ms-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-ms-due { margin: 0; font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }   /* neutral: the ring carries the state */
+/* The next trade: always one line, truncated rather than wrapped */
+.sh-ms-next { margin: 3px 0 0; display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13px; color: rgba(255, 255, 255, 0.8); white-space: nowrap; }
+.sh-next-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #FBBF24; }   /* amber-400 */
+.sh-next-dot.is-idle { background: rgba(255, 255, 255, 0.3); }
+.sh-next-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Footer: the whole strip is the button; it respects the card's rounded corners (the card clips) */
+.sh-sched-foot {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    padding: 14px;
+    min-height: 48px;
+    padding: 14px 16px;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
     color: #fff;
+    font-size: 15px;
+    font-weight: 500;
     text-align: left;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 160ms var(--sh-ease), background-color 160ms ease;
+    transition: background-color 120ms ease;
 }
-.sh-sched:active { transform: scale(0.985); }
-.sh-sched:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: 2px; }
-.sh-sched-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.sh-sched-eyebrow { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 10.5px; font-weight: 700; letter-spacing: 0.035em; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sh-sched-eyebrow i { flex-shrink: 0; font-size: 13px; color: var(--sh-blue); }
-.sh-sched-pill {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    height: 26px;
-    padding: 0 5px 0 8px;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.09);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-}
-.sh-sched-pill i { font-size: 11px; color: rgba(255, 255, 255, 0.6); }
-.sh-sched-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.sh-sched-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sh-ms-title { font-size: 19px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-ms-due { font-size: 13.5px; font-weight: 600; color: #D4D4D8; font-variant-numeric: tabular-nums; }   /* zinc-300: neutral, the ring carries the state */
-.sh-ms-next { font-size: 13px; line-height: 1.35; color: var(--sh-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.sh-ms-next b { font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+.sh-sched-foot i { flex-shrink: 0; font-size: 16px; color: rgba(255, 255, 255, 0.4); }
+@media (hover: hover) and (pointer: fine) { .sh-sched-foot:hover { background: rgba(255, 255, 255, 0.04); } }
+.sh-sched-foot:active { background: rgba(255, 255, 255, 0.08); transition-duration: 0ms; }
+.sh-sched-foot:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: -2px; border-radius: 0 0 20px 20px; }
 .sh-ring { flex-shrink: 0; display: inline-flex; }
 .sh-ring[hidden] { display: none; }
 

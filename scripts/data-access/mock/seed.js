@@ -36,7 +36,8 @@ function buildMockSeed(options) {
     const employeeByName = name => employees.find(e => e.name === name) || null;
 
     // ----- Roster -----
-    const roster = ROSTER.map(r => ({ id: `RA-${r.employeeId}-${r.date}`, date: r.date, employeeId: r.employeeId, siteId: r.siteId }));
+    const roster = ROSTER.map(r => ({ id: `RA-${r.employeeId}-${r.date}`, date: r.date, employeeId: r.employeeId, siteId: r.siteId,
+        ...(r.stints ? { stints: r.stints.map(s => ({ ...s })) } : {}) }));
     const rosteredSite = (employeeId, iso) => (roster.find(r => r.employeeId === employeeId && r.date === iso) || {}).siteId || null;
 
     // ----- Cost codes -----
@@ -100,7 +101,9 @@ function buildMockSeed(options) {
     // belongs to a site on a day. The signed-in worker's own roster (ROSTER) wins; a person named on two
     // crews the same day is placed where they signed in, otherwise on the first.
     const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const crewYear = Number(String(options.siteDay || todayIso).slice(0, 4));
+    // siteDay is a Date (or an ISO string); the crews' "23 Nov" labels take its year
+    const siteDay = options.siteDay || today;
+    const crewYear = typeof siteDay === 'string' ? Number(siteDay.slice(0, 4)) : siteDay.getFullYear();
     const crewDate = label => {
         const m = /^(\d{1,2})\s+([A-Za-z]{3})/.exec(label || '');
         const mi = m ? MONTHS.indexOf(m[2].toLowerCase()) : -1;
@@ -224,7 +227,8 @@ function buildMockSeed(options) {
         leaveRequests, leaveBalances, equipmentAllocations, scheduleTrades: scheduleTradeRows, scheduleTasks, chats, chatMessages: [], availabilityRequests: [], availabilityResponses: [], notifications: [],
         audit: [], seededFor: `${todayIso}/${MOCK_SEED_VERSION}`,
         // A saved database whose table version differs takes that table from this seed (see the mock
-        // provider): equipment v4 = quantity-tracked groups with allocation buckets (v3: one record per unit)
-        tableVersions: { equipment: 4 }
+        // provider): equipment v4 = quantity-tracked groups with allocation buckets (v3: one record per unit);
+        // roster v3 = split days and custom hours (stints) and the site crews (their year was misread before)
+        tableVersions: { equipment: 4, roster: 3 }
     };
 }

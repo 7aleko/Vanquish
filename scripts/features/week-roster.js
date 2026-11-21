@@ -1,5 +1,12 @@
 /**
  * My Week roster: week navigation, rain-site switching, accordion cards.
+ *
+ * Each card is one day from the roster (getRosterDay, scripts/application/selectors.js). A day is one or more
+ * stints - a site and its hours - so a split day (Lugarno 7-9, then Castlecrag) uses the same stint row as a
+ * normal day, once per site. Closed, a card is the at-a-glance week: the site (on a split day, where it
+ * starts), a badge for a start time off the standard shift or more than one site, and the rain button on a
+ * rain-risk day - tapping it turns the card to its wet-weather site. Opening a card shows the details:
+ * address, hours and who you're working with.
  */
 
 const ROSTER_DAY_IDS = ['card-mon', 'card-tue', 'card-wed', 'card-thu', 'card-fri'];
@@ -9,7 +16,7 @@ const ROSTER_ANCHOR_MONDAY = DateRules.mondayOf(ROSTER_ANCHOR_DAY);
 const ROSTER_ANCHOR_CARD = ROSTER_DAY_IDS[ROSTER_ANCHOR_DAY.getDay() - 1] || '';
 let activeTodayCardId = ROSTER_ANCHOR_CARD;
 const expandedRosterCards = {};
-const rosterCardStates = {};
+const rosterCardStates = {};             // cardId -> 'rain' while the card shows its wet-weather site
 
 let currentRosterMonday = new Date(ROSTER_ANCHOR_MONDAY);
 const ROSTER_SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -32,13 +39,6 @@ function applyRosterWeek(mondayDate, pickedDate = null) {
     if (nativeInput) {
         nativeInput.value = formatIsoDateLocal(pickedDate || currentRosterMonday);
     }
-
-    ROSTER_DAY_IDS.forEach((id, idx) => {
-        const dayDate = new Date(currentRosterMonday.getFullYear(), currentRosterMonday.getMonth(), currentRosterMonday.getDate() + idx);
-        if (ROSTER_CONFIG[id]) {
-            ROSTER_CONFIG[id].dateNum = String(dayDate.getDate()).padStart(2, '0');
-        }
-    });
 
     const isAnchorWeek = DateRules.toIso(currentRosterMonday) === DateRules.toIso(ROSTER_ANCHOR_MONDAY);
     activeTodayCardId = isAnchorWeek ? ROSTER_ANCHOR_CARD : '';
@@ -95,20 +95,7 @@ function getExpectedRosterDrawerHeight(cardId, drawer) {
     const inner = drawer.querySelector('.roster-drawer-inner');
     if (!inner) return drawer.getBoundingClientRect().height;
 
-    let height = inner.scrollHeight;
-    // The rain mode shift line may be mid open / close: measure it at its end state
-    const pillSlot = inner.querySelector('.roster-shift-slot');
-    if (pillSlot) {
-        const currentPillH = pillSlot.getBoundingClientRect().height;
-        if (pillSlot.classList.contains('is-active')) {
-            const pillContent = pillSlot.querySelector('.roster-shift-row');
-            const targetPillH = (pillContent ? pillContent.offsetHeight : 0) + 10;
-            height += Math.max(0, targetPillH - currentPillH);
-        } else {
-            height = Math.max(0, height - currentPillH);
-        }
-    }
-    return height;
+    return inner.scrollHeight;
 }
 
 // Exact cubic-bezier(0.32, 0.72, 0, 1) solver matching var(--ease-drawer)
@@ -338,7 +325,7 @@ function getRosterCardDate(cardId) {
     return new Date(currentRosterMonday.getFullYear(), currentRosterMonday.getMonth(), currentRosterMonday.getDate() + Math.max(0, idx));
 }
 // What a card shows for a site: { siteId, title, address }. An area ("Indoor Hub", in "Shed B") names a part
-// of the site. No site (not rostered that day) gives a placeholder.
+// of the site.
 function describeRosterSite(siteId, area, areaDetail) {
     const site = getSiteById(siteId);
     if (!site) return { siteId: null, title: 'Not rostered', address: '' };
@@ -346,160 +333,213 @@ function describeRosterSite(siteId, area, areaDetail) {
     const address = areaDetail ? `${site.address} (${areaDetail}), ${site.suburb}` : getSiteFullAddress(siteId);
     return { siteId, title, address };
 }
-// The rostered site for a card's date (ROSTER), or its wet-weather site (ROSTER_CONFIG)
-function getRosterCardSite(cardId, rain) {
-    const config = ROSTER_CONFIG[cardId];
-    if (rain && config && config.rainSite) return describeRosterSite(config.rainSite.siteId, config.rainSite.area, config.rainSite.areaDetail);
-    return describeRosterSite(getRosteredSiteId(getRosterCardDate(cardId)));
-}
 function rosterAddressHref(address) {
     return address ? `href="https://maps.apple.com/?q=${encodeURIComponent(address)}"` : '';
+}
+const rosterEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ----- Times -----
+// '07:00' -> { clock: '7:00', meridiem: 'AM' }
+function rosterClock(hhmm) {
+    const mins = TimeRules.minutes(hhmm) || 0;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return { clock: `${h % 12 || 12}:${String(m).padStart(2, '0')}`, meridiem: h >= 12 ? 'PM' : 'AM' };
+}
+// "7:00 AM – 3:30 PM"; "7:00 – 9:00 AM" when both ends share AM / PM (compact)
+function formatRosterRange(start, end, compact = false) {
+    const a = rosterClock(start), b = rosterClock(end);
+    if (compact && a.meridiem === b.meridiem) return `${a.clock} – ${b.clock} ${b.meridiem}`;
+    return `${a.clock} ${a.meridiem} – ${b.clock} ${b.meridiem}`;
+}
+// "2h", "6h 30m"
+function formatRosterDuration(start, end) {
+    const mins = Math.max(0, (TimeRules.minutes(end) || 0) - (TimeRules.minutes(start) || 0));
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return h && m ? `${h}h ${m}m` : (h ? `${h}h` : `${m}m`);
+}
+
+// ----- A card's day -----
+function rosterIsStandardShift(start, end) {
+    return start === RosterRules.DEFAULT_SHIFT.start && end === RosterRules.DEFAULT_SHIFT.end;
+}
+// Everything a card shows for its date: the roster day (selectors), and in the demo week its rain risk and
+// wet-weather site (ROSTER_CONFIG). Rain mode puts the whole day at the rain site, with the same crew.
+// { date, rostered, splitDay, multiSite (false while rain mode puts the day at one site), start, end, stints: [{ site, start, end, crew }], crew, rainRisk, rainOn,
+//   wetSites / drySites (a rain-risk day: the rain site, and the day's usual sites) }
+function getRosterCardModel(cardId) {
+    const date = getRosterCardDate(cardId);
+    const day = getRosterDay(date);
+    const isDemoWeek = DateRules.toIso(currentRosterMonday) === DateRules.toIso(ROSTER_ANCHOR_MONDAY);
+    const config = isDemoWeek ? ROSTER_CONFIG[cardId] : null;
+    const base = { date, rostered: !!day, splitDay: false, multiSite: false, start: null, end: null, stints: [], crew: [], rainRisk: false, rainOn: false };
+    if (!day) return base;
+
+    const stints = day.stints.map(s => ({
+        site: describeRosterSite(s.siteId), start: s.start, end: s.end,
+        crew: sortRosterCrew(getRosterCrew(date, s.siteId, s.start, s.end))
+    }));
+    // Everyone you work with that day, once each
+    const crew = sortRosterCrew([...new Map(stints.flatMap(s => s.crew).map(p => [p.id, p])).values()]);
+    const rainRisk = !!(config && config.isRainRisk && config.rainSite);
+    const rainOn = rainRisk && rosterCardStates[cardId] === 'rain';
+    const model = { ...base, splitDay: day.multiSite, multiSite: day.multiSite, start: day.start, end: day.end, stints, crew, rainRisk, rainOn };
+    if (rainRisk) {
+        // Both plans for the day, so the open card can show the one you're not looking at
+        const r = config.rainSite;
+        model.wetSites = [describeRosterSite(r.siteId, r.area, r.areaDetail)];
+        model.drySites = stints.map(s => s.site);
+    }
+    if (rainOn) {
+        model.multiSite = false;
+        model.stints = [{ site: model.wetSites[0], start: day.start, end: day.end, crew }];
+    }
+    return model;
+}
+function sortRosterCrew(people) {
+    const order = sortCrewBySeniority(people.map(p => p.name));
+    return order.map(name => people.find(p => p.name === name));
+}
+
+// ----- Card pieces (each re-rendered on its own when rain mode switches) -----
+function renderRosterCrewChips(crew) {
+    if (!crew.length) return '';
+    return `<div class="roster-crew-chips">${crew.map(p =>
+        `<span class="roster-team-chip">${renderRoleAvatar(p, 'sm')}<span>${rosterEsc(p.name)}</span></span>`).join('')}</div>`;
+}
+// A stint's crew, compactly: their avatars and first names ("David, Trent and James")
+function renderRosterCrewLine(crew) {
+    if (!crew.length) return '';
+    const names = crew.map(p => p.name.split(' ')[0]);
+    const text = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+    return `<div class="roster-stint-crew">
+                <span class="role-avatar-stack" aria-hidden="true">${crew.map(p => renderRoleAvatar(p, 'xs')).join('')}</span>
+                <span class="roster-stint-crew-names">${rosterEsc(text)}</span>
+            </div>`;
+}
+function renderRosterAddress(site) {
+    return `<a ${rosterAddressHref(site.address)} target="_blank" rel="noopener" onclick="event.stopPropagation()" class="site-address">
+                <span class="site-address-text">${rosterEsc(site.address)}</span><i class="ph-bold ph-arrow-up-right" aria-hidden="true"></i>
+            </a>`;
+}
+// A rain-risk day's other plan, so both can be seen in the open card: "If it's wet" (the rain site) on the
+// usual plan, "If it's dry" (the usual sites) once the card is switched to the rain site
+function renderRosterOtherPlan(model) {
+    if (!model.rainRisk) return '';
+    const wet = !model.rainOn;
+    const sites = wet ? model.wetSites : model.drySites;
+    return `<div class="roster-other-plan ${wet ? 'is-wet' : 'is-dry'}">
+                <span class="roster-other-plan-label"><i class="ph-fill ${wet ? 'ph-cloud-rain' : 'ph-sun'}" aria-hidden="true"></i>${wet ? "If it's wet" : "If it's dry"}</span>
+                <span class="roster-other-plan-site">${sites.map(x => rosterEsc(x.title)).join(' <span class="roster-other-plan-then">then</span> ')}</span>
+                ${sites.length === 1 ? renderRosterAddress(sites[0]) : ''}
+            </div>`;
+}
+// The open card's body. One site: its hours (off the standard shift), address, the other rain plan, crew.
+// A split day: a stint row per site - hours and length, site, address, crew - on a rail that joins them in
+// order, then the other rain plan.
+function renderRosterStints(model) {
+    if (!model.multiSite) {
+        const s = model.stints[0];
+        return `<div class="roster-stint-single">
+                    ${rosterIsStandardShift(model.start, model.end) ? '' : `<div class="roster-stint-time roster-single-hours">${formatRosterRange(model.start, model.end)}</div>`}
+                    <div class="roster-address-row">${renderRosterAddress(s.site)}</div>
+                    ${renderRosterOtherPlan(model)}
+                    ${s.crew.length ? `<div class="roster-team-divider"><span class="roster-with-label">Working with</span>${renderRosterCrewChips(s.crew)}</div>` : ''}
+                </div>`;
+    }
+    return `<ol class="roster-stints" aria-label="${model.stints.length} sites today">${model.stints.map((s, i) => `
+                <li class="roster-stint">
+                    <span class="roster-stint-dot" aria-hidden="true">${i + 1}</span>
+                    <div class="roster-stint-body">
+                        <div class="roster-stint-when">
+                            <span class="roster-stint-time">${formatRosterRange(s.start, s.end, true)}</span>
+                            <span class="roster-stint-length">${formatRosterDuration(s.start, s.end)}</span>
+                        </div>
+                        <div class="roster-stint-site">${rosterEsc(s.site.title)}</div>
+                        ${renderRosterAddress(s.site)}
+                        ${renderRosterCrewLine(s.crew)}
+                    </div>
+                </li>`).join('')}
+            </ol>${renderRosterOtherPlan(model)}`;
+}
+// Closed card title: the site, or on a split day where it starts
+function rosterCardTitle(model) {
+    if (!model.rostered) return 'Not rostered';
+    return model.stints[0].site.title;
+}
+function rosterCardLabel(cardId, model) {
+    const d = model.date;
+    const when = `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()]} ${d.getDate()} ${ROSTER_SHORT_MONTHS[d.getMonth()]}`;
+    if (!model.rostered) return `${when}: not rostered`;
+    const where = model.multiSite
+        ? model.stints.map(s => `${s.site.title} ${formatRosterRange(s.start, s.end)}`).join(', then ')
+        : `${model.stints[0].site.title}, ${formatRosterRange(model.start, model.end)}`;
+    const rain = model.rainOn ? '. Rain site' : (model.rainRisk ? '. Rain risk' : '');
+    return `${when}: ${where}${rain}${model.crew.length ? `. ${model.crew.length} crew` : ''}`;
 }
 
 function toggleCardWeatherMode(cardId) {
     triggerHaptic('medium');
     const currentMode = rosterCardStates[cardId] || 'normal';
-    const newMode = currentMode === 'rain' ? 'normal' : 'rain';
-    setCardWeatherMode(cardId, newMode);
+    setCardWeatherMode(cardId, currentMode === 'rain' ? 'normal' : 'rain');
 }
 
+// Rain mode on / off in place: the surface and button change at once, the title and body crossfade, and an
+// open drawer animates to its new height
 function setCardWeatherMode(cardId, mode) {
-    const config = ROSTER_CONFIG[cardId];
-    const card = document.getElementById(cardId);
-    if (!config || !card) {
-        rosterCardStates[cardId] = mode;
-        renderRosterCards();
-        return;
-    }
-
-    const surfaceEl = card.querySelector('.roster-card-surface');
-    if (!surfaceEl) {
-        rosterCardStates[cardId] = mode;
-        renderRosterCards();
-        return;
-    }
-
     rosterCardStates[cardId] = mode;
-    const isRain = (mode === 'rain');
-    const isToday = (cardId === activeTodayCardId);
-    const targetSite = getRosterCardSite(cardId, isRain);
+    const card = document.getElementById(cardId);
+    const surfaceEl = card && card.querySelector('.roster-card-surface');
+    if (!surfaceEl) { renderRosterCards(); return; }
 
-    // 1. Smoothly update card surface styling
+    const model = getRosterCardModel(cardId);
+    const isRain = model.rainOn;
     surfaceEl.classList.toggle('is-rain-mode', isRain);
     scheduleDynamicStatusBarSync();
 
-    // 2. Smoothly update rain toggle button
     const toggleBtn = surfaceEl.querySelector('.roster-rain-btn');
     if (toggleBtn) {
         toggleBtn.setAttribute('aria-checked', isRain);
         toggleBtn.setAttribute('aria-label', isRain ? 'Rain site active. Tap to switch back to normal site' : 'Rain risk forecasted. Tap to switch to rain site');
-        toggleBtn.setAttribute('title', isRain ? 'Rain site active — tap to switch to normal site' : 'Rain risk — tap to switch to wet weather site');
         toggleBtn.classList.toggle('is-active', isRain);
         toggleBtn.classList.toggle('is-inactive', !isRain);
-
-        // Apple spring pop on the icon
         const icon = toggleBtn.querySelector('.roster-rain-icon');
         if (icon) {
             icon.classList.remove('spring-pop');
-            void icon.offsetWidth; // restart keyframe animation
+            void icon.offsetWidth;                // restart the keyframe animation
             icon.classList.add('spring-pop');
         }
     }
+    // A split day's badge stands down while the day is at the rain site
+    const splitBadge = surfaceEl.querySelector('.roster-badge--split');
+    if (splitBadge) splitBadge.hidden = !model.multiSite;
 
-    // 3. Update chevron container dark/light style
-    const chevronBtn = surfaceEl.querySelector('.roster-chevron-btn');
-    if (chevronBtn && !isToday) {
-        chevronBtn.classList.toggle('is-dark', isRain);
-        chevronBtn.classList.toggle('is-light', !isRain);
-    }
-
-    // 4. Smooth Apple text morph / crossfade for site title and address
     const titleEl = surfaceEl.querySelector('.site-title');
-    const addressLink = surfaceEl.querySelector('.site-address');
-    const addressText = surfaceEl.querySelector('.site-address-text');
-
-    if (card._titleCrossfadeTimer) {
-        clearTimeout(card._titleCrossfadeTimer);
-    }
-
-    if (titleEl) {
-        titleEl.style.opacity = '0';
-        titleEl.style.transform = 'translateY(-3px)';
-    }
-    if (addressText) {
-        addressText.style.opacity = '0';
-        addressText.style.transform = 'translateY(-3px)';
-    }
-
+    const bodyEl = surfaceEl.querySelector('.roster-card-body');
+    const fading = [titleEl, bodyEl].filter(Boolean);
+    fading.forEach(el => el.classList.add('is-swapping'));
+    if (card._titleCrossfadeTimer) clearTimeout(card._titleCrossfadeTimer);
     card._titleCrossfadeTimer = setTimeout(() => {
-        if (titleEl) {
-            titleEl.textContent = targetSite.title;
-            if (!isToday) {
-                titleEl.classList.toggle('text-white', isRain);
-                titleEl.classList.toggle('text-slate-900', !isRain);
-            }
-            titleEl.style.opacity = '1';
-            titleEl.style.transform = 'translateY(0)';
-        }
-        if (addressLink) {
-            if (targetSite.address) addressLink.href = `https://maps.apple.com/?q=${encodeURIComponent(targetSite.address)}`;
-            else addressLink.removeAttribute('href');
-            if (!isToday) {
-                addressLink.className = `site-address inline-flex items-center gap-1.5 text-[13px] font-semibold transition-colors duration-300 ${isRain ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800'}`;
-            }
-        }
-        if (addressText) {
-            addressText.textContent = targetSite.address || 'No site this day';
-            addressText.style.opacity = '1';
-            addressText.style.transform = 'translateY(0)';
+        const drawer = document.getElementById(`drawer-${cardId}`);
+        const open = !!expandedRosterCards[cardId] && drawer;
+        const startDrawerHeight = open ? drawer.getBoundingClientRect().height : 0;
+        if (titleEl) titleEl.textContent = rosterCardTitle(model);
+        if (bodyEl) bodyEl.innerHTML = renderRosterStints(model);
+        const header = surfaceEl.querySelector('.roster-card-header');
+        if (header) header.setAttribute('aria-label', rosterCardLabel(cardId, model));
+        requestAnimationFrame(() => fading.forEach(el => el.classList.remove('is-swapping')));
+        if (open) {
+            animateRosterDrawerHeight(cardId, drawer, true, startDrawerHeight);
+            requestAnimationFrame(() => scrollRosterCardIntoView(cardId, drawer, true, 0, 340, startDrawerHeight, 0));
         }
         card._titleCrossfadeTimer = null;
     }, 90);
-
-    // 5. Rain mode shift line (times + arrangement) opens / closes under the address
-    const shiftSlot = surfaceEl.querySelector('.roster-shift-slot');
-    if (shiftSlot) shiftSlot.classList.toggle('is-active', isRain);
-
-    // 6. Smooth team chips & divider update
-    if (!isToday) {
-        const divider = surfaceEl.querySelector('.roster-team-divider');
-        if (divider) {
-            divider.classList.toggle('border-slate-800', isRain);
-            divider.classList.toggle('border-slate-100', !isRain);
-        }
-        const withLabel = surfaceEl.querySelector('.roster-with-label');
-        if (withLabel) {
-            withLabel.classList.toggle('text-slate-300', isRain);
-            withLabel.classList.toggle('text-slate-500', !isRain);
-        }
-        surfaceEl.querySelectorAll('.roster-team-chip').forEach(chip => {
-            chip.classList.toggle('bg-slate-800', isRain);
-            chip.classList.toggle('text-white', isRain);
-            chip.classList.toggle('border-slate-700', isRain);
-            chip.classList.toggle('bg-slate-100', !isRain);
-            chip.classList.toggle('text-slate-800', !isRain);
-            chip.classList.toggle('border-slate-200/50', !isRain);
-        });
-    }
-
-    // 7. If drawer is currently expanded, ensure seamless sizing & visibility above floating navbar
-    if (expandedRosterCards[cardId]) {
-        const drawer = document.getElementById(`drawer-${cardId}`);
-        if (drawer) {
-            const startDrawerHeight = drawer.getBoundingClientRect().height;
-            drawer.style.height = 'auto';
-            requestAnimationFrame(() => {
-                scrollRosterCardIntoView(cardId, drawer, true, 0, 360, startDrawerHeight, 0);
-            });
-        }
-    }
 }
 
 function toggleRosterCardExpand(cardId) {
+    const rowEl = document.getElementById(cardId);
+    if (!rowEl || !rowEl.querySelector('.roster-expandable-drawer')) return;   // not rostered: nothing to open
     triggerHaptic('light');
     const willExpand = !expandedRosterCards[cardId];
-    const rowEl = document.getElementById(cardId);
-    if (!rowEl) return;
 
     let collapseOffsetAbove = 0;
     let collapseOffsetBelow = 0;
@@ -514,6 +554,10 @@ function toggleRosterCardExpand(cardId) {
                 if (otherRow) {
                     const otherChevron = otherRow.querySelector('.roster-chevron');
                     if (otherChevron) otherChevron.classList.remove('rotate-180');
+                    const otherHeader = otherRow.querySelector('.roster-card-header');
+                    if (otherHeader) otherHeader.setAttribute('aria-expanded', 'false');
+                    const otherSurface = otherRow.querySelector('.roster-card-surface');
+                    if (otherSurface) otherSurface.classList.remove('is-open');
                     const otherDrawer = otherRow.querySelector('.roster-expandable-drawer');
                     if (otherDrawer) {
                         const otherHeight = otherDrawer.getBoundingClientRect().height;
@@ -531,11 +575,15 @@ function toggleRosterCardExpand(cardId) {
 
     const drawer = rowEl.querySelector('.roster-expandable-drawer');
     const chevron = rowEl.querySelector('.roster-chevron');
+    const header = rowEl.querySelector('.roster-card-header');
     const startDrawerHeight = drawer ? drawer.getBoundingClientRect().height : 0;
 
     expandedRosterCards[cardId] = willExpand;
 
     if (chevron) chevron.classList.toggle('rotate-180', willExpand);
+    if (header) header.setAttribute('aria-expanded', String(willExpand));
+    const surface = rowEl.querySelector('.roster-card-surface');
+    if (surface) surface.classList.toggle('is-open', willExpand);
     animateRosterDrawerHeight(cardId, drawer, willExpand, startDrawerHeight);
 
     scrollRosterCardIntoView(
@@ -569,138 +617,97 @@ function formatRosterShiftTimes() {
     return `${fmt(start)} – ${fmt(end)}`;
 }
 
-// The rain site's arrangement for that day, from the jobs data (JOBS_DATA[].days[day].isRainSafe):
-// rain-safe means the crew works undercover; otherwise it is only the backup site
-function getRainSiteArrangement(config) {
-    const dayKey = String(config.day || '').toLowerCase();
-    const job = (typeof JOBS_DATA !== 'undefined' && config.rainSite) ? JOBS_DATA.find(j => j.siteId === config.rainSite.siteId) : null;
-    const day = job && job.days ? job.days[dayKey] : null;
-    return (day && day.isRainSafe) ? 'Undercover' : 'Backup';
-}
+const ROSTER_DAY_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const ROSTER_TODAY_LIGHT = '<div class="roster-today-light" aria-hidden="true"><div class="rtl-pool rtl-pool-a"></div><div class="rtl-pool rtl-pool-b"></div><div class="rtl-pool rtl-pool-c"></div><div class="rtl-channel"></div><div class="rtl-edges"></div><div class="rtl-glass"></div></div>';
+// Light rain inside an open rain-risk card (the usual site): a warning, not the storm. Switching to the rain
+// site crossfades it into the full storm (ROSTER_STORM).
+const ROSTER_DRIZZLE = '<div class="roster-drizzle" aria-hidden="true"><span class="storm-rain" data-count="14"></span></div>';
+const ROSTER_STORM = '<div class="roster-rain-backdrop"><div class="storm" aria-hidden="true"><span class="storm-cloud"></span><span class="storm-rain" data-count="20"></span><span class="storm-flash"></span></div></div>';
 
 function renderRosterCards() {
-    const cardIds = Object.keys(ROSTER_CONFIG);
-    cardIds.forEach((cardId) => {
-        const config = ROSTER_CONFIG[cardId];
+    ROSTER_DAY_IDS.forEach((cardId) => {
         const card = document.getElementById(cardId);
         if (!card) return;
 
+        const model = getRosterCardModel(cardId);
         const isToday = (cardId === activeTodayCardId);
+        const isOff = !model.rostered;
+        if (isOff) expandedRosterCards[cardId] = false;
         const isExpanded = !!expandedRosterCards[cardId];
-        const currentMode = rosterCardStates[cardId] || 'normal';
-        const isRainActive = (currentMode === 'rain');
-        const activeSite = getRosterCardSite(cardId, isRainActive && config.isRainRisk);
-        const isDarkSurface = isToday || (isRainActive && config.isRainRisk);
+        const d = model.date;
 
-        let rainToggleBtnHtml = '';
-        let rainBackdropHtml = '';
-        let rainPillHtml = '';
-
-        if (config.isRainRisk) {
-            rainToggleBtnHtml = `
-                        <button type="button"
-                                onclick="event.stopPropagation(); toggleCardWeatherMode('${cardId}')" 
-                                role="switch" 
-                                aria-checked="${isRainActive}"
-                                aria-label="${isRainActive ? 'Rain site active. Tap to switch back to normal site' : 'Rain risk forecasted. Tap to switch to rain site'}"
-                                title="${isRainActive ? 'Rain site active — tap to switch to normal site' : 'Rain risk — tap to switch to wet weather site'}"
-                                class="roster-rain-btn ${isRainActive ? 'is-active' : 'is-inactive'}">
+        // Badges: what's different about the day, at a glance - an unusual start ("6:00"; a morning start needs
+        // no AM, so the site name keeps its room), more than one site - in the rain button's glass family
+        const badges = [];
+        if (model.rostered && model.start !== RosterRules.DEFAULT_SHIFT.start) {
+            badges.push(`<span class="roster-badge roster-badge--time" title="Starts ${formatRosterRange(model.start, model.end)}"><i class="ph-bold ph-clock" aria-hidden="true"></i>${rosterClock(model.start).meridiem === 'AM' ? rosterClock(model.start).clock : `${rosterClock(model.start).clock} PM`}</span>`);
+        }
+        if (model.splitDay) {
+            badges.push(`<span class="roster-badge roster-badge--split" ${model.multiSite ? '' : 'hidden'} title="More than one site this day"><i class="ph-bold ph-path" aria-hidden="true"></i>${new Set(getRosterDay(d).stints.map(s => s.siteId)).size}</span>`);
+        }
+        if (model.rainRisk) {
+            badges.push(`
+                        <button type="button" onclick="event.stopPropagation(); toggleCardWeatherMode('${cardId}')" role="switch"
+                                aria-checked="${model.rainOn}"
+                                aria-label="${model.rainOn ? 'Rain site active. Tap to switch back to normal site' : 'Rain risk forecasted. Tap to switch to rain site'}"
+                                title="${model.rainOn ? 'Rain site active: tap to switch to normal site' : 'Rain risk: tap to switch to wet weather site'}"
+                                class="roster-rain-btn ${model.rainOn ? 'is-active' : 'is-inactive'}">
                             <i class="ph-bold ph-cloud-rain roster-rain-icon" aria-hidden="true"></i>
-                        </button>`;
-
-            rainBackdropHtml = `
-                        <div class="roster-rain-backdrop">
-                            <div class="storm" aria-hidden="true">
-                                <span class="storm-cloud"></span>
-                                <span class="storm-rain" data-count="20"></span>
-                                <span class="storm-flash"></span>
-                            </div>
-                        </div>`;
-
-            // Rain mode: the shift line (times + the rain site's arrangement) replaces the old banner
-            rainPillHtml = `
-                        <div class="roster-shift-slot ${isRainActive ? 'is-active' : ''}" id="rain-shift-${cardId}">
-                            <div class="roster-shift-inner">
-                                <div class="roster-shift-row">
-                                    <span class="roster-shift-time">${formatRosterShiftTimes()}</span>
-                                    <span class="roster-shift-status">${getRainSiteArrangement(config)}</span>
-                                </div>
-                            </div>
-                        </div>`;
+                        </button>`);
         }
 
-        let cardSurfaceBaseClass = isToday ? 'glass-card-today text-white' : 'glass-card-apple text-slate-900';
-        let cardRainClass = (config.isRainRisk && isRainActive) ? 'is-rain-mode' : '';
+        const surfaceClass = [
+            'roster-card-surface relative flex flex-col rounded-inset overflow-hidden',
+            isToday ? 'glass-card-today' : 'glass-card-apple',
+            model.rainOn ? 'is-rain-mode' : '',
+            isOff ? 'is-off' : '',
+            isExpanded ? 'is-open' : ''
+        ].join(' ');
 
-        card.className = "roster-day-row relative z-10";
+        card.className = 'roster-day-row relative z-10';
         card.innerHTML = `
                     <div class="relative flex items-start gap-3.5">
-                        <!-- Left: Fixed-Size Apple Liquid Glass Date Tile (Never shrinks or shifts) -->
-                        <div class="roster-date-tile w-[68px] min-w-[68px] h-[72px] shrink-0 rounded-inset flex flex-col items-center justify-center select-none z-10 ${isToday ? 'glass-tile-today' : 'glass-tile-apple'}">
-                            <span class="text-[11px] font-black uppercase tracking-widest leading-none ${isToday ? 'text-emerald-300/90' : 'text-slate-400'}">
-                                ${config.day}
-                            </span>
-                            <span class="text-2xl font-black tracking-tight leading-none ${isToday ? 'text-white' : 'text-slate-800'} mt-1.5">
-                                ${config.dateNum}
-                            </span>
+                        <div class="roster-date-tile ${isToday ? 'glass-tile-today' : 'glass-tile-apple'} ${isOff ? 'is-off' : ''}" aria-hidden="true">
+                            <span class="roster-date-dow">${ROSTER_DAY_SHORT[d.getDay()]}</span>
+                            <span class="roster-date-num">${String(d.getDate()).padStart(2, '0')}</span>
                         </div>
 
-                        <!-- Right: Fixed-Header Card that Smoothly Expands Downward -->
                         <div class="flex-1 min-w-0 z-10">
-                            <div class="roster-card-surface relative flex flex-col ${cardSurfaceBaseClass} ${cardRainClass} rounded-inset overflow-hidden">
-                                ${isToday ? '<div class="roster-today-light" aria-hidden="true"><div class="rtl-pool rtl-pool-a"></div><div class="rtl-pool rtl-pool-b"></div><div class="rtl-pool rtl-pool-c"></div><div class="rtl-channel"></div><div class="rtl-edges"></div><div class="rtl-glass"></div></div>' : ''}
-                                ${rainBackdropHtml}
-                                
-                                <!-- Fixed 72px Header (1:1 height match with Date Tile when closed) -->
-                                <div onclick="toggleRosterCardExpand('${cardId}')" role="button" tabindex="0" aria-expanded="${isExpanded}" class="roster-card-header relative z-10 h-[72px] pl-[18px] pr-3.5 flex items-center justify-between cursor-pointer select-none gap-2.5">
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="site-title text-xl sm:text-[22px] font-black tracking-tight leading-snug truncate ${isDarkSurface ? 'text-white' : 'text-slate-900'}">
-                                            ${activeSite.title}
-                                        </h3>
-                                    </div>
+                            <div class="${surfaceClass}">
+                                ${isToday ? ROSTER_TODAY_LIGHT : ''}
+                                ${model.rainRisk ? ROSTER_STORM + ROSTER_DRIZZLE : ''}
 
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        ${rainToggleBtnHtml}
-                                        <div class="roster-chevron-btn w-10 h-10 rounded-full flex items-center justify-center ${isDarkSurface ? 'is-dark' : 'is-light'}">
-                                            <i class="ph-bold ph-caret-down roster-chevron text-lg leading-none ${isExpanded ? 'rotate-180' : ''}"></i>
-                                        </div>
+                                <div ${isOff ? '' : `onclick="toggleRosterCardExpand('${cardId}')" role="button" tabindex="0" aria-expanded="${isExpanded}" aria-controls="drawer-${cardId}"`}
+                                     aria-label="${rosterEsc(rosterCardLabel(cardId, model))}"
+                                     class="roster-card-header relative z-10 ${isOff ? '' : 'cursor-pointer'} select-none">
+                                    <div class="roster-head-row">
+                                        <h3 class="site-title truncate">${rosterEsc(rosterCardTitle(model))}</h3>
+                                        ${isOff ? '' : `
+                                        <div class="roster-head-actions">
+                                            ${badges.join('')}
+                                            <div class="roster-chevron-btn w-10 h-10 rounded-full flex items-center justify-center ${(isToday || model.rainOn) ? 'is-dark' : 'is-light'}" aria-hidden="true">
+                                                <i class="ph-bold ph-caret-down roster-chevron text-lg leading-none ${isExpanded ? 'rotate-180' : ''}"></i>
+                                            </div>
+                                        </div>`}
                                     </div>
                                 </div>
 
-                                <!-- Measured 240ms Accordion Drawer (Pushes lower cards down cleanly) -->
+                                ${isOff ? '' : `
                                 <div class="relative z-10 roster-expandable-drawer ${isExpanded ? 'is-expanded' : ''}" id="drawer-${cardId}" style="height: ${isExpanded ? 'auto' : '0px'};">
                                     <div class="roster-drawer-inner">
-                                        <div class="px-[18px] pb-4 pt-0.5">
-                                            <div>
-                                                <a ${rosterAddressHref(activeSite.address)} target="_blank" onclick="event.stopPropagation()" class="site-address inline-flex items-center gap-1.5 text-[13px] font-semibold ${isToday ? 'text-emerald-200/90 hover:text-white' : (isRainActive ? 'text-[#7DD3FC] hover:text-white' : 'text-emerald-600 hover:text-emerald-800')} transition-colors">
-                                                    <span class="site-address-text">${activeSite.address || 'No site this day'}</span>
-                                                    <i class="ph-bold ph-arrow-up-right text-xs"></i>
-                                                </a>
-                                            </div>
-
-                                            ${rainPillHtml}
-
-                                            <div class="roster-team-divider pt-3 mt-3 border-t ${isToday ? 'border-emerald-500/20' : (isRainActive ? 'border-slate-800' : 'border-slate-100')}">
-                                                <span class="roster-with-label text-[11px] font-black uppercase tracking-wider ${isToday ? 'text-emerald-300/90' : (isRainActive ? 'text-slate-300' : 'text-slate-500')} block mb-2">With:</span>
-                                                <div class="flex flex-wrap gap-1.5">
-                                                    ${sortCrewBySeniority(config.team).map(member => `
-                                                        <span class="roster-team-chip inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full ${isToday ? 'bg-emerald-950/60 text-emerald-100 border border-emerald-500/30 font-bold text-xs shadow-inner' : (isRainActive ? 'bg-slate-800 text-white border border-slate-700 font-bold text-xs' : 'bg-slate-100 text-slate-800 border border-slate-200/50 font-bold text-xs')}">${renderRoleAvatar(member, 'sm')}<span>${member}</span></span>
-                                                    `).join('')}
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <div class="roster-card-body">${renderRosterStints(model)}</div>
                                     </div>
-                                </div>
+                                </div>`}
                             </div>
                         </div>
                     </div>
                 `;
 
-        if (config.isRainRisk) {
+        if (model.rainRisk) {
             // Storm rain streaks (styles/roster.css): a fixed, evenly spread pattern, so the card looks the
             // same on every render
-            const rain = card.querySelector('.storm-rain');
-            if (rain && rain.children.length === 0) {
+            card.querySelectorAll('.storm-rain').forEach(rain => {
+            if (rain.children.length === 0) {
                 const n = parseInt(rain.dataset.count, 10) || 20;
                 for (let i = 0; i < n; i++) {
                     const s = document.createElement('span');
@@ -710,8 +717,11 @@ function renderRosterCards() {
                     rain.appendChild(s);
                 }
             }
+            });
         }
-        card.style.display = (rosterSiteFilter && activeSite.siteId !== rosterSiteFilter) ? 'none' : '';
+        // Site filter: a day shows when any of its stints is at the site
+        const atFilter = !rosterSiteFilter || model.stints.some(s => s.site.siteId === rosterSiteFilter);
+        card.style.display = atFilter ? '' : 'none';
     });
     const empty = document.getElementById('roster-filter-empty');
     if (empty) {

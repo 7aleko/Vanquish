@@ -28,6 +28,8 @@
 .role-avatar--lg { width: 44px; height: 44px; font-size: 14px; --avatar-icon: 20px; }
 /* Home site card crew stack */
 .role-avatar--md { width: 30px; height: 30px; font-size: 11px; letter-spacing: -0.02em; --avatar-icon: 14px; }
+/* Roster split day: a stint's crew stack */
+.role-avatar--xs { width: 22px; height: 22px; font-size: 9px; letter-spacing: 0; --avatar-icon: 11px; }
 /* Roster crew pills */
 .role-avatar--sm { width: 24px; height: 24px; font-size: 10.5px; letter-spacing: 0; --avatar-icon: 12px; }
 /* Top-bar account button */
@@ -78,4 +80,12 @@
     background: #64748B;
 }
 .role-avatar-status.is-online { background: #22C55E; }
+
+/* Overlapping avatar stack (a Roster split day's stint crew). Each later avatar sits on top with a soft
+   shadow onto the one before it, as on the Home site card. */
+.role-avatar-stack { display: inline-flex; align-items: center; }
+.role-avatar-stack > * + * {
+    margin-left: -6px;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.24);
+}
 .role-avatar-status.is-ai { background: #4BEA82; }

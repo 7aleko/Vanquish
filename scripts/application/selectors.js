@@ -89,7 +89,30 @@ function getRosteredSiteId(date, employeeId = getCurrentEmployeeId()) {
 // Everyone rostered to a site on a date
 function getRosterForSite(date, siteId) {
     const iso = DateRules.toIso(date);
-    return appStore.get('roster').filter(e => e.date === iso && e.siteId === siteId);
+    return appStore.get('roster').filter(e => e.date === iso
+        && (e.siteId === siteId || (e.stints || []).some(s => s.siteId === siteId)));
+}
+// An employee's day as the Roster shows it, or null when they aren't rostered:
+// { date, siteId, start, end, multiSite, stints: [{ siteId, start, end }] } (RosterRules). A stint at a
+// site that no longer exists is left out.
+function getRosterDay(date, employeeId = getCurrentEmployeeId()) {
+    const entry = getRosterEntry(date, employeeId);
+    if (!entry) return null;
+    const stints = RosterRules.stintsOf(entry).filter(s => getSiteById(s.siteId));
+    if (!stints.length) return null;
+    const window = RosterRules.dayWindow(stints);
+    return { date: DateRules.toIso(date), siteId: stints[0].siteId, start: window.start, end: window.end,
+        multiSite: RosterRules.isMultiSite(stints), stints };
+}
+// The people working at a site during a stretch of a day (their stints there overlap it), as employees,
+// without `excludeId` (usually the signed-in worker)
+function getRosterCrew(date, siteId, start, end, excludeId = getCurrentEmployeeId()) {
+    const range = { start, end };
+    return getRosterForSite(date, siteId)
+        .filter(e => e.employeeId !== excludeId
+            && RosterRules.stintsOf(e).some(s => s.siteId === siteId && RosterRules.overlaps(s, range)))
+        .map(e => getEmployeeById(e.employeeId))
+        .filter(Boolean);
 }
 
 // ---------- Cost codes ----------

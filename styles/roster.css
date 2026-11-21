@@ -295,78 +295,207 @@
     }
 }
 
-/* Title and Address text crossfade */
+/* ================= CARD LAYOUT =================
+   Date tile and header are the same height, so a closed card lines up with its tile and the whole week fits
+   on screen. Header: the site and its buttons. Body: one site's address and crew, or a split day's stints. */
+.roster-date-tile {
+    width: 68px;
+    min-width: 68px;
+    height: 72px;                              /* = the closed header */
+    flex-shrink: 0;
+    border-radius: var(--radius-inset, 24px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    z-index: 10;
+}
+.roster-date-dow {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    color: #94a3b8;
+}
+.roster-date-num {
+    margin-top: 6px;
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+.roster-date-tile.is-off .roster-date-num,
+.roster-date-tile.is-off .roster-date-dow { opacity: 0.45; }
+
+.roster-card-header {
+    height: 72px;
+    padding: 0 14px 0 18px;
+}
+.roster-head-row { display: flex; align-items: center; gap: 10px; height: 100%; }
+.roster-head-row .site-title { flex: 1; min-width: 0; }
+.roster-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .site-title {
-    transition: opacity 180ms var(--ease-out),
-                transform 180ms var(--ease-out),
-                color 320ms var(--ease-out);
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    color: #fff;
+    transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
 }
-.site-address {
-    transition: color 320ms var(--ease-out);
-}
-.site-address-text {
-    display: inline-block;
-    transition: opacity 180ms var(--ease-out),
-                transform 180ms var(--ease-out);
-}
+/* Rain mode swap: title and body fade out, change, fade back in (week-roster.js setCardWeatherMode) */
+.site-title.is-swapping,
+.roster-card-body.is-swapping { opacity: 0; transform: translateY(-3px); }
+.roster-card-body { padding: 2px 18px 16px; transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
 
-/* Team divider and chips */
-.roster-team-divider {
-    transition: border-color 350ms var(--ease-out);
+/* Not rostered: a quiet day, nothing to open */
+.roster-card-surface.is-off {
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
-.roster-with-label {
-    transition: color 350ms var(--ease-out);
-}
-.roster-team-chip {
-    transition: background-color 350ms var(--ease-out),
-                color 350ms var(--ease-out),
-                border-color 350ms var(--ease-out);
-}
+.roster-card-surface.is-off .site-title { color: rgba(255, 255, 255, 0.42); font-size: 18px; }
 
-/* Rain mode shift line: "7:00 AM – 3:30 PM" + the rain site's arrangement (Undercover / Backup).
-   Opens under the address when the card switches to its rain site and closes when it switches back. */
-.roster-shift-slot {
-    display: grid;
-    grid-template-rows: 0fr;
-    margin-top: 0;
-    opacity: 0;
-    transition: grid-template-rows 360ms cubic-bezier(0.23, 1, 0.32, 1),
-                margin-top 360ms cubic-bezier(0.23, 1, 0.32, 1),
-                opacity 280ms var(--ease-out);
-}
-.roster-shift-slot.is-active {
-    grid-template-rows: 1fr;
-    margin-top: 10px;
-    opacity: 1;
-}
-.roster-shift-inner { overflow: hidden; min-height: 0; }
-.roster-shift-row {
+/* Address: opens Maps */
+.roster-address-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
 }
-.roster-shift-time {
-    font-size: 14px;
+.site-address {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
     font-weight: 600;
-    color: #ffffff;
+    color: #34d399;
+    transition: color 320ms var(--ease-out);
+}
+.site-address i { font-size: 12px; flex-shrink: 0; }
+.site-address-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { .site-address:hover { color: #fff; } }
+.roster-card-surface.is-rain-mode .site-address { color: #7dd3fc; }
+
+/* A rain-risk day's other plan: "If it's wet" (blue) on the usual site, "If it's dry" once switched */
+.roster-other-plan {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border: 1px solid transparent;
+}
+.roster-other-plan.is-wet { background: rgba(56, 189, 248, 0.08); border-color: rgba(125, 211, 252, 0.22); }
+.roster-other-plan.is-dry { background: rgba(15, 23, 42, 0.4); border-color: rgba(255, 255, 255, 0.12); }
+.roster-other-plan-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+.roster-other-plan.is-wet .roster-other-plan-label { color: #7dd3fc; }
+.roster-other-plan.is-dry .roster-other-plan-label { color: #fcd34d; }
+.roster-other-plan-label i { font-size: 14px; }
+.roster-other-plan-site { font-size: 16px; font-weight: 800; color: #fff; }
+.roster-other-plan-then { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.5); }
+.roster-other-plan .site-address { color: #7dd3fc; }
+.roster-other-plan.is-dry .site-address { color: #34d399; }
+
+/* Crew */
+.roster-team-divider {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.roster-card-surface.is-rain-mode .roster-team-divider { border-color: rgba(255, 255, 255, 0.12); }
+.roster-with-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+}
+.roster-crew-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.roster-team-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e4e4e7;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Split day: one stint per site, joined by a rail in the order they're worked */
+.roster-stints { list-style: none; margin: 0; padding: 4px 0 0; display: flex; flex-direction: column; gap: 16px; }
+.roster-stint {
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: 12px;
+}
+.roster-stint:not(:last-child)::before {     /* rail down to the next stint */
+    content: '';
+    position: absolute;
+    left: 11.25px;
+    top: 28px;
+    bottom: -14px;
+    width: 1.5px;
+    border-radius: 1px;
+    background: rgba(196, 181, 253, 0.3);
+}
+.roster-stint-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #ddd6fe;
+    background: rgba(167, 139, 250, 0.14);
+    border: 1px solid rgba(196, 181, 253, 0.32);
+    font-variant-numeric: tabular-nums;
+}
+.roster-stint-when { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 24px; padding-top: 2px; }
+.roster-stint-time { font-size: 14px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.roster-stint-length { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.5); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.roster-stint-site { margin-top: 2px; font-size: 16px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+.roster-stint .site-address { margin-top: 2px; max-width: 100%; }
+.roster-single-hours { margin-bottom: 4px; }
+.roster-stint-crew { display: flex; align-items: center; gap: 8px; margin-top: 10px; min-width: 0; }
+.roster-stint-crew-names { font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, 0.62); line-height: 1.35; }
+
+/* Badges: what's different about a day, readable on the closed card, in the rain button's glass shape;
+   violet a split day, neutral an unusual start. Labels, not buttons: the card opens for the details. */
+.roster-badge {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 11px;
+    border-radius: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    border: 1px solid transparent;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-.roster-shift-status {
-    flex-shrink: 0;
-    padding: 3px 8px;
-    border-radius: 9999px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.2;
-    text-transform: uppercase;
-    white-space: nowrap;
-    color: #bae6fd;
-    background: rgba(125, 211, 252, 0.12);
-    border: 1px solid rgba(125, 211, 252, 0.26);
-}
+.roster-badge[hidden] { display: none; }
+.roster-badge i { font-size: 19px; line-height: 1; }
+.roster-badge--split { color: #c4b5fd; background-color: rgba(167, 139, 250, 0.12); border-color: rgba(196, 181, 253, 0.28); }
+.roster-badge--time { padding: 0 10px 0 9px; color: #e4e4e7; background-color: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.14); }
+.roster-badge--time i { color: #aeb6c2; }
+
 
 /* Rain mode crew pills: translucent dark glass, so the storm stays faintly visible behind them */
 .roster-card-surface.is-rain-mode .roster-team-chip {
@@ -464,9 +593,30 @@
 /* Not in rain mode (backdrop hidden), or hidden behind a sheet: hold still */
 .roster-card-surface:not(.is-rain-mode) .storm *,
 html.sheet-covers-page .storm * { animation-play-state: paused; }
+
+/* Light rain: an open rain-risk card on its usual site. Sky-blue streaks and a faint glow from the top
+   corner, over the card's own glass; switching to the rain site fades it into the storm above. */
+.roster-drizzle {
+    --storm-rain-dur: 1100ms;                  /* lighter and slower than the storm's 800ms */
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 400ms cubic-bezier(0.23, 1, 0.32, 1);
+    background: radial-gradient(120% 55% at 85% 0%, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0) 70%);
+}
+.roster-drizzle .storm-rain > span { background: linear-gradient(rgba(125, 211, 252, 0), rgba(125, 211, 252, 0.5)); }
+.roster-card-surface.is-open:not(.is-rain-mode) .roster-drizzle { opacity: 1; }
+.roster-card-surface:not(.is-open) .roster-drizzle *,
+.roster-card-surface.is-rain-mode .roster-drizzle *,
+html.sheet-covers-page .roster-drizzle * { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
     .storm-cloud { animation: none; }
     .storm-rain, .storm-flash { display: none; }
+    .roster-drizzle .storm-rain { display: none; }
 }
 
 @keyframes subtlePulse {

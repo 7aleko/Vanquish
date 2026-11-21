@@ -49,7 +49,12 @@ const EntitySchemas = (() => {
             id: { type: 'id', required: true },
             date: { type: 'date', required: true },
             employeeId: { type: 'id', required: true },
-            siteId: { type: 'id', required: true }
+            siteId: { type: 'id', required: true },              // the first stint's site on a split day
+            stints: { type: 'array', min: 1, items: {            // a split day: one per site, in order (RosterRules)
+                siteId: { type: 'id', required: true },
+                start: { type: 'time', required: true },
+                end: { type: 'time', required: true }
+            } }
         },
         timesheetBlock: block,
         timesheet: {

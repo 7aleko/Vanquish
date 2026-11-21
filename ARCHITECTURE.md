@@ -55,7 +55,7 @@ objects, which are copies of the stored data.
 |---|---|
 | `sites` | `list({includeArchived})`, `getById`, `create`, `update`, `archive`, `restore` |
 | `employees` | `list`, `getById` |
-| `roster` | `list({employeeId, siteId, from, to})`, `getForEmployeeOnDate`, `assign` (unique per employee and day), `remove` |
+| `roster` | `list({employeeId, siteId, from, to})` (siteId matches any stint), `getForEmployeeOnDate`, `assign` (unique per employee and day; optional `stints` for a split day), `remove` |
 | `timesheets` | `list({employeeId, from, to, status})`, `getById`, `getForEmployeeOnDate`, `create` (unique per employee and day), `update` |
 | `crewLogs` | `list({date, siteId, from, to})` |
 | `siteLogs` | `list({siteId})`, `create` |
@@ -115,7 +115,7 @@ The rules every model follows:
 | Service | Workflows |
 |---|---|
 | `sitesService` | `create`, `update` (rename), `archive`, `restore`. Needs admin or project manager. |
-| `rosterService` | `assign`, `moveEmployee`, `unassign`. Needs a supervisor or above. |
+| `rosterService` | `assign`, `moveEmployee`, `splitDay` (several sites in one day: ordered `{siteId, start, end}` stints, no overlaps, `RosterRules`), `unassign`. Needs a supervisor or above. Reads: `getRosterDay`, `getRosterCrew`. |
 | `timesheetService` | `submit`: validates, works out ROSTERED / TRANSFERRED / MANUAL from the roster, upserts and audits. `approve` and `reject`: needs a supervisor or above, and never on your own timesheet. |
 | `crewLogService` | `forSiteOnDate`: matched on date and site id. `copyBlocks`: returns fresh draft blocks and never submits. |
 | `attendanceService` | `signIn` and `signOut` for the signed-in employee on a given day (the Home card's day). Refuses an archived site or signing in at a second site while still signed in elsewhere. Timestamps come from the provider; every change is audited. |
@@ -231,9 +231,10 @@ These still read their mock datasets directly. Each should get a repository, a s
 changes data, a service:
 
 1. **Jobs** (`JOBS_DATA`): the Site screen's client details, per-day weather and crew, the Home crew
-   preview and the roster's rain arrangement. Model it as a `Job` linked to a site, with day plans.
-2. **Roster card templates** (`ROSTER_CONFIG`): stage, crew, rain risk and wet-weather site per weekday.
-   Fold these into roster assignments, or into a `SitePlan` entity.
+   preview. Model it as a `Job` linked to a site, with day plans.
+2. **Roster card templates** (`ROSTER_CONFIG`): stage, rain risk and wet-weather site for the demo week (the
+   Roster screen applies them to that week only; crew now comes from the roster). Fold these into roster
+   assignments, or into a `SitePlan` entity.
 3. **Account** (`ACCOUNT_DATA`): profile, role sign-off, workwear and the Procore integration status. This
    needs `profile`, `workwear` and `signOff` repositories. Workwear request and collect, and the role
    sign-off, currently change the data in place.

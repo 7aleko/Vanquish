@@ -5,10 +5,11 @@
  * read (through getRosterEntry / getRosteredSiteId in scripts/application/selectors.js). Each entry stores only
  * the date ('YYYY-MM-DD'), the employee (TEAM_DIRECTORY_DATA id) and the siteId; the site's name and address
  * always come from SITES. Several employees can share a site and date. A day with no entry means the
- * employee isn't rostered that day.
+ * employee isn't rostered that day. A split day (several sites) lists its `stints` - { siteId, start, end }
+ * in order - and its siteId is the first stint's site (scripts/domain/rules/roster.js).
  *
- * ROSTER_CONFIG: the Roster screen's weekday cards - the job stage, the crew they work with, the rain risk
- * and the wet-weather site. The rain site is a siteId too; `area` / `areaDetail` name a part of that site
+ * ROSTER_CONFIG: the Roster screen's demo-week cards - the job stage, the rain risk and the wet-weather site.
+ * The crew comes from the roster itself (everyone rostered to the same site at the same time). The rain site is a siteId too; `area` / `areaDetail` name a part of that site
  * ("Indoor Hub", in "Shed B").
  */
 
@@ -50,9 +51,15 @@ const ROSTER = [
     { date: '2026-11-19', employeeId: 'team-1', siteId: 'yowie-bay' },
     { date: '2026-11-20', employeeId: 'team-1', siteId: 'castlecrag' },
     { date: '2026-11-23', employeeId: 'team-1', siteId: 'lugarno' },
-    { date: '2026-11-24', employeeId: 'team-1', siteId: 'lugarno' },
+    // A split day: the morning at Lugarno, then over to Castlecrag for the rest of the day. siteId is the
+    // first stint's site.
+    { date: '2026-11-24', employeeId: 'team-1', siteId: 'lugarno', stints: [
+        { siteId: 'lugarno', start: '07:00', end: '09:00' },
+        { siteId: 'castlecrag', start: '09:00', end: '15:30' }
+    ] },
     { date: '2026-11-26', employeeId: 'team-1', siteId: 'lugarno' },
-    { date: '2026-11-27', employeeId: 'team-1', siteId: 'lugarno' }
+    // An early start: one stint off the standard 7:00-3:30 shift
+    { date: '2026-11-27', employeeId: 'team-1', siteId: 'lugarno', stints: [{ siteId: 'lugarno', start: '06:00', end: '14:30' }] }
 ];
 
 const ROSTER_CONFIG = {
@@ -62,7 +69,6 @@ const ROSTER_CONFIG = {
         baseDate: 'MON 23 NOV',
         subtitle: 'Lock-Up • Electrical Rough-In',
         rainSite: { siteId: 'castlecrag' },
-        team: ['David Hilt', 'James Begg'],
         isRainRisk: false
     },
     'card-tue': {
@@ -71,7 +77,6 @@ const ROSTER_CONFIG = {
         baseDate: 'TUE 24 NOV',
         subtitle: 'Lock-Up • Roofing & Plumbing',
         rainSite: { siteId: 'castlecrag' },
-        team: ['David Hilt', 'James Begg', 'Trent Jamieson'],
         isRainRisk: false
     },
     'card-wed': {
@@ -80,7 +85,6 @@ const ROSTER_CONFIG = {
         baseDate: 'WED 25 NOV',
         subtitle: 'Lock-Up • Window Delivery',
         rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Garage' },
-        team: ['David Hilt', 'Trent Jamieson', 'Tom Robbins'],
         isRainRisk: false
     },
     'card-thu': {
@@ -89,7 +93,6 @@ const ROSTER_CONFIG = {
         baseDate: 'THU 26 NOV',
         subtitle: 'Lock-Up • Window Installation',
         rainSite: { siteId: 'castlecrag' },
-        team: ['David Hilt', 'James Begg', 'Lachlan Swatosch'],
         isRainRisk: true
     },
     'card-fri': {
@@ -98,7 +101,6 @@ const ROSTER_CONFIG = {
         baseDate: 'FRI 27 NOV',
         subtitle: 'Lock-Up • Envelope Inspection',
         rainSite: { siteId: 'lugarno', area: 'Indoor Hub', areaDetail: 'Garage' },
-        team: ['David Hilt', 'James Begg', 'Trent Jamieson'],
         isRainRisk: false
     }
 };

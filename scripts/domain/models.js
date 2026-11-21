@@ -68,8 +68,10 @@
  * @property {string} id
  * @property {string} date               'YYYY-MM-DD'
  * @property {string} employeeId
- * @property {string} siteId
- * Unique: (date, employeeId) - one site per employee per day.
+ * @property {string} siteId             the day's site; on a split day, the first stint's site
+ * @property {{siteId: string, start: string, end: string}[]} [stints]  a split day: each site with its
+ *                                       hours ('HH:MM'), in order. Absent = siteId for the whole shift.
+ * Unique: (date, employeeId) - one entry per employee per day (several sites = stints).
  */
 
 /**

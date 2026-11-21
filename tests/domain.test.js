@@ -5,7 +5,7 @@ const { loadApp } = require('./helpers/load-app');
 
 const app = loadApp();
 const plain = v => JSON.parse(JSON.stringify(v));      // objects from the app's context, compared as data
-const { TimeRules, DateRules, PayRunRules, TimesheetRules, EquipmentRules, LeaveRules, SiteAssignmentType, TimesheetStatus, ToolStatus } = app;
+const { TimeRules, RosterRules, DateRules, PayRunRules, TimesheetRules, EquipmentRules, LeaveRules, SiteAssignmentType, TimesheetStatus, ToolStatus } = app;
 
 test('net hours: a day block takes off its break', () => {
     assert.deepEqual(plain(TimeRules.computeShift('07:00', '15:30', 30)), { valid: true, net: 8, overnight: false });
@@ -85,4 +85,21 @@ test('schemas: a valid timesheet passes, broken fields are listed', () => {
     const bad = app.validateAgainst(app.EntitySchemas.timesheet, { ...t, date: '13/11/2026', status: 'done', blocks: [{ ...t.blocks[0], start: '7am' }] });
     assert.deepEqual(plain(bad.map(e => e.field).sort()), ['blocks[0].start', 'date', 'status']);
     assert.throws(() => app.assertValidEntity('timesheet', { ...t, siteId: '' }), err => err.code === 'VALIDATION');
+});
+
+test('roster day: an entry without stints is its site for the whole shift; stints come back in order', () => {
+    assert.deepEqual(plain(RosterRules.stintsOf({ siteId: 'lugarno' })), [{ siteId: 'lugarno', start: '07:00', end: '15:30' }]);
+    const split = RosterRules.stintsOf({ siteId: 'lugarno', stints: [
+        { siteId: 'castlecrag', start: '09:00', end: '15:30' }, { siteId: 'lugarno', start: '07:00', end: '09:00' }] });
+    assert.deepEqual(plain(split.map(s => s.siteId)), ['lugarno', 'castlecrag']);
+    assert.deepEqual(plain(RosterRules.dayWindow(split)), { start: '07:00', end: '15:30' });
+    assert.equal(RosterRules.isMultiSite(split), true);
+    assert.equal(RosterRules.isMultiSite([{ siteId: 'a', start: '07:00', end: '09:00' }, { siteId: 'a', start: '10:00', end: '15:00' }]), false);
+});
+test('roster day: stints must end after they start and must not overlap; gaps are fine', () => {
+    assert.equal(RosterRules.validateStints([{ siteId: 'a', start: '07:00', end: '09:00' }, { siteId: 'b', start: '09:30', end: '15:30' }]).length, 0);
+    assert.ok(RosterRules.validateStints([{ siteId: 'a', start: '09:00', end: '07:00' }]).some(e => /after the start/.test(e.message)));
+    assert.ok(RosterRules.validateStints([{ siteId: 'a', start: '07:00', end: '10:00' }, { siteId: 'b', start: '09:00', end: '15:30' }]).some(e => /overlaps/.test(e.message)));
+    assert.equal(RosterRules.validateStints([]).length, 1);
+    assert.equal(RosterRules.overlaps({ start: '07:00', end: '09:00' }, { start: '09:00', end: '15:30' }), false);
 });

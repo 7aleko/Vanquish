@@ -89,6 +89,25 @@ test('roster: supervisors move an employee between sites; Timesheets classificat
     await assert.rejects(env.roster.assign({ employeeId: 'team-1', date: '2026-11-12', siteId: 'miranda' }), code('VALIDATION'));   // archived
 });
 
+test('roster: a split day is one entry with stints; either site counts as rostered on the timesheet', async () => {
+    const env = await app.makeEnv();
+    env.session.signInAs('team-8');
+    const stints = [{ siteId: 'bondi', start: '07:00', end: '09:00' }, { siteId: 'lugarno', start: '09:00', end: '15:30' }];
+    const saved = await env.roster.splitDay('team-1', '2026-11-12', stints);
+    assert.equal(saved.siteId, 'bondi');                                       // where the day starts
+    assert.equal(env.store.get('roster').filter(r => r.employeeId === 'team-1' && r.date === '2026-11-12').length, 1);
+    assert.equal(env.store.get('roster').find(r => r.id === saved.id).stints.length, 2);
+    await assert.rejects(env.roster.splitDay('team-1', '2026-11-12', [{ siteId: 'bondi', start: '07:00', end: '10:00' }, { siteId: 'lugarno', start: '09:00', end: '15:30' }]), code('VALIDATION'));
+    await assert.rejects(env.roster.splitDay('team-1', '2026-11-12', [{ siteId: 'bondi', start: '07:00', end: '09:00' }, { siteId: 'miranda', start: '09:00', end: '15:30' }]), code('VALIDATION'));   // archived
+    // Back to one site: the stints go
+    await env.roster.moveEmployee('team-1', '2026-11-12', 'lugarno');
+    assert.equal(env.store.get('roster').find(r => r.id === saved.id).stints, undefined);
+    await env.roster.splitDay('team-1', '2026-11-12', stints);
+    env.session.signInAs('team-1');
+    const ts = await env.timesheets.submit({ date: '2026-11-12', siteId: 'lugarno', blocks: [block] });
+    assert.equal(ts.siteAssignmentType, 'rostered');
+});
+
 test('crew logs: filtered by date and site; copying returns fresh blocks and changes nothing', async () => {
     const env = await app.makeEnv();
     const logs = env.crewLogs.forSiteOnDate('2026-11-13', 'lugarno');

@@ -30,7 +30,9 @@ function createTimesheetService(kit) {
 
         // The assignment is decided here from the roster, not taken from the screen
         const rostered = store.get('roster').find(r => r.employeeId === employeeId && r.date === input.date);
-        const siteAssignmentType = TimesheetRules.assignmentType(rostered ? rostered.siteId : null, input.siteId);
+        // On a split day, any of its sites counts as rostered
+        const rosteredSiteId = rostered && RosterRules.stintsOf(rostered).some(s => s.siteId === input.siteId) ? input.siteId : (rostered ? rostered.siteId : null);
+        const siteAssignmentType = TimesheetRules.assignmentType(rosteredSiteId, input.siteId);
         if (existing && !TimesheetRules.canTransition(existing.status, TimesheetStatus.SUBMITTED)) {
             throw appErrors.conflict(`Timesheet ${existing.id} can't be resubmitted from ${existing.status}`);
         }

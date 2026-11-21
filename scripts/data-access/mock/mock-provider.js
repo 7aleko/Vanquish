@@ -201,17 +201,27 @@ function createMockDataProvider(options = {}) {
     };
 
     const roster = {
+        // siteId matches any stint of a split day, not only its first site
         list: ({ employeeId, siteId, from, to } = {}) => op('roster.list', () => db.roster.filter(r =>
-            (!employeeId || r.employeeId === employeeId) && (!siteId || r.siteId === siteId) && inRange(r.date, from, to))),
+            (!employeeId || r.employeeId === employeeId) && inRange(r.date, from, to)
+            && (!siteId || r.siteId === siteId || (r.stints || []).some(s => s.siteId === siteId)))),
         getForEmployeeOnDate: (employeeId, date) => op('roster.getForEmployeeOnDate', () =>
             db.roster.find(r => r.employeeId === employeeId && r.date === date) || null),
-        assign: ({ date, employeeId, siteId }) => write('roster.assign', () => {
+        // stints (optional): a split day. The entry's siteId is the first stint's site.
+        assign: ({ date, employeeId, siteId, stints }) => write('roster.assign', () => {
             requireFk('employees', employeeId, 'employee');
+            const ordered = stints && stints.length ? RosterRules.stintsOf({ stints }) : null;
+            if (ordered) {
+                const problems = RosterRules.validateStints(ordered);
+                if (problems.length) throw appErrors.validation('Roster stints are invalid', problems);
+                siteId = ordered[0].siteId;
+            }
             requireFk('sites', siteId, 'site');
+            (ordered || []).forEach(s => requireFk('sites', s.siteId, 'site'));
             const existing = db.roster.find(r => r.employeeId === employeeId && r.date === date);   // unique (date, employeeId)
-            const row = { id: existing ? existing.id : `RA-${employeeId}-${date}`, date, employeeId, siteId };
+            const row = { id: existing ? existing.id : `RA-${employeeId}-${date}`, date, employeeId, siteId, ...(ordered ? { stints: ordered } : {}) };
             assertValidEntity('rosterAssignment', row);
-            if (existing) Object.assign(existing, row); else db.roster.push(row);
+            if (existing) { delete existing.stints; Object.assign(existing, row); } else db.roster.push(row);
             return row;
         }),
         remove: id => write('roster.remove', () => {

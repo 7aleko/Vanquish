@@ -16,6 +16,7 @@ const SCRIPTS = [
     'scripts/domain/errors.js',
     'scripts/domain/models.js',
     'scripts/domain/rules/time.js',
+    'scripts/domain/rules/roster.js',
     'scripts/domain/rules/pay-run.js',
     'scripts/domain/rules/timesheets.js',
     'scripts/domain/rules/availability.js',
@@ -54,7 +55,7 @@ const SCRIPTS = [
     'scripts/application/services/schedule-service.js'
 ];
 const EXPORTS = ['SiteAssignmentType', 'TimesheetStatus', 'ToolStatus', 'LeaveType', 'LeaveStatus', 'ErrorCode', 'AuditAction',
-    'AppError', 'DateRules', 'TimeRules', 'PayRunRules', 'TimesheetRules', 'EquipmentRules', 'LeaveRules',
+    'AppError', 'DateRules', 'TimeRules', 'RosterRules', 'PayRunRules', 'TimesheetRules', 'EquipmentRules', 'LeaveRules',
     'EntitySchemas', 'validateAgainst', 'assertValidEntity', 'REPOSITORY_CONTRACTS', 'assertImplementsContracts',
     'buildMockSeed', 'createMockDataProvider', 'createDataProvider', 'createAuthSession', 'Permissions', 'createAppStore',
     'createServiceKit', 'createSitesService', 'createRosterService', 'createTimesheetService', 'createCrewLogService', 'createAttendanceService', 'createSiteContentService',

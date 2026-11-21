@@ -156,67 +156,80 @@
 .sh-weather-meta { font-size: 12px; font-weight: 400; color: #A1A1AA; white-space: nowrap; font-variant-numeric: tabular-nums; }   /* zinc-400 */
 .sh-hero-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .sh-site-title { margin: 0; max-width: 100%; }
-/* The street name is the switcher: name + chevron, one generous target */
+/* Name + address: one touch target, the site switcher. The block presses as one (a soft plate, a touch smaller);
+   its edges reach past the text so the plate has breathing room without moving the type. */
+.sh-site-id {
+    max-width: calc(100% + 10px);
+    margin: -6px 0 -6px -10px;
+    padding: 6px 10px;
+    border-radius: 18px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+            user-select: none;
+    transition: background-color 160ms ease;
+}
+/* The text presses, not the block: the hit area never shrinks under the finger, so a tap at its edge still lands */
+.sh-site-id > * { transform-origin: left center; transition: transform 140ms var(--ease-out, ease-out); }
+.sh-site-id:active { scale: none; background: rgba(255, 255, 255, 0.06); }   /* not system.css's [onclick] press scale */
+.sh-site-id:active > * { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) { .sh-site-id:hover { background: rgba(255, 255, 255, 0.03); } }
+.sh-site-id:has(.sh-site-btn:focus-visible) { outline: 2px solid var(--sh-emerald); outline-offset: 0; }
 .sh-site-btn {
     display: inline-block;
     font: inherit;
     letter-spacing: inherit;
-    max-width: calc(100% + 8px);
-    min-height: 40px;
-    margin: -4px 0 -2px -8px;
-    padding: 2px 8px;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
     border: 0;
-    border-radius: 14px;
     background: transparent;
     color: #fff;
     text-align: left;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, transform 140ms var(--ease-out, ease-out);
 }
-.sh-site-btn:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.07); }
-.sh-site-btn:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: 2px; }
+.sh-site-btn:focus-visible { outline: none; }               /* the whole block shows focus (above) */
 .sh-site-name { overflow-wrap: anywhere; }                 /* type: the shared large title (.page-title) */
 .sh-site-chev { display: inline-block; margin-left: 6px; vertical-align: 4px; font-size: 18px; color: rgba(255, 255, 255, 0.65); transition: transform 320ms var(--sh-ease); }
 .sh-site-btn[aria-expanded="true"] .sh-site-chev { transform: rotate(180deg); }
-.sh-site-addr {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    max-width: 100%;
-    min-height: 30px;
-    margin: 0 0 0 -8px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--sh-text-2);
-    font-size: 15px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background-color 160ms ease, transform 120ms var(--ease-out, ease-out);
-}
-.sh-site-addr i { font-size: 14px; color: var(--sh-emerald); }
-.sh-site-addr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-site-addr:active { background: rgba(255, 255, 255, 0.07); color: #fff; transform: scale(0.97); }
-.sh-site-addr:disabled { cursor: default; }
-.sh-site-addr:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: 2px; }
+/* The street address: plain text under the name, part of the same target */
+.sh-site-addr { margin: 2px 0 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sh-text-2); font-size: 15px; font-weight: 500; }
 /* Upcoming milestone: its own card - the surface is .sh-card (as On Site), only the layout is here. A glanceable
    body (eyebrow; title, due, next trade | ring), then a full-width iOS list row that opens the Schedule. */
 .sh-sched { display: flex; flex-direction: column; width: 100%; padding: 0; color: #fff; }
-.sh-sched-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
+.sh-sched-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 16px 16px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 150ms ease;
+}
+/* Two tap targets, each with its own feedback: the body (to this milestone) and the footer (the schedule) */
+@media (hover: hover) and (pointer: fine) { .sh-sched-body:hover { background: rgba(255, 255, 255, 0.02); } }
+.sh-sched-body:active { background: rgba(255, 255, 255, 0.05); transition-duration: 0ms; }
+.sh-sched-body:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: -2px; border-radius: 20px 20px 0 0; }
 .sh-sched-eyebrow { margin: 0; display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
 .sh-sched-eyebrow i { flex-shrink: 0; font-size: 14px; color: rgba(255, 255, 255, 0.5); }
 .sh-sched-main { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .sh-sched-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.sh-ms-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-ms-due { margin: 0; font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }   /* neutral: the ring carries the state */
+.sh-ms-title { display: block; margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-ms-due { display: block; margin: 0; font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; }   /* neutral: the ring carries the state */
 /* The next trade: always one line, truncated rather than wrapped */
 .sh-ms-next { margin: 3px 0 0; display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13px; color: rgba(255, 255, 255, 0.8); white-space: nowrap; }
 .sh-next-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: #FBBF24; }   /* amber-400 */
 .sh-next-dot.is-idle { background: rgba(255, 255, 255, 0.3); }
+.sh-next-label { flex-shrink: 0; color: rgba(255, 255, 255, 0.55); margin-right: -3px; }
 .sh-next-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-next-when { flex-shrink: 0; margin-left: -3px; color: rgba(255, 255, 255, 0.55); font-variant-numeric: tabular-nums; }
 /* Footer: the whole strip is the button; it respects the card's rounded corners (the card clips) */
 .sh-sched-foot {
     display: flex;
@@ -242,6 +255,10 @@
 .sh-sched-foot:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: -2px; border-radius: 0 0 20px 20px; }
 .sh-ring { flex-shrink: 0; display: inline-flex; }
 .sh-ring[hidden] { display: none; }
+/* The hub's ring is the big one (92px, the Time screen's chunky proportions): its count set to match */
+.sh-ring .pring-value b { font-size: 19px; font-weight: 700; color: #fff; }
+.sh-ring .pring-value span { font-size: 15px; font-weight: 500; color: rgba(255, 255, 255, 0.45); }
+.sh-ring .pring .pring-check { width: 30px; height: 30px; }
 
 .sh-crew-pill {
     flex-shrink: 0;
@@ -351,7 +368,7 @@ button.sh-crew-pill:focus-visible { outline: 2px solid var(--sh-emerald); outlin
 .sh-roster-toggle:disabled { cursor: default; }
 .sh-stack { display: flex; align-items: center; min-width: 0; flex-shrink: 0; }
 .sh-stack > * { flex-shrink: 0; box-shadow: 0 0 0 2px #141517, 0 0 0 3px rgba(255, 255, 255, 0.1); }
-.sh-stack > * + * { margin-left: -9px; }
+.sh-stack > * + * { margin-left: -6px; }   /* enough overlap to read as a stack, not so much it hides initials */
 .sh-stack .sh-person-icon { width: 36px; height: 36px; font-size: 16px; }
 .sh-stack.is-fresh > * { animation: sh-row-in 320ms var(--sh-ease) both; }
 .sh-stack.is-fresh > :nth-child(2) { animation-delay: 30ms; }
@@ -359,7 +376,27 @@ button.sh-crew-pill:focus-visible { outline: 2px solid var(--sh-emerald); outlin
 .sh-stack.is-fresh > :nth-child(4) { animation-delay: 90ms; }
 .sh-stack.is-fresh > :nth-child(n+5) { animation-delay: 120ms; }
 .sh-stack-more { width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; background: #2A2D32; color: #fff; font-size: 12.5px; font-weight: 700; }
-.sh-roster-hint { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--sh-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-roster-hint { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--sh-text-2); white-space: nowrap; }
+.sh-roster-hint .sh-dot { flex-shrink: 0; }
+/* The text truncates at its end: a flex box aligned right would otherwise clip its start, with no ellipsis */
+.sh-roster-hint-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Sign In: over the hint's space, left of the chevron */
+.sh-roster-bar { position: relative; }
+.sh-signin {
+    position: absolute; right: 44px; top: 50%; margin-top: -17px;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 14px;
+    border: 0; border-radius: 999px;
+    background: var(--sh-emerald); color: #04140B;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms var(--ease-out, ease-out);
+}
+.sh-signin[hidden] { display: none; }
+.sh-signin::before { content: ''; position: absolute; inset: -5px -4px; }   /* 44px tap target */
+.sh-signin:active { transform: scale(0.96); }   /* top/margin centring keeps transform free for the press */
+.sh-signin:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 .sh-roster-hint.is-amber { color: #FCD34D; }
 .sh-roster-hint.is-live { color: #8DF0B1; }
 .sh-roster-chev { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.06); color: #C8CCD2; font-size: 13px; transition: transform 380ms var(--sh-ease), background-color 200ms ease; }
@@ -589,7 +626,7 @@ button.sh-crew-pill:focus-visible { outline: 2px solid var(--sh-emerald); outlin
 .sh-photos-head .sh-card-title { font-size: 16px; }
 .sh-photos-head:active { background: rgba(255, 255, 255, 0.05); }
 .sh-photos-head:focus-visible { outline: 2px solid var(--sh-emerald); outline-offset: 2px; }
-.sh-photos-count { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 500; color: var(--sh-text-2); font-variant-numeric: tabular-nums; }
+.sh-photos-count { margin-left: 2px; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 500; color: var(--sh-text-2); font-variant-numeric: tabular-nums; }
 .sh-photos-count i { font-size: 12px; }   /* 44px tap target */
 
 .sh-bento-empty { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--sh-text-2); }
@@ -949,7 +986,7 @@ mark { background: rgba(34, 229, 98, 0.18); color: #fff; border-radius: 3px; pad
 
 @media (prefers-reduced-motion: reduce) {
     .sh-day-pill, .sh-day-dot, .sh-row, .sh-thumb, .sh-swap, .sh-fab, .sh-fab i, .sh-fab-item, .sh-tile, .sh-photo,
-    .sh-switch-box, .sh-switch-body, .sh-switch-list, .sh-site-btn, .sh-site-chev, .sh-search-panel, .sh-search-overlay, .sh-pcard, .sh-lcard, .sh-plan-card, .sh-sched, .sh-fab-scrim,
+    .sh-switch-box, .sh-switch-body, .sh-switch-list, .sh-site-id, .sh-site-chev, .sh-search-panel, .sh-search-overlay, .sh-pcard, .sh-lcard, .sh-plan-card, .sh-sched, .sh-fab-scrim,
     .sh-roster-toggle, .sh-roster-chev, .sh-roster-panel, .sh-roster-inner { transition: none; }
     .sh-fab-item, .sh-switch-box.is-open .sh-switch-list { transition-delay: 0s; }
     .is-fresh, .sh-roster.is-fresh > li, .sh-stack.is-fresh > *, #modal-body.sh-page-in > *, .sh-switch-scrim { animation: none; }
@@ -957,3 +994,14 @@ mark { background: rgba(34, 229, 98, 0.18); color: #fff; border-radius: 3px; pad
 
 /* The Site actions in the top bar (key = Site Access, refresh): a little more air between the two circles */
 .nav-actions-group[data-view="sitehub"] { gap: 10px; }
+
+/* Site Diary: no entry yet on a working day */
+.sh-tile.is-due .sh-tile-sub { display: inline-flex; align-items: center; gap: 7px; color: #FCD34D; font-weight: 600; }
+.sh-tile.is-due .sh-tile-sub .sh-dot { flex-shrink: 0; }
+/* Narrow phones (iPhone SE 1st gen, 320pt): the trade keeps the room "Next:" would take, and Sign In drops its
+   icon so it clears the avatar stack */
+@media (max-width: 359px) {
+    .sh-next-label { display: none; }
+    .sh-signin { padding: 0 12px; }
+    .sh-signin i { display: none; }
+}

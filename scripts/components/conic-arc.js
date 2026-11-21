@@ -21,6 +21,11 @@ function conicMix(from, to, t) {
     const a = conicHexRgb(from), b = conicHexRgb(to);
     return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
 }
+// The same mix as a hex colour, so a mixed colour can itself be a gradient end (the ring easing between tones)
+function conicMixHex(from, to, t) {
+    const a = conicHexRgb(from), b = conicHexRgb(to);
+    return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
 function conicArcSvg(o) {
     const { cx, cy, r, width, laps, colours, step, shadowClass, shadowReach } = o;
     if (laps <= 0.001) return '';

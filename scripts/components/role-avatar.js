@@ -91,10 +91,11 @@ function renderPoppyAvatar(size = 'lg', extraClass = '') {
     return `<span class="role-avatar role-avatar--${size} role-avatar--poppy ${extraClass}" aria-hidden="true"><canvas class="poppy-avatar-canvas"></canvas></span>`;
 }
 
-// A channel or site: a Phosphor Fill icon (e.g. 'ph-house', 'ph-hard-hat') in a squircle the same size as a
-// person's circle - groups are squircles, people are circles
+// A channel or site: a white Phosphor Fill icon (e.g. 'ph-buildings', 'ph-hard-hat') in the same lit orb as a
+// person - every avatar is a circle. extraClass picks the glow: 'role-avatar--company' (emerald) or
+// 'role-avatar--site' (steel); none is neutral graphite.
 function renderIconAvatar(icon, size = 'lg', extraClass = '') {
-    return `<span class="role-avatar role-avatar--${size} role-avatar--icon role-avatar--squircle ${extraClass}" aria-hidden="true"><i class="ph-fill ${roleAvatarEscape(icon)}"></i></span>`;
+    return `<span class="role-avatar role-avatar--${size} role-avatar--icon ${extraClass}" aria-hidden="true"><i class="ph-fill ${roleAvatarEscape(icon)}"></i></span>`;
 }
 
 // An avatar with a status dot at its lower right (Poppy; a person only in their conversation header)

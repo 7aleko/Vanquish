@@ -31,7 +31,7 @@
 
 const siteHubState = { siteId: null, day: null, scrollTop: 0, rosterOpen: false };
 const SH_ROSTER_KEY = 'lifestyle.siteHub.rosterOpen';
-const SH_STACK_MAX = 5;
+const SH_STACK_MAX = 4;
 try { siteHubState.rosterOpen = localStorage.getItem(SH_ROSTER_KEY) === '1'; } catch (_) { /* storage blocked: collapsed */ }
 const SH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SH_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -58,6 +58,12 @@ function shShiftWindow() {
     const c = typeof TIMESHEET_CONFIG !== 'undefined' ? TIMESHEET_CONFIG : {};
     const t = hhmm => formatClockTime(`2000-01-01T${hhmm}:00`);
     return c.defaultStart && c.defaultFinish ? `${t(c.defaultStart)} – ${t(c.defaultFinish)}` : '7:00 AM – 3:30 PM';
+}
+// A window, compact for a roster row: a morning-to-afternoon shift drops its AM/PM ("7:00–3:30"), as site hours
+// read on a whiteboard; anything else ("9:00 – 10:00 AM") only tightens its dash
+function shCompactWindow(w) {
+    const m = /^(\d{1,2}:\d{2})\s*AM\s*[–-]\s*(\d{1,2}:\d{2})\s*PM$/i.exec(String(w || '').trim());
+    return m ? `${m[1]}–${m[2]}` : String(w || '').replace(/\s*[–-]\s*/, '–');
 }
 function shSite() { return getSiteById(siteHubState.siteId); }
 function shStreetLine(site) { return site ? `${site.address}${site.suburb ? `, ${site.suburb}` : ''}` : ''; }
@@ -133,12 +139,6 @@ function shMySiteId() {
     const id = getRosteredSiteId(shToday());
     return isSiteActive(id) ? id : null;
 }
-function openSiteHubMaps() {
-    const siteId = siteHubState.siteId;
-    if (!siteId) return;
-    triggerHaptic('light');
-    openMapsForAddress(getSiteFullAddress(siteId));               // the Roster's Maps hand-off (week-roster.js)
-}
 // The site's forecast for a day from its job's daily forecast (JOBS_DATA), or null when there isn't one
 function getSiteForecast(siteId, date) {
     if (typeof JOBS_DATA === 'undefined' || !siteId || !date) return null;
@@ -182,63 +182,79 @@ function renderSiteHubHero() {
     const site = shSite();
     const name = document.getElementById('sh-site-name');
     if (!name) return;
-    // As on Home's site card: the site's name large, its street address beneath (opens Maps)
+    // The site's name large, its street address beneath: together, the switcher (the address is read out in the
+    // button's label, renderSiteSwitcherPill)
     name.textContent = site ? site.shortName : 'No site';
     if (typeof refreshTopBarTitle === 'function') refreshTopBarTitle('sitehub');    // its copy in the bar
     document.getElementById('sh-site-address').textContent = site ? site.address : 'You have no active sites';
-    const addr = document.getElementById('sh-site-addr');
-    addr.disabled = !site;
-    addr.setAttribute('aria-label', site ? `${getSiteFullAddress(site.id)}. Open in Maps` : 'No address');
 
-    // Today's weather here: the high, then the chance of rain and the wind (from the site's daily forecast)
-    const fc = site ? getSiteForecast(site.id, shToday()) : null, wx = document.getElementById('sh-weather');
-    wx.hidden = !fc;
-    if (fc) {
-        document.getElementById('sh-weather-icon').className = `ph-fill ${fc.icon}`;
-        document.getElementById('sh-weather-temp').textContent = `${fc.high}°`;
-        document.getElementById('sh-weather-meta').textContent = `${fc.rain}% rain${fc.wind != null ? ` • ${fc.wind} km/h` : ''}`;
-        wx.setAttribute('aria-label', `Weather today: ${fc.label}`);
-    }
+    renderSiteHubWeather();
     // Site Access: only sites with a key safe
     const lock = document.getElementById('sh-lock');
     lock.hidden = !(site && site.lockbox);                 // the key in the top bar
     lock.setAttribute('aria-label', site ? `Site access for ${site.address}: lockbox PIN and access notes` : 'Site access');
 }
 
+// The weather for the day chosen on On Site's day strip (today by default): the high, then the chance of rain
+// and the wind, from the site's daily forecast. No forecast for that day hides it.
+function renderSiteHubWeather() {
+    const site = shSite(), wx = document.getElementById('sh-weather');
+    if (!wx) return;
+    const day = siteHubState.day || shToday();
+    const fc = site ? getSiteForecast(site.id, day) : null;
+    wx.hidden = !fc;
+    if (!fc) return;
+    document.getElementById('sh-weather-icon').className = `ph-fill ${fc.icon}`;
+    document.getElementById('sh-weather-temp').textContent = `${fc.high}°`;
+    document.getElementById('sh-weather-meta').textContent = `${fc.rain}% rain${fc.wind != null ? ` • ${fc.wind} km/h` : ''}`;
+    const isToday = DateRules.toIso(day) === shTodayIso();
+    wx.setAttribute('aria-label', `Weather ${isToday ? 'today' : `on ${shLongDate(DateRules.toIso(day))}`}: ${fc.label}`);
+}
+
 // The upcoming milestone card: the milestone to work towards, its due day, the next trade on site (one line) and
-// the checklist ring; its footer row opens the Schedule
+// the checklist ring (a checkmark once every item is done). The body opens the Schedule at this milestone,
+// expanded; the footer row opens the Schedule as it is.
 function renderSiteHubSchedule() {
     const siteId = siteHubState.siteId, card = document.getElementById('sh-sched');
     if (!card) return;
     const ms = getUpcomingMilestone(siteId), next = getNextOnSite(siteId, shTodayIso());
     const title = document.getElementById('sh-ms-title'), due = document.getElementById('sh-ms-due');
     const nextEl = document.getElementById('sh-ms-next'), ring = document.getElementById('sh-ms-ring');
-    const open = document.getElementById('sh-sched-open');
+    const body = document.getElementById('sh-sched-body'), open = document.getElementById('sh-sched-open');
+    const eyebrow = document.getElementById('sh-ms-eyebrow-text');
+    let label;
     if (ms) {
         const p = ScheduleRules.progress(ms), done = ScheduleRules.isComplete(ms);
         title.textContent = ms.title;
         due.textContent = done ? `Complete • ${shDate(ms.endDate, true)}` : `Due ${shDate(ms.endDate, true)}`;
+        // Completed today, it stays here until the day ends (ScheduleRules.upcomingMilestone) and says so
+        const today = ScheduleRules.completedOn(ms) === DateRules.toIso(new Date());
+        eyebrow.textContent = today ? 'Completed Today' : done ? 'Milestone Complete' : 'Upcoming Milestone';
         ring.hidden = false;
         const tone = progressRingTone(ScheduleRules.milestoneStatus(ms, shTodayIso()).key);
-        ring.innerHTML = renderProgressRing(p, { size: 56, stroke: 7, key: `ms:${ms.id}`, tone });
+        ring.innerHTML = renderProgressRing(p, { size: 92, stroke: 16, key: `ms:${ms.id}`, tone });
         lightProgressCard(card, tone);                    // the ring lights the card in its state's colour
-        open.setAttribute('aria-label', `Full schedule, with ${ms.title} open`);
+        label = `${done ? 'Milestone' : 'Upcoming milestone'}: ${ms.title}, ${done ? 'complete' : `due ${shLongDate(ms.endDate)}, ${p.done} of ${p.total} prerequisites done`}`;
     } else {
         title.textContent = 'No milestones yet';
+        eyebrow.textContent = 'Upcoming Milestone';
         due.textContent = 'Add one on the schedule';
         ring.hidden = true; ring.innerHTML = '';
         lightProgressCard(card, null);
-        open.setAttribute('aria-label', 'Full schedule');
+        label = 'No milestones yet';
     }
-    // The next trade on site, on one line: "● Mon 23 · Sparky Rough-In"
+    // The next trade on site, on one line: "● Next: Sparky Rough-In · Today". The trade is the part that
+    // truncates; the label and the day always show.
     if (next) {
         const d = DateRules.fromIso(next.startDate);
-        nextEl.innerHTML = `<span class="sh-next-dot" aria-hidden="true"></span><span class="sh-next-text">${SH_DAYS[d.getDay()]} ${d.getDate()} · ${shEsc(next.title)}</span>`;
-        nextEl.setAttribute('aria-label', `Next on site: ${next.title}, ${shLongDate(next.startDate)}`);
+        const when = next.startDate === shTodayIso() ? 'Today' : next.startDate === DateRules.toIso(DateRules.addDays(shToday(), 1)) ? 'Tomorrow' : `${SH_DAYS[d.getDay()]} ${d.getDate()}`;
+        nextEl.innerHTML = `<span class="sh-next-dot" aria-hidden="true"></span><span class="sh-next-label">Next:</span><span class="sh-next-text">${shEsc(next.title)}</span><span class="sh-next-when">· ${when}</span>`;
+        label += `. Next on site: ${next.title}, ${shLongDate(next.startDate)}`;
     } else {
         nextEl.innerHTML = `<span class="sh-next-dot is-idle" aria-hidden="true"></span><span class="sh-next-text">Nothing booked yet</span>`;
-        nextEl.removeAttribute('aria-label');
     }
+    body.setAttribute('aria-label', `${label}. ${ms ? 'Open it in the schedule' : 'Open the schedule'}`);
+    open.setAttribute('aria-label', 'Full schedule');
     animateProgressRings(card);
 }
 
@@ -276,7 +292,7 @@ function shRosterStatus(r, kind) {
         if (r.rec) return { cls: 'is-out', text: `Out • ${formatClockTime(r.rec.signedOutAt)}` };
         return { cls: 'is-pending', text: 'Not Signed In' };
     }
-    return { cls: 'is-window', text: r.window };
+    return { cls: 'is-window', text: shCompactWindow(r.window) };
 }
 
 function selectSiteHubDay(iso) {
@@ -284,6 +300,7 @@ function selectSiteHubDay(iso) {
     triggerHaptic('light');
     siteHubState.day = DateRules.fromIso(iso);
     renderSiteHubRoster(true);
+    renderSiteHubWeather();
 }
 
 function renderSiteHubRoster(dayChanged) {
@@ -351,17 +368,33 @@ function renderSiteHubRosterSummary(roster, dayChanged) {
     stack.innerHTML = shown.map(r => (r.type === 'inspection'
         ? '<span class="sh-person-icon is-inspect"><i class="ph-fill ph-clipboard-text"></i></span>'
         : renderRoleAvatar(r.name, 'head'))).join('') + (extra > 0 ? `<span class="sh-stack-more">+${extra}</span>` : '');
-    const missing = roster.kind === 'today' ? people.filter(r => !r.rec).length : 0;
+    const absent = roster.kind === 'today' ? people.filter(r => !r.rec) : [];
+    const missing = absent.length;
     const open = siteHubState.rosterOpen;
+    // You haven't signed in here today and it's the site you're rostered to: the row offers Sign In instead
+    // (the pill above already says how many are in, so the row says what to do, not the count again)
+    const me = absent.find(r => r.you);
+    const canSignIn = !!(me && siteHubState.siteId === getRosteredSiteId(shToday()) && typeof toggleSiteSignIn === 'function');
     let text, cls = '';
-    if (!people.length) text = deliveries ? `${deliveries} deliver${deliveries === 1 ? 'y' : 'ies'} only` : 'Nobody scheduled';
-    else if (roster.kind === 'today') { text = missing ? `${missing} not signed in` : 'All signed in'; cls = missing ? 'is-amber' : 'is-live'; }
-    else {                                                  // another day: who, by first name
-        const first = people.map(r => r.name.split(' ')[0]);
-        text = first.slice(0, 2).join(', ') + (first.length > 2 ? ` +${first.length - 2}` : '');
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    if (!people.length) text = deliveries ? `${plural(deliveries, 'delivery', 'deliveries')} only` : 'Nobody scheduled';
+    else if (roster.kind === 'today') {
+        // Who's missing, by name when it's one person; the avatars already show who's here
+        text = !missing ? 'All signed in' : canSignIn ? '' : missing === 1 ? `${absent[0].name.split(' ')[0]} not signed in` : `${missing} not signed in`;
+        cls = missing ? 'is-amber' : 'is-live';
+    } else {                                                // another day: the mix, not names the avatars already show
+        const n = t => people.filter(r => r.type === t).length;
+        text = [n('crew') && plural(n('crew'), 'crew', 'crew'), n('trade') && plural(n('trade'), 'trade', 'trades'),
+            n('inspection') && plural(n('inspection'), 'inspection', 'inspections'), deliveries && plural(deliveries, 'delivery', 'deliveries')]
+            .filter(Boolean).join(' · ');
     }
     hint.className = `sh-roster-hint ${cls}`;
-    hint.innerHTML = cls === 'is-amber' ? `<i class="sh-dot is-amber" aria-hidden="true"></i>${shEsc(text)}` : shEsc(text);
+    hint.innerHTML = text ? `${cls === 'is-amber' ? '<i class="sh-dot is-amber" aria-hidden="true"></i>' : ''}<span class="sh-roster-hint-text">${shEsc(text)}</span>` : '';
+    const signIn = document.getElementById('sh-signin');
+    if (signIn) {
+        signIn.hidden = !canSignIn;
+        document.getElementById('sh-onsite').classList.toggle('has-signin', canSignIn);
+    }
     toggle.disabled = !roster.rows.length;
     toggle.setAttribute('aria-label', `${people.length ? `${people.length} on site: ${people.map(r => r.name).join(', ')}` : 'Nobody scheduled'}${missing ? `, ${missing} not signed in` : ''}. ${open ? 'Hide' : 'Show'} the list`);
     if (dayChanged && !open) { stack.classList.remove('is-fresh'); void stack.offsetWidth; stack.classList.add('is-fresh'); }
@@ -397,8 +430,15 @@ function renderSiteHubTiles() {
     document.getElementById('sh-tile-dwg').setAttribute('aria-label', `Drawings: ${dSub.textContent}`);
     const logs = siteId ? getSiteLogs(siteId) : [];
     const lSub = document.getElementById('sh-tile-diary-sub');
-    lSub.textContent = logs.length ? `Latest: ${shDate(logs[0].date, true)}` : 'No entries yet';
-    document.getElementById('sh-tile-diary').setAttribute('aria-label', `Site Diary: ${logs.length ? `latest entry ${shLongDate(logs[0].date)}, ${logs[0].title}` : 'no entries yet'}`);
+    // A working day with no entry yet says so in amber; the diary it opens has New Entry at the top
+    const todayIso = shTodayIso(), wd = shToday().getDay();
+    const needsLog = !!siteId && wd !== 0 && wd !== 6 && !logs.some(l => l.date === todayIso);
+    const tile = document.getElementById('sh-tile-diary');
+    tile.classList.toggle('is-due', needsLog);
+    lSub.innerHTML = needsLog ? '<i class="sh-dot is-amber" aria-hidden="true"></i>No log today'
+        : shEsc(logs.length ? (logs[0].date === todayIso ? 'Logged today' : `Latest: ${shDate(logs[0].date, true)}`) : 'No entries yet');
+    tile.setAttribute('aria-label', needsLog ? `Site Diary: no log today${logs.length ? `, latest entry ${shLongDate(logs[0].date)}` : ''}. Open the diary to add today's entry`
+        : `Site Diary: ${logs.length ? `latest entry ${shLongDate(logs[0].date)}, ${logs[0].title}` : 'no entries yet'}`);
 }
 
 // Recent photos: the four newest at this site; the 4th carries "+N" when there are more
@@ -428,7 +468,7 @@ function renderSiteHubPhotos() {
 let siteSwitcherOpen = false;
 function renderSiteSwitcherPill() {
     const site = shSite(), btn = document.getElementById('sh-site-btn');
-    if (btn) btn.setAttribute('aria-label', site ? `${shStreetLine(site)}. Switch site` : 'Choose a site');
+    if (btn) btn.setAttribute('aria-label', site ? `${site.shortName}, ${shStreetLine(site)}. Switch site` : 'Choose a site');
 }
 function toggleSiteSwitcher(e) { if (siteSwitcherOpen) closeSiteSwitcher(); else openSiteSwitcher(e); }
 function openSiteSwitcher(e) {
@@ -472,7 +512,7 @@ function renderSiteSwitcherList() {
     const tokens = shTokens(input ? input.value : '');
     const mySite = shMySiteId(), mine = getSiteHubSites().map(s => s.id);
     const rank = s => (s.id === mySite ? 0 : mine.includes(s.id) ? 1 : 2);
-    const sites = getActiveSites().filter(s => !tokens.length || shMatches([s.address, s.suburb, s.shortName, s.stage].join(' '), tokens))
+    const sites = getActiveSites().filter(s => !tokens.length || shMatches([s.address, s.suburb, s.shortName, getSiteStage(s.id)].join(' '), tokens))
         .slice().sort((a, b) => rank(a) - rank(b) || a.shortName.localeCompare(b.shortName));
     const list = document.getElementById('sh-switch-list');
     list.innerHTML = sites.length ? sites.map(s => {
@@ -481,7 +521,7 @@ function renderSiteSwitcherList() {
                 <span class="sh-switch-pin"><i class="ph-fill ph-map-pin" aria-hidden="true"></i></span>
                 <span class="sh-switch-row-main">
                     <span class="sh-switch-row-name">${shMark(s.shortName, tokens)}</span>
-                    <span class="sh-switch-row-sub">${shMark(s.address, tokens)}${s.stage ? ` <span aria-hidden="true">•</span> ${shMark(s.stage, tokens)}` : ''}</span>
+                    <span class="sh-switch-row-sub">${shMark(s.address, tokens)}${getSiteStage(s.id) ? ` <span aria-hidden="true">•</span> ${shMark(getSiteStage(s.id), tokens)}` : ''}</span>
                 </span>
                 ${s.id === mySite ? '<span class="sh-your-site">Your Site</span>' : ''}
                 ${on ? '<span class="sh-active-dot" role="img" aria-label="Active site"><i></i></span>' : ''}
@@ -1146,14 +1186,16 @@ async function submitUploadDrawing() {
 }
 
 // ---------- To the Schedule (sub-page) ----------
-// The hero footer, Full Schedule, and search results: the Schedule slides over the hub, on its Overview, with
-// the upcoming milestone (or the result) open. The hub keeps its scroll for the way back.
+// The Schedule slides over the hub, on its Overview; the hub keeps its scroll for the way back.
+//   { expand: true }  the milestone card's body: scrolled to the upcoming milestone, expanded
+//   { focusId }       a search result: scrolled to that record (a milestone expands)
+//   {}                Full Schedule: the page as it is, from the top
 function openScheduleFromHub(opts = {}) {
     if (!siteHubState.siteId) return;
     triggerHaptic('light');
     const view = document.getElementById('view-sitehub');
     if (view) siteHubState.scrollTop = view.scrollTop;
-    const ms = getUpcomingMilestone(siteHubState.siteId);
+    const ms = opts.expand ? getUpcomingMilestone(siteHubState.siteId) : null;
     const focusId = opts.focusId || (ms && ms.id) || null;
     if (typeof showScheduleFrom === 'function') showScheduleFrom({ focusId, view: 'overview' });
 }

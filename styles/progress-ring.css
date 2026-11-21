@@ -27,6 +27,78 @@
 .pring-value b { font-weight: 800; color: #fff; }
 .pring-value span { font-weight: 600; color: #A1A1AA; }                 /* zinc-400 */
 
+/* ---- Done: a checkmark on a soft emerald fill instead of "10/10" ---- */
+.pring-fill { fill: rgba(16, 185, 129, 0.15); opacity: 0; }             /* emerald-500 / 15% */
+.pring .pring-check {                                                    /* beats .pring svg (the ring's own) */
+    position: absolute;
+    inset: 0;
+    width: calc(var(--size) * 0.4);
+    height: calc(var(--size) * 0.4);
+    margin: auto;
+    fill: none;
+    stroke: #34D399;                                                     /* emerald-400 */
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.45));
+    opacity: 0;
+    transform: scale(0.5);
+    pointer-events: none;
+}
+.pring.is-done .pring-fill { opacity: 1; }
+.pring.is-done .pring-check { opacity: 1; transform: none; }
+.pring.is-done .pring-value { opacity: 0; transform: scale(0.75); }
+
+/* Closing the ring (the last item ticked). 0ms: the arc closes and turns emerald (animateProgressRings, 300ms
+   ease-out). 250ms: the count shrinks away, the check springs in and a soft green glow pulses out. */
+.pring.is-celebrating .pring-value { animation: pring-value-out 200ms ease-in 250ms both; }
+.pring.is-celebrating .pring-check { animation: pring-check-in 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 250ms both; }
+.pring.is-celebrating .pring-fill { animation: pring-fade-in 320ms ease-out 250ms both; }
+.pring.is-celebrating::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: pring-pulse 720ms ease-out 250ms both;
+}
+/* Reopening it (an item unticked): the check steps aside for the count */
+.pring.is-reopening .pring-check { animation: pring-check-out 180ms ease-in both; }
+.pring.is-reopening .pring-fill { animation: pring-fade-out 220ms ease-out both; }
+.pring.is-reopening .pring-value { animation: pring-value-in 260ms cubic-bezier(0.32, 0.72, 0, 1) 80ms both; }
+
+/* A page opening (replayProgressRings): the arc fills from empty (animateProgressRings), the count fades up with
+   it; a complete ring's check springs in, with the glow pulse, as the arc closes (--pring-delay) */
+.pring.is-entering:not(.is-done) .pring-value { animation: pring-value-in 360ms cubic-bezier(0.32, 0.72, 0, 1) var(--pring-delay, 0ms) both; }
+.pring.is-entering.is-done .pring-check { animation: pring-check-in 520ms cubic-bezier(0.34, 1.56, 0.64, 1) var(--pring-delay, 0ms) both; }
+.pring.is-entering.is-done .pring-fill { animation: pring-fade-in 320ms ease-out var(--pring-delay, 0ms) both; }
+.pring.is-entering.is-done::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: pring-pulse 720ms ease-out var(--pring-delay, 0ms) both;
+}
+
+@keyframes pring-value-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.75); } }
+@keyframes pring-value-in { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: none; } }
+@keyframes pring-check-in { from { opacity: 0; transform: scale(0.5); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
+@keyframes pring-check-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.5); } }
+@keyframes pring-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pring-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pring-pulse {
+    from { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5), 0 0 0 0 rgba(52, 211, 153, 0.35); }
+    35%  { box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.22), 0 0 18px 4px rgba(52, 211, 153, 0.3); }
+    to   { box-shadow: 0 0 0 12px rgba(52, 211, 153, 0), 0 0 28px 8px rgba(52, 211, 153, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pring.is-celebrating .pring-value, .pring.is-celebrating .pring-check, .pring.is-celebrating .pring-fill,
+    .pring.is-reopening .pring-value, .pring.is-reopening .pring-check, .pring.is-reopening .pring-fill { animation: none; }
+    .pring.is-entering .pring-value, .pring.is-entering .pring-check, .pring.is-entering .pring-fill { animation: none; }
+    .pring.is-celebrating::after, .pring.is-entering::after { display: none; }
+}
+
 /* ---- A card lit by its ring ---- */
 @property --lit-bloom { syntax: '<color>'; inherits: true; initial-value: rgba(245, 158, 11, 0.16); }
 @property --lit-edge { syntax: '<color>'; inherits: true; initial-value: rgba(245, 158, 11, 0.28); }

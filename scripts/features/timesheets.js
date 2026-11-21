@@ -56,7 +56,9 @@ function tsTitleFor(d) {
 function tsMinutes(hhmm) { return TimeRules.minutes(hhmm); }
 function tsFromMinutes(mins) { return TimeRules.fromMinutes(mins); }
 function tsComputeShift(start, finish, breakMins) { return TimeRules.computeShift(start, finish, breakMins); }
-function tsFormatHours(h) { return `${(Math.round(h * 10) / 10).toFixed(1)}h`; }
+// "8h", "7.5h" - a decimal only when there is one
+function tsFormatNumber(h) { return String(Math.round(h * 10) / 10); }
+function tsFormatHours(h) { return `${tsFormatNumber(h)}h`; }
 // "7:00 AM" (crew windows) or "07:00 AM" (summary cards)
 function tsFormatClock(hhmm, pad) {
     const m = tsMinutes(hhmm);
@@ -125,6 +127,7 @@ function buildTimesheetState() {
         showErrors: {},          // iso -> true after a failed submit, so errors then update live
         historyStart: prevStart,  // no records exist before this, so earlier days are not "gaps"
         selected: tsIso(today),
+        mode: 'day',             // 'day' (ring + the day's lines) | 'run' (the pay run: chart, days, cost codes)
         crewOpen: false,
         sitePickerOpen: false,
         sheetOpen: false,
@@ -208,6 +211,29 @@ function tsRangeLabel(start) {
     const end = tsAddDays(start, TIMESHEET_CONFIG.payRunLengthDays - 1);
     const fmt = d => `${d.getDate()} ${d.toLocaleDateString('en-AU', { month: 'short' })}`.toUpperCase();
     return `${fmt(start)} – ${fmt(end)}`;
+}
+
+// The run header in sentence case: "2 – 15 Nov", "26 Oct – 8 Nov"
+function tsRangeTitle(start) {
+    const end = tsAddDays(start, TIMESHEET_CONFIG.payRunLengthDays - 1);
+    const mon = d => d.toLocaleDateString('en-AU', { month: 'short' });
+    return start.getMonth() === end.getMonth()
+        ? `${start.getDate()} – ${end.getDate()} ${mon(end)}`
+        : `${start.getDate()} ${mon(start)} – ${end.getDate()} ${mon(end)}`;
+}
+// A day in plain words: "Thursday" within the last week, else "Thu 5 Nov"
+function tsDayName(d) {
+    const ago = tsDayDiff(d, tsToday());
+    return ago >= 0 && ago < 7 ? d.toLocaleDateString('en-AU', { weekday: 'long' }) : tsShortDate(d);
+}
+// When a run closes (its last day), in words: "closes today" / "closes tomorrow" / "closes Sunday" / "ended Sun 1 Nov"
+function tsRunClosing(start) {
+    const end = tsAddDays(start, TIMESHEET_CONFIG.payRunLengthDays - 1);
+    const left = tsDayDiff(tsToday(), end);
+    if (left < 0) return { text: `ended ${tsShortDate(end)}`, past: true, left };
+    if (left === 0) return { text: 'closes today', left };
+    if (left === 1) return { text: 'closes tomorrow', left };
+    return { text: `closes ${left < 7 ? end.toLocaleDateString('en-AU', { weekday: 'long' }) : tsShortDate(end)}`, left };
 }
 
 // Crew logs for a day and site (same block structure as the worker's own), matched on both the date and the
@@ -423,7 +449,7 @@ function renderTimesheetPayRun() {
     const sum = tsRunSummary(start);
     const bounds = tsRunBounds();
 
-    document.getElementById('ts-run-range').textContent = tsRangeLabel(start);
+    document.getElementById('ts-run-range').textContent = tsRangeTitle(start);
     document.getElementById('ts-run-range').setAttribute('aria-label', `Pay run ${tsRangeLabel(start)}`);
     document.getElementById('ts-run-prev').disabled = tsDayDiff(bounds.min, start) <= 0;
     document.getElementById('ts-run-next').disabled = tsDayDiff(start, bounds.max) <= 0;
@@ -434,22 +460,22 @@ function renderTimesheetPayRun() {
     if (n) {
         badge.className = 'ts-run-badge is-gap';
         badge.disabled = false;
-        badge.innerHTML = `<i class="ph-fill ph-warning" aria-hidden="true"></i>${n} ${n === 1 ? 'GAP' : 'GAPS'}`;
+        badge.innerHTML = `<i class="ph-fill ph-warning-circle" aria-hidden="true"></i>${n} missing`;
         badge.setAttribute('aria-label', `${n} ${n === 1 ? 'day' : 'days'} missing. Show the earliest`);
     } else if (!sum.eligible) {
         badge.className = 'ts-run-badge is-idle';
         badge.disabled = true;
-        badge.textContent = 'UPCOMING';
+        badge.textContent = 'Upcoming';
         badge.removeAttribute('aria-label');
     } else if (sum.logged === sum.eligible) {
         badge.className = 'ts-run-badge is-complete';
         badge.disabled = true;
-        badge.innerHTML = `<i class="ph-fill ph-check-circle" aria-hidden="true"></i>${sum.logged}/${sum.eligible} COMPLETE`;
+        badge.innerHTML = `<i class="ph-fill ph-check-circle" aria-hidden="true"></i>All logged`;
         badge.removeAttribute('aria-label');
     } else {
         badge.className = 'ts-run-badge is-ok';                  // only today still to log
         badge.disabled = true;
-        badge.textContent = 'NO GAPS';
+        badge.textContent = 'On track';
         badge.removeAttribute('aria-label');
     }
 
@@ -461,7 +487,7 @@ function renderTimesheetPayRun() {
         chart.innerHTML = `<span class="ts-run-target" aria-hidden="true"><span>8h</span></span><span class="ts-run-sel is-instant" aria-hidden="true"></span>` + weeks.map(week => `
             <div class="ts-run-week">
                 <div class="ts-run-bars">
-                    ${week.map(d => `<button type="button" class="ts-bar" data-iso="${tsIso(d)}" onclick="selectTimesheetDate('${tsIso(d)}')"><span class="ts-bar-fill"></span></button>`).join('')}
+                    ${week.map(d => `<button type="button" class="ts-bar" data-iso="${tsIso(d)}" onclick="openTimesheetDay('${tsIso(d)}')"><span class="ts-bar-fill"></span></button>`).join('')}
                 </div>
                 <span class="ts-run-label" data-iso="${tsIso(week[0])}">${tsRangeLabel(week[0]).split(' – ')[0]}</span>
             </div>`).join('');
@@ -481,7 +507,61 @@ function renderTimesheetPayRun() {
     const selMonday = tsIso(getMondayForDate(tsSelectedDate()));
     chart.querySelectorAll('.ts-run-label').forEach(l => l.classList.toggle('is-active', l.dataset.iso === selMonday));
 
-    document.getElementById('ts-run-foot').innerHTML = tsRunFootHtml(sum);
+    document.getElementById('ts-run-foot').innerHTML = tsRunFootHtml(sum, start);
+    renderTimesheetRunDays(start);
+    renderTimesheetRunCodes(start);
+}
+
+// ----- Pay Run lists: the days (tap to open one) and hours by cost code -----
+function renderTimesheetRunDays(start) {
+    const list = document.getElementById('ts-run-days');
+    if (!list) return;
+    // The workdays, plus any weekend day that was worked
+    const days = [];
+    for (let i = 0; i < TIMESHEET_CONFIG.payRunLengthDays; i++) {
+        const d = tsAddDays(start, i);
+        if (!tsIsWeekend(d) || timesheetState.records[tsIso(d)]) days.push(d);
+    }
+    list.innerHTML = days.map(d => {
+        const iso = tsIso(d), rec = timesheetState.records[iso], status = tsDayStatus(d);
+        const site = getSiteById(rec ? rec.siteId : tsRosterSite(d));
+        const sub = rec ? `${site ? site.shortName + ' · ' : ''}${rec.approval === 'approved' ? 'Approved' : 'Awaiting sign-off'}`
+            : site ? site.shortName : '';
+        const value = rec ? `<span class="ts-list-value">${tsFormatHours(rec.totalHours)}</span>`
+            : status === 'missing' ? '<span class="ts-list-value is-missing">Not logged</span>'
+            : status === 'today' ? '<span class="ts-list-value">Today</span>'
+            : '<span class="ts-list-value is-muted">Upcoming</span>';
+        const open = status !== 'upcoming' && status !== 'none';
+        const label = `${tsShortDate(d)}${sub ? ', ' + sub : ''}: ${rec ? tsFormatHours(rec.totalHours) : status === 'missing' ? 'not logged' : status}`;
+        return `<button type="button" class="ts-list-row${status === 'missing' ? ' is-missing' : ''}" ${open ? `onclick="openTimesheetDay('${iso}')"` : 'disabled'} aria-label="${tsEscape(label)}">
+                <span class="ts-list-text"><span class="ts-list-title">${tsShortDate(d)}</span>${sub ? `<span class="ts-list-sub">${tsEscape(sub)}</span>` : ''}</span>
+                ${value}
+                ${open ? '<i class="ph-bold ph-caret-right ts-chev" aria-hidden="true"></i>' : '<span class="ts-chev-space" aria-hidden="true"></span>'}
+            </button>`;
+    }).join('');
+}
+function renderTimesheetRunCodes(start) {
+    const list = document.getElementById('ts-run-codes'), group = document.getElementById('ts-run-codes-group');
+    if (!list || !group) return;
+    const byCode = {};
+    for (let i = 0; i < TIMESHEET_CONFIG.payRunLengthDays; i++) {
+        const rec = timesheetState.records[tsIso(tsAddDays(start, i))];
+        if (rec) rec.blocks.forEach(b => {
+            const row = byCode[b.code] || (byCode[b.code] = { code: b.code, title: b.title.replace(/ · PS$/, ''), hours: 0 });
+            row.hours += b.netHours;
+        });
+    }
+    const rows = Object.values(byCode).sort((a, b) => b.hours - a.hours);
+    group.hidden = !rows.length;
+    const max = rows.length ? rows[0].hours : 1;
+    list.innerHTML = rows.map(r => `
+        <div class="ts-list-row ts-code-row">
+            <span class="ts-list-text">
+                <span class="ts-list-title"><b>${tsEscape(r.code)}</b> · ${tsEscape(r.title)}</span>
+                <span class="ts-code-bar" aria-hidden="true"><span style="width:${Math.max(4, (r.hours / max) * 100).toFixed(1)}%"></span></span>
+            </span>
+            <span class="ts-list-value">${tsFormatHours(r.hours)}</span>
+        </div>`).join('');
 }
 // Scale: the top is 10h, or the longest day if longer, so overtime days are never clipped
 function tsRunMaxHours(workdays) {
@@ -493,11 +573,15 @@ function tsRunBarState(iso, maxHours = 10) {
     const partial = rec && rec.totalHours < TIMESHEET_CONFIG.targetHours;
     return { cls: `is-${status}${partial ? ' is-partial' : ''}`, h: rec ? Math.max(0.06, rec.totalHours / maxHours).toFixed(3) : '0' };
 }
-function tsRunFootHtml(sum) {
-    const hrs = (Math.round(sum.hours * 10) / 10).toFixed(1);
-    return sum.eligible
-        ? `<b>${sum.logged} / ${sum.eligible}</b> days logged · <b>${hrs}</b> hrs total`
-        : `<b>${sum.workdays}</b> workdays ahead · <b>${hrs}</b> hrs logged`;
+// The current run also says when it closes (its last day): amber while it has a gap
+function tsRunFootHtml(sum, start) {
+    const hrs = tsFormatNumber(sum.hours);
+    const text = sum.eligible
+        ? `<b>${sum.logged} of ${sum.eligible}</b> days logged · <b>${hrs}</b> hrs`
+        : `<b>${sum.workdays}</b> workdays ahead`;
+    const closing = start && tsDayDiff(start, tsToday()) >= 0 ? tsRunClosing(start) : null;
+    const closes = closing && !closing.past ? closing.text.replace(/^c/, 'C') : '';
+    return `<span>${text}</span>${closes ? `<span class="ts-run-closes${sum.gaps.length ? ' is-due' : ''}">${closes}</span>` : ''}`;
 }
 // A static copy of a run's chart and footer (no ids, no handlers): the neighbouring fortnight that rides
 // alongside while the Pay Run card is swiped
@@ -510,7 +594,7 @@ function tsRunPreviewHtml(start) {
             ${weeks.map(week => `<div class="ts-run-week"><div class="ts-run-bars">${week.map(bar).join('')}</div>
                 <span class="ts-run-label">${tsRangeLabel(week[0]).split(' – ')[0]}</span></div>`).join('')}
         </div>
-        <p class="ts-run-foot">${tsRunFootHtml(tsRunSummary(start))}</p>`;
+        <p class="ts-run-foot">${tsRunFootHtml(tsRunSummary(start), start)}</p>`;
 }
 
 // ----- Day card: the selected day's site, status and submitted blocks -----
@@ -537,7 +621,7 @@ function tsDaySite(iso) {
 function renderTimesheetDay() {
     const iso = timesheetState.selected, d = tsFromIso(iso);
     const status = tsDayStatus(d), rec = timesheetState.records[iso];
-    document.getElementById('ts-day-date').textContent = tsShortDate(d).toUpperCase();
+    document.getElementById('ts-day-date').textContent = tsShortDate(d);
 
     const pill = document.getElementById('ts-day-status');
     if (rec) {
@@ -556,6 +640,11 @@ function renderTimesheetDay() {
     document.getElementById('ts-day-site-address').textContent = site ? tsSiteAddressLine(site) : 'Not rostered this day';
     document.getElementById('ts-day-site-name').classList.toggle('is-empty', !site);
     tsSiteBadge(document.getElementById('ts-day-site-badge'), daySite.siteId, daySite.type);
+    // The card reads as plain text in sentence case ("Rostered · Awaiting sign-off"); the sheet keeps its pills
+    ['ts-day-site-badge', 'ts-day-status'].forEach(id => {
+        const el = document.getElementById(id), t = el.textContent;
+        el.textContent = t.charAt(0) + t.slice(1).toLowerCase();
+    });
 
     document.getElementById('ts-day-draft').hidden = !tsIsDirty(iso);
 
@@ -608,21 +697,32 @@ function renderTimesheetCta() {
     const iso = timesheetState.selected, rec = timesheetState.records[iso];
     const btn = document.getElementById('ts-cta');
     if (!btn) return;
-    const dirty = tsIsDirty(iso);
-    // Logged day: dark glass + pencil (Edit Hours). Unlogged day: dark glass, emerald rim + mint plus (Log Hours for <date>).
-    // A day with unsaved changes keeps the pencil (Continue Editing).
-    const edit = !!(dirty || rec);
-    btn.classList.toggle('is-primary', !edit);
-    btn.classList.toggle('is-glass', edit);
-    const icon = document.getElementById('ts-cta-icon');
-    const cls = edit ? 'ph-bold ph-pencil-simple' : 'ph-bold ph-plus';
-    if (icon.className !== cls) {
-        icon.className = cls;
-        icon.classList.remove('is-swap'); void icon.offsetWidth; icon.classList.add('is-swap');   // a small pop on change
-    }
-    const label = dirty ? 'Continue Editing' : rec ? 'Edit Hours' : `Log Hours for ${tsShortDate(tsFromIso(iso))}`;
+    // In the bar (Health's Add Data): a plus to log an unlogged day, a pencil to edit a logged day or carry on
+    // with unsaved changes. The glyphs morph on .is-edit (timesheets.css). Pay Run view has no day to act on.
+    btn.hidden = timesheetState.mode !== 'day';
+    const dirty = tsIsDirty(iso), edit = !!(dirty || rec);
+    btn.classList.toggle('is-edit', edit);
+    const label = dirty ? 'Continue editing' : rec ? 'Edit hours' : `Log hours for ${tsShortDate(tsFromIso(iso))}`;
     btn.setAttribute('aria-label', label);
     btn.title = label;
+}
+
+// ----- Missing days row (Day view): the run's gaps other than the day on screen -----
+function tsOtherGaps() {
+    return tsRunGaps(tsSelectedRunStart()).filter(d => tsIso(d) !== timesheetState.selected);
+}
+function renderTimesheetGapRow() {
+    const row = document.getElementById('ts-gap-row');
+    if (!row) return;
+    const gaps = tsOtherGaps();
+    row.hidden = !gaps.length;
+    if (!gaps.length) return;
+    const title = gaps.length === 1 ? `${tsDayName(gaps[0])} isn't logged` : `${gaps.length} days aren't logged`;
+    const closing = tsRunClosing(tsSelectedRunStart());
+    document.getElementById('ts-gap-title').textContent = title;
+    document.getElementById('ts-gap-sub').textContent = `Pay run ${closing.text}`;
+    row.classList.toggle('is-urgent', !closing.past && closing.left <= 1);
+    row.setAttribute('aria-label', `${title}. Pay run ${closing.text}. Show ${gaps.length === 1 ? 'it' : 'the earliest'}`);
 }
 
 // ----- Sheet (the editor) -----
@@ -845,11 +945,6 @@ function syncTimesheetCrewDrawer() {
     document.getElementById('ts-crew-drawer-inner').inert = !open;
     document.getElementById('ts-crew-link').setAttribute('aria-expanded', String(open));
     document.getElementById('ts-crew-link-label').textContent = open ? 'Hide crew logs' : 'See crew logs for this day';
-    const navBtn = document.getElementById('ts-nav-crew');
-    if (navBtn) {
-        navBtn.classList.toggle('is-active', open);
-        navBtn.setAttribute('aria-expanded', String(open));
-    }
 }
 
 // The crew drawer is one element: in the day card, or inside the sheet while it is open
@@ -862,6 +957,7 @@ function tsPlaceCrewSection() {
 function renderTimesheets() {
     renderTimesheetTitle();
     renderTimesheetStrip();
+    renderTimesheetGapRow();
     renderTimesheetHero();
     renderTimesheetPayRun();
     renderTimesheetDay();
@@ -885,7 +981,7 @@ function selectTimesheetDate(iso, opts = {}) {
     if (iso === heading) return;
     triggerHaptic('light');
     if (!opts.fromStrip) tsCenterStripDay(iso);
-    if (tsCanSlideDays()) tsStartTransition(iso);
+    if (tsCanSlideDays() && timesheetState.mode === 'day') tsStartTransition(iso);
     else { tsAbortTransition(); tsCommitDay(iso); }
 }
 // Make `iso` the selected day and render it (the ring eases on from the previous day's value)
@@ -916,10 +1012,38 @@ function shiftTimesheetPayRun(dir) {
     const inRun = tsDayDiff(start, today) >= 0 && tsDayDiff(start, today) < TIMESHEET_CONFIG.payRunLengthDays;
     selectTimesheetDate(tsIso(inRun ? today : tsRunWorkdays(start)[0]));
 }
-// The gap badge: jump to the earliest missing workday of the shown run
+// The gap row / badge: open the earliest missing workday of the shown run (other than the one on screen)
 function jumpToTimesheetGap() {
-    const gap = tsRunGaps(tsSelectedRunStart())[0];
-    if (gap) selectTimesheetDate(tsIso(gap));
+    const gap = timesheetState.mode === 'day' ? tsOtherGaps()[0] : tsRunGaps(tsSelectedRunStart())[0];
+    if (gap) openTimesheetDay(tsIso(gap));
+}
+
+// ----- Day | Pay Run -----
+function setTimesheetMode(mode) {
+    if (mode !== 'day' && mode !== 'run') return;
+    const view = document.getElementById('view-time');
+    if (timesheetState.mode !== mode) triggerHaptic('light');
+    tsAbortTransition();
+    timesheetState.mode = mode;
+    if (view) view.dataset.mode = mode;
+    setActiveFilterPill(document.getElementById(`ts-mode-${mode}`));
+    renderTimesheets();
+    // What was hidden has no layout until now: place the strip and the chart outline once it shows
+    requestAnimationFrame(() => {
+        if (mode === 'day') { tsPlaceStripPill(true); tsCenterStripDay(timesheetState.selected, 'auto'); }
+        else tsPlaceRunOutline(true);
+    });
+}
+// A day from Pay Run (list row, bar, gap): show it in Day view
+function openTimesheetDay(iso) {
+    if (timesheetState.mode !== 'day') {
+        triggerHaptic('light');
+        tsCommitDay(iso);
+        setTimesheetMode('day');
+        document.getElementById('view-time').scrollTo({ top: 0 });
+        return;
+    }
+    selectTimesheetDate(iso);
 }
 // The next started workday with nothing submitted in the same run, other than `iso` (earliest first)
 function tsNextUnlogged(iso) {
@@ -1254,6 +1378,9 @@ function resetTimeView() {
     Object.keys(timesheetState.drafts).forEach(tsDropCleanDraft);
     tsAbortTransition();
     timesheetState.selected = tsIso(tsToday());
+    timesheetState.mode = 'day';
+    document.getElementById('view-time').dataset.mode = 'day';
+    setActiveFilterPill(document.getElementById('ts-mode-day'));
     timesheetState.crewOpen = false;
     tsPageCrewOpen = false;
     timesheetState.sitePickerOpen = false;

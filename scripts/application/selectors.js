@@ -86,7 +86,7 @@ function getRosteredSiteId(date, employeeId = getCurrentEmployeeId()) {
     const entry = getRosterEntry(date, employeeId);
     return entry ? entry.siteId : null;
 }
-// Everyone rostered to a site on a date
+// Everyone rostered to a site on a date, including split days with a stint there
 function getRosterForSite(date, siteId) {
     const iso = DateRules.toIso(date);
     return appStore.get('roster').filter(e => e.date === iso
@@ -208,7 +208,15 @@ function getScheduleTrades() { return appStore.get('scheduleTrades'); }
 function getScheduleTrade(id) { return getScheduleTrades().find(t => t.id === id) || { id, name: 'Other', color: '#8E8E93' }; }
 // The site's milestones by due day, the one to work towards, and the next booking from a day ('YYYY-MM-DD')
 function getSiteMilestones(siteId) { return ScheduleRules.milestones(getScheduleTasks(siteId)); }
-function getUpcomingMilestone(siteId) { return siteId ? ScheduleRules.upcomingMilestone(getScheduleTasks(siteId)) : null; }
+// A milestone completed today (by the real clock, as its ticks are stamped) stays upcoming until the day ends
+function getUpcomingMilestone(siteId) { return siteId ? ScheduleRules.upcomingMilestone(getScheduleTasks(siteId), DateRules.toIso(new Date())) : null; }
+// The stage a site is in: the milestone it's working towards, from its schedule. A site with no milestones (or
+// all of them done) falls back to the stage stored on the site.
+function getSiteStage(siteId) {
+    const site = siteId ? getSiteById(siteId) : null;
+    const ms = getUpcomingMilestone(siteId);
+    return ms && !ScheduleRules.isComplete(ms) ? ms.title : (site && site.stage) || '';
+}
 function getNextOnSite(siteId, fromIso) { return siteId ? ScheduleRules.nextOnSite(getScheduleTasks(siteId), fromIso) : null; }
 function subscribeSchedule(fn) { return appStore.subscribe(() => fn(), ['scheduleTasks', 'scheduleTrades', 'sites']); }
 

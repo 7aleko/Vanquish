@@ -41,7 +41,7 @@ const LIFESTYLE_CHATS = [
     },
     {
         id: 'chat-bondi',
-        name: 'Bondi Site Crew',
+        name: 'Bondi',
         role: '350 Bondi Rd',
         category: 'channel',
         isSite: true,
@@ -77,7 +77,7 @@ const LIFESTYLE_CHATS = [
     },
     {
         id: 'chat-lugarno',
-        name: 'Lugarno Site Crew',
+        name: 'Lugarno',
         role: '935 Forest Rd',
         category: 'channel',
         isSite: true,

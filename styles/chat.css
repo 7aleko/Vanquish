@@ -21,6 +21,8 @@
     overflow: hidden;
 }
 .chat-pinned[hidden] { display: none; }
+/* The company channel's orb glows softly in the inbox, like Poppy's, so the main group chat stands out */
+.chat-row .role-avatar--company { box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.24), 0 0 14px rgba(34, 229, 98, 0.28); }
 
 /* One conversation: avatar, then two lines (name + time; latest message + unread count) */
 .chat-row {

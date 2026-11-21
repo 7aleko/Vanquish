@@ -39,10 +39,10 @@ const ScheduleRules = (() => {
         const done = c.filter(x => x.done).length;
         return { done, total: c.length, ratio: c.length ? done / c.length : 0 };
     }
-    // ready (all ticked) > overdue (finished, not ready) > at risk (3 days or less away) > on track
+    // ready (all ticked; reads "Complete") > overdue (finished, not ready) > at risk (3 days or less away) > on track
     function milestoneStatus(task, todayIso) {
         const p = progress(task);
-        if (p.total && p.done === p.total) return { key: 'ready', label: 'Ready' };
+        if (p.total && p.done === p.total) return { key: 'ready', label: 'Complete' };
         if (days(todayIso, task.endDate) < 0) return { key: 'overdue', label: 'Overdue' };
         if (days(todayIso, task.startDate) <= 3) return { key: 'risk', label: 'At risk' };
         return { key: 'track', label: 'On track' };
@@ -60,11 +60,20 @@ const ScheduleRules = (() => {
     // A site's milestones, in the order they fall due
     function milestones(tasks) { return (tasks || []).filter(t => t.milestone).slice().sort(byDate); }
     function isComplete(task) { const p = progress(task); return p.total > 0 && p.done === p.total; }
+    // The local day ('YYYY-MM-DD') a complete milestone was completed: its last tick. Not complete: null.
+    function completedOn(task) {
+        if (!isComplete(task)) return null;
+        const last = (task.checklist || []).reduce((m, x) => (x.doneAt && x.doneAt > m ? x.doneAt : m), '');
+        if (!last) return null;
+        const d = new Date(last);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
     // The milestone to work towards: the first (by due day) whose checklist isn't complete - an overdue one comes
-    // first. All complete: the last one. None: null.
-    function upcomingMilestone(tasks) {
+    // first. Given `todayIso`, one completed today stays upcoming for the rest of the day, so its win is seen
+    // before the next takes its place. All complete: the last one. None: null.
+    function upcomingMilestone(tasks, todayIso) {
         const list = milestones(tasks);
-        return list.find(t => !isComplete(t)) || list[list.length - 1] || null;
+        return list.find(t => !isComplete(t) || (todayIso && completedOn(t) === todayIso)) || list[list.length - 1] || null;
     }
     // The next booking (not a milestone) starting on or after today, earliest first
     function nextOnSite(tasks, todayIso) {
@@ -85,5 +94,5 @@ const ScheduleRules = (() => {
     }
 
     return Object.freeze({ TEMPLATES, template, guessTemplate, span, progress, milestoneStatus, dueLabel,
-        milestones, isComplete, upcomingMilestone, nextOnSite, onDay, phases });
+        milestones, isComplete, completedOn, upcomingMilestone, nextOnSite, onDay, phases });
 })();

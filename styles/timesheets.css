@@ -29,8 +29,6 @@
 #view-time {
     padding-left: 16px;
     padding-right: 16px;
-    /* The floating button rests 28px above the bottom; with its 56px and the 16px above it, the last card
-       always scrolls fully clear of it (~100px of runway) */
     padding-bottom: calc(28px + var(--safe-bottom, 0px));
     /* A faint emerald light behind the ring, so the glass cards have something to refract */
     background:
@@ -57,12 +55,111 @@
 #view-time [hidden],
 .ts-sheet-overlay [hidden] { display: none !important; }
 
-/* Bar: the Crew button is the same round glass action as Roster's; tinted emerald while the crew drawer is open */
-#app-top-bar.on-dark #ts-nav-crew.is-active {
-    background: rgba(30, 215, 150, 0.16);
-    box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.45), 0 0 16px -2px var(--ts-glow);
-    color: var(--ts-mint);
+/* Bar action (Health's Add Data): the round glass action, a mint plus with a fine emerald rim on an unlogged
+   day, a white pencil on a logged one. Both glyphs share the centre: the outgoing one spins a quarter turn
+   away, shrinks and blurs out; the incoming one spins in from the other side and settles with a slight
+   overshoot, while the rim fades between emerald and glass. */
+.ts-nav-cta { position: relative; display: grid; place-items: center; }
+.ts-nav-cta[hidden] { display: none; }
+#app-top-bar.on-dark .ts-nav-cta {
+    transition: background-color 160ms ease, transform 160ms var(--ease-out), box-shadow 320ms ease, color 320ms ease;
 }
+#app-top-bar.on-dark .ts-nav-cta:not(.is-edit) { color: #1ED796; box-shadow: inset 0 0 0 1px rgba(30, 215, 150, 0.45); }
+.ts-cta-glyph {
+    grid-area: 1 / 1;
+    font-size: 20px;
+    line-height: 1;
+    transition: opacity 180ms ease, transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1), filter 220ms ease;
+}
+.ts-cta-glyph--add { font-size: 19px; }
+.ts-cta-glyph--edit { opacity: 0; transform: rotate(-90deg) scale(0.5); filter: blur(3px); }
+.ts-nav-cta.is-edit .ts-cta-glyph--add { opacity: 0; transform: rotate(90deg) scale(0.5); filter: blur(3px); }
+.ts-nav-cta.is-edit .ts-cta-glyph--edit { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ts-cta-glyph { transition: opacity 160ms ease; transform: none !important; filter: none !important; }
+}
+
+/* Day | Pay Run: elements marked data-ts-mode show only in their mode */
+#view-time[data-mode="day"] [data-ts-mode="run"],
+#view-time[data-mode="run"] [data-ts-mode="day"] { display: none !important; }
+#view-time > .ts-mode-bar { margin-top: 4px; }
+
+/* Missing days row (Settings' "Finish Setting Up"): glass row, amber only on the icon */
+.ts-gap-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    color: #fff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--dur-press, 120ms) var(--ease-out, ease-out), background-color 160ms ease;
+}
+.ts-gap-row:active { scale: 0.98; background: rgba(255, 255, 255, 0.07); }
+.ts-gap-icon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(251, 191, 36, 0.16);
+    color: var(--ts-amber);
+    font-size: 19px;
+}
+.ts-gap-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ts-gap-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.ts-gap-sub { font-size: 13px; font-weight: 500; color: var(--ts-muted); }
+.ts-gap-row.is-urgent .ts-gap-sub { color: var(--ts-amber); }
+.ts-chev { flex-shrink: 0; font-size: 13px; color: rgba(235, 235, 245, 0.3); }
+
+/* Pay Run lists: inset grouped (iOS), a sentence-case header above each card */
+.ts-list-group { display: flex; flex-direction: column; gap: 6px; }
+.ts-list-head { margin: 8px 0 0; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--ts-muted); }
+.ts-list { overflow: hidden; }
+.ts-list-row {
+    position: relative;
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+}
+button.ts-list-row:not(:disabled) { cursor: pointer; }
+button.ts-list-row:not(:disabled):active { background: rgba(255, 255, 255, 0.06); }
+.ts-list-row + .ts-list-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 14px;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+}
+.ts-list-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ts-list-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-list-title b { font-weight: 700; }
+.ts-list-sub { font-size: 13px; font-weight: 500; color: var(--ts-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ts-list-value { flex-shrink: 0; font-size: 15px; font-weight: 600; color: #fff; }
+.ts-list-value.is-missing { color: var(--ts-amber); }
+.ts-list-value.is-muted { color: var(--ts-muted); }
+.ts-list-row:disabled { opacity: 1; cursor: default; }
+.ts-chev-space { width: 9px; flex-shrink: 0; }
+/* Hours by cost code: a thin bar per code (Screen Time's categories) */
+.ts-code-row .ts-list-value { min-width: 48px; text-align: right; }
+.ts-code-bar { display: block; height: 4px; margin-top: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.ts-code-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #128A63, #1ED796); }
 #app-top-bar[data-mode="nav"] .nav-inline-title { font-variant-numeric: tabular-nums; }
 
 /* ---------- Day strip (Apple Fitness): six weeks in one horizontally scrolling row, paged by week.
@@ -177,6 +274,7 @@
 
 /* ---------- Daily ring ---------- */
 .ts-hero { display: flex; justify-content: center; padding: 0; }
+
 .ts-hero-ring { position: relative; width: 196px; height: 196px; }
 .ts-hero-ring svg { width: 100%; height: 100%; overflow: visible; }
 .ts-hero-track { fill: none; stroke: var(--ts-ring-track-idle); stroke-width: 40; }
@@ -267,8 +365,8 @@
 .ts-run { padding: 12px 14px 14px; touch-action: pan-y; overflow: hidden; }   /* horizontal swipe pages the run */
 .ts-run-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .ts-run-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ts-run-nav { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 4px; }
-.ts-run-range { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; color: #fff; }
+.ts-run-nav { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ts-run-range { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; color: #fff; }
 .ts-run-chev {
     position: relative;
     flex-shrink: 0;
@@ -291,6 +389,7 @@
 .ts-run-chev:disabled { color: rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.025); cursor: default; }
 .ts-run-badge {
     flex-shrink: 0;
+    text-transform: none;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -299,9 +398,9 @@
     border: 0;
     border-radius: 9999px;
     font: inherit;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
     white-space: nowrap;
     -webkit-tap-highlight-color: transparent;
     transition: scale var(--dur-press) var(--ease-out);
@@ -346,7 +445,9 @@
 .ts-run-bars { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; height: var(--bars-h); }
 .ts-run-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--ts-muted); text-align: center; }
 .ts-run-label.is-active { color: #fff; font-weight: 800; }
-.ts-run-foot { margin: 12px 0 0; font-size: 13px; font-weight: 500; color: var(--ts-muted); }
+.ts-run-foot { margin: 12px 0 0; display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 500; color: var(--ts-muted); }
+.ts-run-closes { flex-shrink: 0; font-weight: 600; }
+.ts-run-closes.is-due { color: var(--ts-amber); }
 .ts-run-foot b { font-weight: 700; color: #fff; }
 
 /* Each bar is a full-height button, so the whole column is the tap target */
@@ -411,13 +512,31 @@
 }
 .ts-day-card > * + * { margin-top: 14px; }
 .ts-day-head { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
-.ts-day-date { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--ts-muted); }
+.ts-day-date { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--ts-muted); }
 /* The full site name: wraps onto a second line rather than truncating */
 .ts-day-site-name { max-width: 100%; font-size: 24px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; color: #fff; overflow-wrap: anywhere; }
 .ts-day-site-name.is-empty { color: rgba(255, 255, 255, 0.45); }
 .ts-day-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+/* In the day card the site's assignment and the day's status are one line of plain grey text, sentence case
+   ("Rostered · Awaiting sign-off"); colour only where it means something (missing amber, approved green) */
+.ts-day-pills { gap: 0; margin-top: 2px; }
 .ts-day-pills .ts-site-badge,
-.ts-day-pills .ts-status-pill { height: 24px; font-size: 10.5px; }
+.ts-day-pills .ts-status-pill {
+    display: inline-block;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    background: none !important;
+    box-shadow: none !important;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ts-muted) !important;
+}
+.ts-day-pills .ts-site-badge:not([hidden]) + .ts-status-pill::before { content: "\00a0·\00a0"; }
+.ts-day-pills .ts-status-pill.is-missing { color: var(--ts-amber) !important; }
+.ts-day-pills .ts-status-pill.is-approved { color: var(--ts-mint) !important; }
 .ts-day-site-address { max-width: 100%; margin-top: 4px; font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--ts-muted); overflow-wrap: anywhere; }
 .ts-day-empty {
     padding: 18px 12px;
@@ -688,56 +807,6 @@
 .ts-sum-task { font-size: 13px; line-height: 1.4; color: var(--ts-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ts-summary-total { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
 .ts-summary-total-value { font-size: 18px; font-weight: 800; color: #fff; }
-
-/* ---------- Floating action button: 56px circle, bottom right ----------
-   Sticky (not fixed) so it travels with the screen when it slides; the wrap is the column's last item, so at
-   the end of the scroll the button sits below the last card and nothing is left under it. */
-.ts-cta-wrap {
-    position: sticky;
-    bottom: 0;                                /* sticky insets from the view's padding edge: 28px + safe area */
-    z-index: 40;
-    margin-top: auto !important;
-    padding-top: 16px;
-    display: flex;
-    justify-content: flex-end;
-    padding-right: 4px;                       /* 16px gutter + 4px = 20px from the screen edge */
-    pointer-events: none;
-}
-.ts-cta {
-    pointer-events: auto;
-    position: relative;
-    isolation: isolate;
-    width: 56px;
-    height: 56px;
-    display: grid;
-    place-items: center;
-    padding: 0;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: #fff;
-    background: rgba(20, 24, 22, 0.85);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-            backdrop-filter: blur(20px) saturate(160%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 28px -8px rgba(0, 0, 0, 0.85);
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: scale var(--dur-press) var(--ease-out), border-color 260ms ease, color 260ms ease;
-}
-.ts-cta i { font-size: 24px; line-height: 1; }
-.ts-cta i.is-swap { animation: ts-cta-swap 260ms var(--ease-out); }
-@keyframes ts-cta-swap { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
-.ts-cta:active { scale: 0.92; }
-.ts-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-/* Unlogged day: the same dark smoked glass as the Edit state, set apart only by a fine emerald rim and a mint
-   plus (no green fill, no neon glow) */
-.ts-cta.is-primary {
-    border-color: rgba(30, 215, 150, 0.4);
-    color: var(--ts-mint);
-}
-.ts-cta.is-primary i { font-size: 22px; }
-@media (prefers-reduced-motion: reduce) {
-    .ts-cta i.is-swap { animation: none; }
-}
 
 /* ---------- Timesheet sheet ---------- */
 .ts-sheet-overlay {

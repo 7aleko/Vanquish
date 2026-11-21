@@ -56,14 +56,13 @@
 }
 .role-avatar--poppy canvas { width: 100%; height: 100%; display: block; border-radius: inherit; }
 
-/* Channels and sites: a muted icon on graphite glass (lime stays for active / primary), in a squircle -
-   groups are squircles, people are circles. 27% = 12px at the 44px list size, in proportion at others. */
-.role-avatar--icon {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.05) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #C7CDD6;
-}
-.role-avatar--squircle { border-radius: 27%; }
+/* Channels and sites: a white icon in the same dark-glass orb as a person, so every avatar in a list reads
+   as one family. The glow says what kind of group it is: the company channel in the signature emerald,
+   sites in steel. */
+.role-avatar--icon { color: #fff; }
+.role-avatar--icon i { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.role-avatar--company { --role-gradient: linear-gradient(180deg, #0A110E 20%, #0D4A38 65%, #22E562 100%); }
+.role-avatar--site { --role-gradient: linear-gradient(180deg, #101215 25%, #3F4A5A 75%, #A9B4C4 100%); }
 .role-avatar--icon i { font-size: var(--avatar-icon, 18px); line-height: 1; }   /* per size, above */
 
 /* Status dot, lower right, ringed in the page colour so it reads on any background. Poppy everywhere; a
@@ -80,6 +79,7 @@
     background: #64748B;
 }
 .role-avatar-status.is-online { background: #22C55E; }
+.role-avatar-status.is-ai { background: #4BEA82; }
 
 /* Overlapping avatar stack (a Roster split day's stint crew). Each later avatar sits on top with a soft
    shadow onto the one before it, as on the Home site card. */
@@ -88,4 +88,3 @@
     margin-left: -6px;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.24);
 }
-.role-avatar-status.is-ai { background: #4BEA82; }

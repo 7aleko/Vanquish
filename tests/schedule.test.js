@@ -47,6 +47,11 @@ test('schedule views: upcoming milestone follows the checklist; next on site; st
     tasks = env.store.get('scheduleTasks').filter(t => t.siteId === 'lugarno');
     assert.equal(R.progress(tasks.find(t => t.id === lockup.id)).done, 10);
     assert.equal(R.upcomingMilestone(tasks).title, 'Pre-Sheet & Insulation');
+    // ...but completed today, it stays upcoming until the day ends
+    const doneDay = R.completedOn(tasks.find(t => t.id === lockup.id));
+    assert.match(doneDay, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(R.upcomingMilestone(tasks, doneDay).title, 'Lock-Up Stage');
+    assert.equal(R.upcomingMilestone(tasks, '2099-01-01').title, 'Pre-Sheet & Insulation');
     // every milestone complete: the last one stays upcoming
     assert.equal(R.upcomingMilestone([{ milestone: true, endDate: '2026-01-01', checklist: [{ done: true }] }]).endDate, '2026-01-01');
     assert.equal(R.upcomingMilestone([]), null);

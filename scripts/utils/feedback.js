@@ -8,6 +8,7 @@ function triggerHaptic(type = 'light') {
         if (type === 'light') navigator.vibrate(10);
         else if (type === 'medium') navigator.vibrate(18);
         else if (type === 'success') navigator.vibrate([10, 40, 10]);
+        else if (type === 'heavy') navigator.vibrate(28);
     }
 }
 

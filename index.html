@@ -153,7 +153,7 @@
                         <button type="button" aria-label="Sync Site" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Site', 'Sites, crew & field ops synced with Procore')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
                     </div>
                     <div class="nav-actions-group" data-view="schedule" hidden>
-                        <button type="button" aria-label="Add a booking" title="Add a booking" class="top-bar-icon nav-action" onclick="openScheduleEdit(null, scheduleUi.sel)"> <i class="ph-bold ph-plus" aria-hidden="true"></i> </button>
+                        <button type="button" aria-label="Sync Schedule" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Schedule', 'Schedule synced with Procore')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
                     </div>
                     <div class="nav-actions-group" data-view="chat" hidden>
                         <button onclick="openNewMessageModal()" aria-label="New message" title="New conversation" class="top-bar-icon nav-action"> <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> </button>
@@ -162,7 +162,11 @@
                         <button aria-label="Refresh Team" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Team', 'Syncing team...')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i> </button>
                     </div>
                     <div class="nav-actions-group" data-view="time" hidden>
-                        <button type="button" id="ts-nav-crew" class="top-bar-icon nav-action" onclick="toggleTimesheetCrew(true)" aria-label="Crew logs for this day" title="Crew" aria-controls="ts-crew-drawer" aria-expanded="false"> <i class="ph-bold ph-users-three" aria-hidden="true"></i> </button>
+                        <!-- Log (plus, unlogged day) / Edit (pencil, logged day): the two glyphs morph (timesheets.css) -->
+                        <button type="button" id="ts-cta" class="top-bar-icon nav-action ts-nav-cta" onclick="onTimesheetCta()" aria-label="Log hours" title="Log hours">
+                            <i class="ts-cta-glyph ts-cta-glyph--add ph-bold ph-plus" aria-hidden="true"></i>
+                            <i class="ts-cta-glyph ts-cta-glyph--edit ph-bold ph-pencil-simple" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <div class="nav-actions-group" data-view="tools" hidden>
                         <button aria-label="Refresh Tools" class="top-bar-icon nav-action" onclick="triggerAppleRefresh(this, 'Tools', 'Asset sync complete')"> <i class="fa-solid fa-rotate" aria-hidden="true"></i> </button>
@@ -177,7 +181,6 @@
      checklists, then the next 14 days of trades and deliveries), 2-Week Plan (a Gantt of the fortnight) and Month
      (calendar, legend, the chosen day and the month's key dates). Same site and records as the Site Hub. -->
 <main id="view-schedule" data-bar-title="Schedule" class="view-section schedule hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full" aria-label="Schedule">
-    <p class="sch-context"><i class="ph-fill ph-map-pin" aria-hidden="true"></i><span id="sch-site-line"></span><span id="sch-stage" class="sch-stage"></span></p>
 
     <!-- Overview | 2-Week Plan | Month: one glass segment slides to the chosen view -->
     <div id="sch-seg" class="sch-seg" role="tablist" aria-label="Schedule view">
@@ -195,6 +198,12 @@
     </div>
 
     <div id="sch-body" class="sch-body" role="tabpanel" aria-live="polite"></div>
+
+    <!-- New booking: the Site Hub's emerald +, sticky bottom-right. One action, so no menu: it opens the booking
+         form on the chosen day (today on the Overview; the tapped day in Month), where Milestone is a switch. -->
+    <div class="sh-fab-wrap sch-fab-wrap">
+        <button type="button" id="sch-fab" class="sh-fab" onclick="openScheduleEdit(null, scheduleUi.sel)" aria-label="New booking"><i class="ph-bold ph-plus" aria-hidden="true"></i></button>
+    </div>
 </main>
         <!-- ================= VIEW 1: HOME TAB ================= -->
 <main id="view-home" class="view-section flex-1 overflow-y-auto no-scrollbar px-4 py-2 space-y-4 pb-8">
@@ -543,21 +552,20 @@
             </div>
             <div id="sh-switch-scrim" class="sh-switch-scrim" onclick="closeSiteSwitcher()" hidden></div>
 
-            <!-- Site identity, on the page itself: the name (= site switcher) and its street address (Maps) on the left,
-                 today's weather on the right. Site Access is the key in the top bar. -->
+            <!-- Site identity, on the page itself: the site's name and street address on the left - one touch target,
+                 the site switcher - and today's weather on the right. Site Access is the key in the top bar. -->
             <header id="sh-hero" class="sh-head sh-swap" aria-label="Site">
                 <div class="sh-hero-top">
-                    <div class="sh-hero-id">
-                        <!-- The large title, as on every screen: here it's the site's name (and the switcher); it collapses
-                             into the bar's inline title on scroll -->
+                    <div class="sh-hero-id sh-site-id" onclick="openSiteSwitcher(event)">
+                        <!-- The large title, as on every screen: here it's the site's name; it collapses into the bar's
+                             inline title on scroll. Its button is the switcher for keyboard and screen readers (its
+                             label carries the address); the whole block, address included, takes the tap. -->
                         <h2 class="page-title sh-site-title" data-large-title>
-                            <button type="button" id="sh-site-btn" class="sh-site-btn" onclick="openSiteSwitcher(event)" aria-haspopup="listbox" aria-expanded="false" aria-controls="sh-switch-list">
+                            <button type="button" id="sh-site-btn" class="sh-site-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="sh-switch-list">
                                 <span id="sh-site-name" class="sh-site-name"></span><i class="ph-bold ph-caret-down sh-site-chev" aria-hidden="true"></i>
                             </button>
                         </h2>
-                        <button type="button" id="sh-site-addr" class="sh-site-addr" onclick="openSiteHubMaps()">
-                            <i class="ph-fill ph-map-pin" aria-hidden="true"></i><span id="sh-site-address"></span>
-                        </button>
+                        <p id="sh-site-addr" class="sh-site-addr" aria-hidden="true"><span id="sh-site-address"></span></p>
                     </div>
                     <!-- Weather: borderless, right-aligned - today's high, then rain chance and wind -->
                     <div id="sh-weather" class="sh-weather" role="img" hidden>
@@ -569,23 +577,23 @@
 
             <!-- Search this site: opens the search page (photos, site logs, plans and days on site, by trade) -->
             <button type="button" id="sh-search-btn" class="sh-search-trigger sh-swap" onclick="openSiteSearch()" aria-haspopup="dialog">
-                <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i><span>Search photos, logs, plans, trades...</span>
+                <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i><span>Search photos, logs, plans</span>
             </button>
 
-            <!-- Upcoming milestone: its own card (the On Site card's surface, lit by its ring). The body reads at a glance;
-                 the full-width footer row opens the Schedule with this milestone open. -->
+            <!-- Upcoming milestone: its own card (the On Site card's surface, lit by its ring). Two tap targets: the body
+                 opens the Schedule scrolled to this milestone, expanded; the full-width footer row opens it as it is. -->
             <section id="sh-sched" class="sh-card sh-sched sh-swap" aria-labelledby="sh-ms-eyebrow sh-ms-title">
-                <div class="sh-sched-body">
-                    <p id="sh-ms-eyebrow" class="sh-sched-eyebrow"><i class="ph-fill ph-calendar-blank" aria-hidden="true"></i>Upcoming Milestone</p>
-                    <div class="sh-sched-main">
-                        <div class="sh-sched-text">
-                            <h3 id="sh-ms-title" class="sh-ms-title"></h3>
-                            <p id="sh-ms-due" class="sh-ms-due"></p>
-                            <p id="sh-ms-next" class="sh-ms-next"></p>
-                        </div>
+                <button type="button" id="sh-sched-body" class="sh-sched-body" onclick="openScheduleFromHub({ expand: true })">
+                    <span id="sh-ms-eyebrow" class="sh-sched-eyebrow"><i class="ph-fill ph-calendar-blank" aria-hidden="true"></i><span id="sh-ms-eyebrow-text">Upcoming Milestone</span></span>
+                    <span class="sh-sched-main">
+                        <span class="sh-sched-text">
+                            <span id="sh-ms-title" class="sh-ms-title"></span>
+                            <span id="sh-ms-due" class="sh-ms-due"></span>
+                            <span id="sh-ms-next" class="sh-ms-next"></span>
+                        </span>
                         <span id="sh-ms-ring" class="sh-ring"></span>
-                    </div>
-                </div>
+                    </span>
+                </button>
                 <button type="button" id="sh-sched-open" class="sh-sched-foot" onclick="openScheduleFromHub()">
                     <span>Full Schedule</span><i class="ph-bold ph-caret-right" aria-hidden="true"></i>
                 </button>
@@ -599,11 +607,18 @@
                 </header>
                 <div id="sh-days" class="sh-days" role="tablist" aria-label="Day"></div>
                 <!-- Collapsed: who's on site as an avatar stack (+ who hasn't signed in today); tap to open the list -->
+                <div class="sh-roster-bar">
                 <button type="button" id="sh-roster-toggle" class="sh-roster-toggle" aria-expanded="false" aria-controls="sh-roster-panel" onclick="toggleSiteHubRoster()">
                     <span id="sh-stack" class="sh-stack" aria-hidden="true"></span>
                     <span id="sh-roster-hint" class="sh-roster-hint"></span>
                     <i class="ph-bold ph-caret-down sh-roster-chev" aria-hidden="true"></i>
                 </button>
+                <!-- Today, when you haven't signed in at your rostered site: sign in from here (the Home card's toggle).
+                     A sibling of the toggle, not inside it, so it's its own button; it sits over the hint's space. -->
+                <button type="button" id="sh-signin" class="sh-signin" onclick="toggleSiteSignIn(event)" hidden>
+                    <i class="ph-fill ph-sign-in" aria-hidden="true"></i><span>Sign In</span>
+                </button>
+                </div>
                 <div id="sh-roster-panel" class="sh-roster-panel" inert>
                     <div class="sh-roster-inner">
                         <ul id="sh-roster" class="sh-roster" aria-live="polite"></ul>
@@ -808,20 +823,34 @@
 
         <!-- ================= VIEW: TIME (TIMESHEETS) - scripts/features/timesheets.js, styles/timesheets.css ================= -->
         <!-- No large title: the selected date is the bar's title (data-bar-title, top-bar.js) -->
-        <main id="view-time" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full">
+        <main id="view-time" data-mode="day" class="view-section hidden flex-1 overflow-y-auto overflow-x-hidden no-scrollbar relative max-w-full">
 
             <!-- Large title (iOS), as on Roster: collapses into the bar's inline title on scroll -->
             <div class="large-title-row">
                 <h2 class="page-title" data-large-title>Time</h2>
             </div>
 
+            <!-- Day | Pay Run (Screen Time's Day | Week): the shared segmented control. Elements marked
+                 data-ts-mode show only in that mode (#view-time[data-mode], timesheets.css) -->
+            <div class="filter-bar filter-bar--segmented ts-mode-bar" role="toolbar" aria-label="Time view">
+                <button type="button" id="ts-mode-day" class="filter-pill is-active" aria-pressed="true" onclick="setTimesheetMode('day')">Day</button>
+                <button type="button" id="ts-mode-run" class="filter-pill" aria-pressed="false" onclick="setTimesheetMode('run')">Pay Run</button>
+            </div>
+
             <!-- 7-day strip: the week of the selected day (weekday, ring, date) -->
-            <div id="ts-week-strip" class="ts-week-strip" role="group" aria-label="Choose a day this week"></div>
+            <div id="ts-week-strip" class="ts-week-strip" data-ts-mode="day" role="group" aria-label="Choose a day this week"></div>
+
+            <!-- Missing days (Settings' "Finish Setting Up" row): only while the run has a gap other than this day -->
+            <button type="button" id="ts-gap-row" class="ts-card ts-gap-row" data-ts-mode="day" onclick="jumpToTimesheetGap()" hidden>
+                <span class="ts-gap-icon" aria-hidden="true"><i class="ph-fill ph-warning-circle"></i></span>
+                <span class="ts-gap-text"><span id="ts-gap-title" class="ts-gap-title"></span><span id="ts-gap-sub" class="ts-gap-sub"></span></span>
+                <i class="ph-bold ph-caret-right ts-chev" aria-hidden="true"></i>
+            </button>
 
             <!-- Daily progress: net hours against the 8h day -->
             <!-- The ring and the day card are each a pager: a row of day pages that slides as one carousel
                  (timesheets.js, tsStartTransition). At rest it holds only the real section. -->
-            <div class="ts-pager" data-pager="hero"><div class="ts-pager-track">
+            <div class="ts-pager" data-pager="hero" data-ts-mode="day"><div class="ts-pager-track">
             <section id="ts-hero" class="ts-hero" aria-live="polite">
                 <div class="ts-hero-ring">
                     <!-- Activity ring (Apple Fitness): thick tinted track, then the green -> lime arc (drawn by
@@ -840,25 +869,8 @@
             </section>
             </div></div>
 
-            <!-- Pay run: the fortnight at a glance (10 workday bars against the 8h target) -->
-            <section class="ts-card ts-run" aria-label="Pay run">
-                <div class="ts-run-head">
-                    <div class="ts-run-id">
-                        <span class="ts-eyebrow">Pay run</span>
-                        <div class="ts-run-nav">
-                            <button type="button" id="ts-run-prev" class="ts-run-chev" onclick="shiftTimesheetPayRun(-1)" aria-label="Previous pay run"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button>
-                            <h3 id="ts-run-range" class="ts-run-range"></h3>
-                            <button type="button" id="ts-run-next" class="ts-run-chev" onclick="shiftTimesheetPayRun(1)" aria-label="Next pay run"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
-                        </div>
-                    </div>
-                    <button type="button" id="ts-run-badge" class="ts-run-badge" onclick="jumpToTimesheetGap()"></button>
-                </div>
-                <div id="ts-run-chart" class="ts-run-chart"></div>
-                <p id="ts-run-foot" class="ts-run-foot"></p>
-            </section>
-
             <!-- The selected day: site, status and its submitted cost-coded blocks (tap one to edit) -->
-            <div class="ts-pager" data-pager="day"><div class="ts-pager-track">
+            <div class="ts-pager" data-pager="day" data-ts-mode="day"><div class="ts-pager-track">
             <section id="ts-day" class="ts-card ts-day-card" aria-labelledby="ts-day-date">
                 <!-- Date, then the full site name (wraps, never truncated), then its status pills on their own row -->
                 <div class="ts-day-head">
@@ -900,13 +912,34 @@
             </section>
             </div></div>
 
-            <!-- Primary action: a round floating button, bottom right (sticky, so it travels with the page).
-                 Dark smoked glass on every day: a pencil (edit) on a logged day, an emerald rim + mint plus (log) on an unlogged one. -->
-            <div class="ts-cta-wrap">
-                <button type="button" id="ts-cta" class="ts-cta" onclick="onTimesheetCta()" aria-label="Log hours">
-                    <i id="ts-cta-icon" class="ph-bold ph-plus" aria-hidden="true"></i>
-                </button>
-            </div>
+            <!-- Pay run: the fortnight at a glance (10 workday bars against the 8h target) -->
+            <section class="ts-card ts-run" data-ts-mode="run" aria-label="Pay run">
+                <div class="ts-run-head">
+                    <div class="ts-run-id">
+                        <div class="ts-run-nav">
+                            <button type="button" id="ts-run-prev" class="ts-run-chev" onclick="shiftTimesheetPayRun(-1)" aria-label="Previous pay run"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button>
+                            <h3 id="ts-run-range" class="ts-run-range"></h3>
+                            <button type="button" id="ts-run-next" class="ts-run-chev" onclick="shiftTimesheetPayRun(1)" aria-label="Next pay run"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" id="ts-run-badge" class="ts-run-badge" onclick="jumpToTimesheetGap()"></button>
+                </div>
+                <div id="ts-run-chart" class="ts-run-chart"></div>
+                <p id="ts-run-foot" class="ts-run-foot"></p>
+            </section>
+
+            <!-- The run's workdays as a list: hours, or "Not logged" in amber; tap one to open that day -->
+            <section class="ts-list-group" data-ts-mode="run" aria-labelledby="ts-run-days-head">
+                <h3 id="ts-run-days-head" class="ts-list-head">Days</h3>
+                <div id="ts-run-days" class="ts-card ts-list"></div>
+            </section>
+
+            <!-- Hours by cost code across the run (Screen Time's categories) -->
+            <section id="ts-run-codes-group" class="ts-list-group" data-ts-mode="run" aria-labelledby="ts-run-codes-head">
+                <h3 id="ts-run-codes-head" class="ts-list-head">By cost code</h3>
+                <div id="ts-run-codes" class="ts-card ts-list"></div>
+            </section>
+
         </main>
 
         <!-- ================= VIEW 10: NOTIFICATIONS & ACTIVITY (APPLE STYLE) ================= -->
@@ -1348,6 +1381,7 @@
     <script src="scripts/domain/errors.js"></script>
     <script src="scripts/domain/models.js"></script>
     <script src="scripts/domain/rules/time.js"></script>
+    <script src="scripts/domain/rules/roster.js"></script>
     <script src="scripts/domain/rules/pay-run.js"></script>
     <script src="scripts/domain/rules/timesheets.js"></script>
     <script src="scripts/domain/rules/availability.js"></script>
@@ -1381,7 +1415,6 @@
     <script src="scripts/application/store.js"></script>
     <script src="scripts/application/selectors.js"></script>
     <script src="scripts/application/services/service-kit.js"></script>
-    <script src="scripts/domain/rules/roster.js"></script>
     <script src="scripts/application/services/sites-service.js"></script>
     <script src="scripts/application/services/roster-service.js"></script>
     <script src="scripts/application/services/timesheet-service.js"></script>

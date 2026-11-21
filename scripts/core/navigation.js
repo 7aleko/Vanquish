@@ -245,6 +245,11 @@ function switchTab(tabName, options = {}) {
 
     requestAnimationFrame(syncDynamicStatusBar);
 
+    // Progress rings (progress-ring.js) fill again every time their page opens, as it slides in
+    if (fromViewName !== toViewName && typeof replayProgressRings === 'function') {
+        replayProgressRings(incomingView, transitionMode === 'push' ? 200 : transitionMode === 'pop' ? 120 : 80);
+    }
+
     if (tabName === 'schedule' && typeof initSchedule === 'function') {
         setTimeout(initSchedule, 40);
     }

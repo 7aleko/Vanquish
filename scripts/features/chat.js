@@ -54,25 +54,27 @@ function updateLifestyleBadges() {
 }
 
 // Every chat avatar is the app's one avatar component (scripts/components/role-avatar.js, styled only by
-// styles/role-avatar.css): people get their role avatar (the same as on Team), Poppy her orb, channels and
-// sites an icon in the same circle. Only Poppy shows a status dot.
+// styles/role-avatar.css): people get their role avatar (the same as on Team), Poppy her orb, the company
+// channel an emerald orb and sites a steel one - all the same circle. Only Poppy shows a status dot.
 function isPoppyChat(chat) { return chat.id === 'chat-poppy' || chat.avatarType === 'ai'; }
+function isCompanyChat(chat) { return chat.id === 'chat-company' || chat.avatarType === 'company'; }
+function renderCompanyChatAvatar(size) { return renderIconAvatar('ph-buildings', size, 'role-avatar--company'); }
 function isSiteChat(chat) { return chat.isSite || chat.avatarType === 'site' || (chat.name && chat.name.includes('Site')); }
 function getLifestyleChatAvatar(chat, size = 'lg') {
     if (isPoppyChat(chat)) return withAvatarStatus(renderPoppyAvatar(size), 'ai');
-    if (chat.id === 'chat-company' || chat.avatarType === 'company') return renderIconAvatar('ph-house', size);
-    if (isSiteChat(chat)) return renderIconAvatar('ph-hard-hat', size);   // channels and sites: no status
+    if (isCompanyChat(chat)) return renderCompanyChatAvatar(size);
+    if (isSiteChat(chat)) return renderIconAvatar('ph-hard-hat', size, 'role-avatar--site');   // groups: no status
     const person = { name: chat.name, role: getPersonRole(chat.name) || chat.role, initials: chat.avatarFallback || undefined };
     return renderRoleAvatar(person, size);                 // people show no activity status
 }
 
 // ---------- Inbox ----------
-// Poppy is pinned in her own card above one feed holding every other conversation (Company All-Hands and
-// the sites included), newest activity first. Filters: All, Sites, Company, DMs.
+// Poppy and Company All-Hands (the whole-company group) are pinned in their own card above one feed holding
+// every other conversation, newest activity first. Filters: All, Sites, Company, DMs.
 const CHAT_FILTERS = {
     all: () => true,
     sites: chat => isSiteChat(chat),
-    company: chat => chat.id === 'chat-company' || chat.avatarType === 'company',
+    company: chat => isCompanyChat(chat),
     direct: chat => chat.category === 'direct'
 };
 const CHAT_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -145,19 +147,20 @@ function renderLifestyleChats(filter = currentLifestyleChatFilter, query = curre
 
     const q = String(query || '').trim().toLowerCase();
     const searching = q !== '';
-    const poppy = LIFESTYLE_CHATS.find(isPoppyChat);
+    const isPinned = chat => isPoppyChat(chat) || isCompanyChat(chat);
+    const pinned = LIFESTYLE_CHATS.filter(isPinned).sort((a, b) => isPoppyChat(b) - isPoppyChat(a));   // Poppy first
 
-    // Poppy: pinned on All (not while searching - she's then one of the results)
-    const showPinned = filter === 'all' && !searching && !!poppy;
+    // Pinned on All (not while searching - they're then among the results)
+    const showPinned = filter === 'all' && !searching && pinned.length > 0;
     if (pinnedContainer && pinnedList) {
         pinnedContainer.hidden = !showPinned;
-        pinnedList.innerHTML = showPinned ? renderLifestyleChatRow(poppy) : '';
+        pinnedList.innerHTML = showPinned ? pinned.map(renderLifestyleChatRow).join('') : '';
         if (showPinned) mountPoppyAvatars(pinnedList);
     }
 
     const matches = chat => !searching || [chat.name, chat.role, chat.preview].some(v => String(v || '').toLowerCase().includes(q));
     const feed = LIFESTYLE_CHATS
-        .filter(chat => (searching ? true : !isPoppyChat(chat)))
+        .filter(chat => !showPinned || !isPinned(chat))
         .filter(chat => !isPoppyChat(chat) || filter === 'all')
         .filter(CHAT_FILTERS[filter])
         .filter(matches)
@@ -299,7 +302,9 @@ function renderLifestyleConversation() {
     // Bar (left-aligned, top-bar.js reads this template): avatar, name, and "Active now" for someone online
     const isPerson = chat.category === 'direct';
     const online = isPerson && chat.isOnline;
-    const sub = online ? 'Active now' : (isSiteChat(chat) ? chat.role : '');
+    const sub = online ? 'Active now'
+        : isCompanyChat(chat) ? `Everyone · ${getEmployees().length} people`
+        : (isSiteChat(chat) ? chat.role : '');
     const avatar = getLifestyleChatAvatar(chat, 'head');
     view.querySelector('template[data-bar-title-html]').innerHTML = `
         <span class="conv-bar-id">${online ? withAvatarStatus(avatar, 'online') : avatar}<span class="conv-bar-text"><span class="conv-bar-name">${chatEscape(chat.name)}</span>${sub ? `<span class="conv-bar-sub">${chatEscape(sub)}</span>` : ''}</span></span>`;
@@ -408,7 +413,7 @@ function openNewMessageModal() {
                     
                     <div class="divide-y divide-slate-100 py-1">
                         <div onclick="closeModal(); openLifestyleConversation('chat-company');" class="flex items-center gap-3 py-2.5 px-2 hover:bg-slate-50 cursor-pointer rounded-xl">
-                            ${renderIconAvatar('ph-house', 'top')}
+                            ${renderCompanyChatAvatar('top')}
                             <div>
                                 <p class="text-sm font-bold text-slate-900">Company All-Hands</p>
                                 <p class="text-xs text-slate-500">General broadcast channel</p>
@@ -436,7 +441,7 @@ function openNewMessageModal() {
                                             <p class="text-xs text-slate-500">${m.role}</p>
                                         </div>
                                     </div>
-                                    <i class="fa-solid fa-comment text-slate-400 text-xs"></i>
+                                    <i class="ph-fill ph-chat-circle text-slate-400 text-sm" aria-hidden="true"></i>
                                 </div>
                             `).join('')}
                         </div>

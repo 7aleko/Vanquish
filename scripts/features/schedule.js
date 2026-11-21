@@ -26,17 +26,16 @@ const SCH_DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const SCH_DAY3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SCH_UI_KEY = 'lifestyle.schedule.ui';
 const SCH_VIEWS = ['overview', '2w', 'month'];
-const scheduleUi = { view: 'overview', ym: null, sel: null, days: 'ms', expanded: new Set(), focus: null };
+const scheduleUi = { view: 'overview', m0: null, sel: null, days: 'ms', expanded: new Set(), focus: null, doneOpen: false, donePlayed: false };
 try {
     const saved = JSON.parse(localStorage.getItem(SCH_UI_KEY) || 'null');
     if (saved) {
         scheduleUi.view = SCH_VIEWS.includes(saved.view) ? saved.view : 'overview';
         scheduleUi.days = saved.days === 'all' ? 'all' : 'ms';
-        if (Array.isArray(saved.expanded)) scheduleUi.expanded = new Set(saved.expanded.filter(x => typeof x === 'string').slice(0, 20));
     }
 } catch (_) { /* storage blocked: defaults */ }
 function saveScheduleUi() {
-    try { localStorage.setItem(SCH_UI_KEY, JSON.stringify({ view: scheduleUi.view, days: scheduleUi.days, expanded: [...scheduleUi.expanded] })); } catch (_) {}
+    try { localStorage.setItem(SCH_UI_KEY, JSON.stringify({ view: scheduleUi.view, days: scheduleUi.days })); } catch (_) {}
 }
 
 // ---------- Helpers ----------
@@ -53,6 +52,14 @@ function schRange(a, b) {
     const x = schParse(a), y = schParse(b);
     return `${SCH_DAY3[x.getDay()]} ${x.getDate()}${x.getMonth() !== y.getMonth() ? ' ' + SCH_MONTHS[x.getMonth()].slice(0, 3) : ''} – ${schDay(y)}`;
 }
+// "Mon 23–Wed 25" for a card under a dated heading (the month is in the heading); across months it keeps them
+function schSpan(a, b) {
+    const x = schParse(a), y = schParse(b);
+    if (x.getMonth() !== y.getMonth()) return schRange(a, b);
+    return `${SCH_DAY3[x.getDay()]} ${x.getDate()}–${SCH_DAY3[y.getDay()]} ${y.getDate()}`;
+}
+// An arrival window, compact ("7:00–3:30"), as the Site Hub's roster shows it (shCompactWindow)
+function schWindow(w) { return w && typeof shCompactWindow === 'function' ? shCompactWindow(w) : (w || ''); }
 function schTime(ts) { const d = new Date(ts), h = d.getHours(); return `${schDay(d)}, ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}${h < 12 ? 'am' : 'pm'}`; }
 function schRgb(hex) { const h = String(hex || '#8E8E93').replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) || 0); }
 function schTint(hex, a) { return `rgba(${schRgb(hex).join(',')},${a})`; }
@@ -70,32 +77,34 @@ function schIsInspection(t) { return t.tradeId === 'inspection'; }
 function initSchedule() {
     const today = schToday();
     if (!scheduleUi.sel) scheduleUi.sel = schIso(today);
-    if (!scheduleUi.ym) { const s = schParse(scheduleUi.sel); scheduleUi.ym = [s.getFullYear(), s.getMonth()]; }
+    if (!scheduleUi.m0) scheduleUi.m0 = schIso(DateRules.mondayOf(schParse(scheduleUi.sel)));
     renderSchedule();
 }
-// Opening the Schedule afresh (navigation.js): back on today; the view, open milestones and focus are kept
-function resetScheduleView() { scheduleUi.sel = null; scheduleUi.ym = null; initSchedule(); }
+// Opening the Schedule afresh (navigation.js): back on today with every milestone card closed - leaving resets
+// the layout; only the chosen view and day filter are kept
+function resetScheduleView() { scheduleUi.sel = null; scheduleUi.m0 = null; scheduleUi.expanded.clear(); scheduleUi.focus = null; scheduleUi.doneOpen = false; scheduleUi.donePlayed = false; initSchedule(); }
 // From the Site Hub (hero footer, Full Schedule, a search result): this view, with `focusId` open and in view
 function showScheduleFrom({ focusId = null, view = 'overview' } = {}) {
     scheduleUi.view = SCH_VIEWS.includes(view) ? view : 'overview';
+    saveScheduleUi();
+    switchTab('schedule');                                 // a fresh open: every card closed (resetScheduleView)
     scheduleUi.focus = focusId;
     const t = focusId ? getScheduleTask(focusId) : null;
-    if (t && t.milestone) scheduleUi.expanded.add(t.id);
-    saveScheduleUi();
-    switchTab('schedule');
+    if (t && t.milestone) { scheduleUi.expanded.add(t.id); if (schIsFiled(t)) scheduleUi.doneOpen = scheduleUi.donePlayed = true; }   // ...then just this one open (its rings play with the page)
     renderSchedule();
-    setTimeout(revealScheduleFocus, 470);                  // once the page has slid in
+    if (focusId) setTimeout(revealScheduleFocus, 470);     // once the page has slid in
+    else { const page = document.getElementById('view-schedule'); if (page) page.scrollTop = 0; }   // as it is, from the top
 }
 // The site changed (Site Hub switcher): back on today, nothing open
 function onScheduleSiteChanged() {
-    scheduleUi.sel = null; scheduleUi.ym = null; scheduleUi.focus = null;
+    scheduleUi.sel = null; scheduleUi.m0 = null; scheduleUi.focus = null;
     if (currentActiveViewName === 'schedule') initSchedule();
 }
 function setScheduleView(v) {
     if (!SCH_VIEWS.includes(v) || v === scheduleUi.view) return;
     triggerHaptic('light');
     scheduleUi.view = v;
-    const s = schParse(scheduleUi.sel || schIso(schToday())); scheduleUi.ym = [s.getFullYear(), s.getMonth()];
+    const s = schParse(scheduleUi.sel || schIso(schToday())); scheduleUi.m0 = schIso(DateRules.mondayOf(s));
     saveScheduleUi();
     const body = document.getElementById('sch-body');
     if (body && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -107,28 +116,27 @@ function setScheduleView(v) {
 function toggleScheduleDays() { triggerHaptic('light'); scheduleUi.days = scheduleUi.days === 'all' ? 'ms' : 'all'; saveScheduleUi(); renderSchedule(); }
 function scheduleToToday() {
     triggerHaptic('light');
-    const t = schToday(); scheduleUi.sel = schIso(t); scheduleUi.ym = [t.getFullYear(), t.getMonth()];
+    const t = schToday(); scheduleUi.sel = schIso(t); scheduleUi.m0 = schIso(DateRules.mondayOf(t));
     renderSchedule();
 }
-// Back / forward: a fortnight in the 2-Week Plan, a month in Month
+// Back / forward: a fortnight in the 2-Week Plan, four weeks in Month
 function shiftSchedule(n) {
     triggerHaptic('light');
     if (scheduleUi.view === '2w') {
         const d = schAdd(schParse(scheduleUi.sel), n * 14);
-        scheduleUi.sel = schIso(d); scheduleUi.ym = [d.getFullYear(), d.getMonth()];
+        scheduleUi.sel = schIso(d); scheduleUi.m0 = schIso(DateRules.mondayOf(d));
     } else {
-        const d = new Date(scheduleUi.ym[0], scheduleUi.ym[1] + n, 1), t = schToday();
-        scheduleUi.ym = [d.getFullYear(), d.getMonth()];
-        const sd = schParse(scheduleUi.sel);
-        if (sd.getFullYear() !== d.getFullYear() || sd.getMonth() !== d.getMonth()) scheduleUi.sel = schIso(d);
-        if (d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth()) scheduleUi.sel = schIso(t);
+        const m0 = schAdd(schParse(scheduleUi.m0), n * 28), t = schIso(schToday());
+        scheduleUi.m0 = schIso(m0);
+        // The chosen day stays in view: today when it's in these four weeks, otherwise their first day
+        scheduleUi.sel = t >= scheduleUi.m0 && t <= schIso(schAdd(m0, 27)) ? t : scheduleUi.m0;
     }
     renderSchedule();
 }
 // From elsewhere (the calendar picker): this site, this day, optionally a booking
 function openScheduleForSite(siteId, dateIso, taskId) {
     if (siteId && typeof siteHubState !== 'undefined' && siteId !== siteHubState.siteId && typeof selectSite === 'function') selectSite(siteId, { silent: true });
-    if (dateIso) { const d = schParse(dateIso); scheduleUi.sel = dateIso; scheduleUi.ym = [d.getFullYear(), d.getMonth()]; }
+    if (dateIso) { const d = schParse(dateIso); scheduleUi.sel = dateIso; scheduleUi.m0 = schIso(DateRules.mondayOf(d)); }
     switchTab('schedule');
     renderSchedule();
     if (taskId) requestAnimationFrame(() => openScheduleTask(taskId));
@@ -148,19 +156,15 @@ function revealScheduleFocus() {
 
 // ---------- Render ----------
 function schPeriodTitle() {
-    if (scheduleUi.view !== '2w') return `${SCH_MONTHS[scheduleUi.ym[1]]} ${scheduleUi.ym[0]}`;
-    const a = DateRules.mondayOf(schParse(scheduleUi.sel)), b = schAdd(a, 13);
+    const a = scheduleUi.view === '2w' ? DateRules.mondayOf(schParse(scheduleUi.sel)) : schParse(scheduleUi.m0);
+    const b = schAdd(a, scheduleUi.view === '2w' ? 13 : 27);
     return `${a.getDate()}${a.getMonth() !== b.getMonth() ? ' ' + SCH_MONTHS[a.getMonth()].slice(0, 3) : ''} – ${b.getDate()} ${SCH_MONTHS[b.getMonth()].slice(0, 3)} ${b.getFullYear()}`;
 }
 function renderSchedule() {
     const view = document.getElementById('view-schedule');
     if (!view || appStore.status !== 'ready') return;
     if (!scheduleUi.sel) { initSchedule(); return; }
-    const siteId = scheduleSiteId(), site = siteId ? getSiteById(siteId) : null;
-    document.getElementById('sch-site-line').textContent = site ? `${site.address}, ${site.suburb}` : 'No site';
-    const stage = document.getElementById('sch-stage');
-    stage.textContent = site && site.stage ? site.stage : '';
-    stage.hidden = !(site && site.stage);
+    // No address / stage line: the back button names the site and the Overview leads with the current milestone
     // Segmented control: the glass segment glides to the view
     const seg = document.getElementById('sch-seg'), idx = SCH_VIEWS.indexOf(scheduleUi.view);
     seg.style.setProperty('--sel', String(idx));
@@ -192,12 +196,47 @@ function renderScheduleOverview() {
     const body = document.getElementById('sch-body');
     const tasks = scheduleTasks(), miles = ScheduleRules.milestones(tasks);
     const done = miles.filter(ScheduleRules.isComplete).length;
-    let h = schSectionHead('Project Milestones', miles.length ? `${done} of ${miles.length} complete` : 'No milestones yet', true);
-    h += `<div class="sch-mslist" id="sch-mslist">${miles.length ? miles.map(schMilestoneCard).join('')
+    let h = schSectionHead('Project Milestones', schMilestoneTally(done, miles.length), true);
+    h += `<div class="sch-mslist" id="sch-mslist">${miles.length ? schMilestoneListHtml(miles)
         : '<div class="sch-card sch-empty">Make a booking a milestone to track what has to be done before it.</div>'}</div>`;
     h += `<div id="sch-feed">${schFeedHtml(tasks)}</div>`;
     body.innerHTML = h;
     animateProgressRings(body);
+}
+// Signed-off milestones are filed under one "N complete" row at the top, so the one being worked on leads. One
+// completed today stays out with the rest until the day ends, as on the Site Hub, so its win is seen first.
+function schIsFiled(t) { return ScheduleRules.isComplete(t) && ScheduleRules.completedOn(t) !== DateRules.toIso(new Date()); }
+function schMilestoneOrder(miles) { return [...miles.filter(schIsFiled), ...miles.filter(t => !schIsFiled(t))]; }
+function schMilestoneListHtml(miles) {
+    const filed = miles.filter(schIsFiled), live = miles.filter(t => !schIsFiled(t)), open = scheduleUi.doneOpen;
+    if (!filed.length) return live.map(schMilestoneCard).join('');
+    return `<div class="sch-done${open ? ' is-open' : ''}" id="sch-done">
+            <button type="button" class="sch-done-head" aria-expanded="${open}" aria-controls="sch-done-list" onclick="toggleScheduleDone()">
+                <span class="sch-done-check" aria-hidden="true"><i class="ph-bold ph-check"></i></span>
+                <span class="sch-done-main"><span class="sch-done-title">${filed.length} complete</span><span class="sch-done-sub">${schEsc(filed.map(t => t.title).join(' · '))}</span></span>
+                <i class="ph-bold ph-caret-down sch-ms-chev" aria-hidden="true"></i>
+            </button>
+            <div class="sch-done-body" id="sch-done-list"${open ? '' : ' inert'}><div class="sch-done-inner">${filed.map(schMilestoneCard).join('')}</div></div>
+        </div>${live.map(schMilestoneCard).join('')}`;
+}
+function toggleScheduleDone(open = !scheduleUi.doneOpen) {
+    triggerHaptic('light');
+    scheduleUi.doneOpen = open;
+    const box = document.getElementById('sch-done');
+    if (!box) return;
+    box.classList.toggle('is-open', open);
+    box.querySelector('.sch-done-head').setAttribute('aria-expanded', String(open));
+    box.querySelector('.sch-done-body').toggleAttribute('inert', !open);
+    // The first opening on this visit: the filed rings fill and land their checks as the group unfolds. Opening
+    // it again shows them as they are, until the Schedule is left and opened afresh (resetScheduleView).
+    if (open && !scheduleUi.donePlayed) {
+        scheduleUi.donePlayed = true;
+        replayProgressRings(box.querySelector('.sch-done-inner'), 90);
+    }
+}
+// "2 of 6 complete": the count is its own span so it can roll when it changes
+function schMilestoneTally(done, total) {
+    return total ? `<span class="sch-tally">${done}</span> of ${total} complete` : 'No milestones yet';
 }
 function schMilestoneCard(t) {
     const today = schIso(schToday()), st = ScheduleRules.milestoneStatus(t, today), p = ScheduleRules.progress(t);
@@ -205,11 +244,11 @@ function schMilestoneCard(t) {
     const tr = getScheduleTrade(t.tradeId);
     return `<article class="sch-ms${open ? ' is-open' : ''}${ScheduleRules.isComplete(t) ? ' is-complete' : ''}" data-id="${id}">
             <button type="button" class="sch-ms-head" aria-expanded="${open}" aria-controls="sch-msb-${id}" onclick="toggleScheduleMilestoneCard('${id}')">
-                <span class="sch-ms-ring">${renderProgressRing(p, { size: 52, stroke: 6.5, key: `ms:${t.id}`, tone: progressRingTone(st.key) })}</span>
+                <span class="sch-ms-ring">${renderProgressRing(p, { size: 56, stroke: 10, key: `ms:${t.id}`, tone: progressRingTone(st.key) })}</span>
                 <span class="sch-ms-main">
                     <span class="sch-ms-title">${schEsc(t.title)}</span>
                     <span class="sch-ms-meta"><i class="ph-fill ph-flag-checkered" aria-hidden="true"></i><span>${ScheduleRules.isComplete(t) ? 'Completed' : 'Due'} ${schDay(schParse(t.endDate))}</span></span>
-                    <span class="sch-ms-pills">${schStatusPill(st)}<span class="sch-ms-count" data-count>${p.done} of ${p.total} done</span></span>
+                    <span class="sch-ms-pills">${schStatusPill(st)}</span>
                 </span>
                 <i class="ph-bold ph-caret-down sch-ms-chev" aria-hidden="true"></i>
             </button>
@@ -233,11 +272,11 @@ function schCheckItem(t, x) {
             <span class="sch-check-text"><span>${schEsc(x.text)}</span>${meta ? `<small>${x.done ? '<i class="ph-fill ph-check-circle" aria-hidden="true"></i>' : ''}${meta}</small>` : ''}${x.note ? `<em>${schEsc(x.note)}</em>` : ''}</span>
         </label></li>`;
 }
-function toggleScheduleMilestoneCard(id) {
+function toggleScheduleMilestoneCard(id, { quiet = false, open: want } = {}) {
     const card = document.querySelector(`#sch-mslist .sch-ms[data-id="${CSS.escape(id)}"]`);
     if (!card) return;
-    triggerHaptic('light');
-    const open = !scheduleUi.expanded.has(id);
+    if (!quiet) triggerHaptic('light');
+    const open = typeof want === 'boolean' ? want : !scheduleUi.expanded.has(id);
     if (open) scheduleUi.expanded.add(id); else scheduleUi.expanded.delete(id);
     saveScheduleUi();
     card.classList.toggle('is-open', open);
@@ -251,12 +290,17 @@ async function onScheduleCheck(input) {
     const taskId = input.dataset.task, itemId = input.dataset.item, key = `${taskId}|${itemId}`;
     if (schPendingItems.has(key)) { input.checked = !input.checked; return; }
     schPendingItems.add(key);
+    const tapped = performance.now();
     triggerHaptic(input.checked ? 'success' : 'light');
     input.closest('.sch-check').classList.toggle('is-done', input.checked);
     try {
         const t = await scheduleService.toggleItem(taskId, itemId);
         const p = ScheduleRules.progress(t), item = t.checklist.find(x => x.id === itemId);
-        if (item && item.done && p.done === p.total) showSnack(`All done. ${t.title} is ready`, null, null, { icon: 'ph-check-circle' });
+        if (item && item.done && p.done === p.total) {
+            schCelebrateHaptic(tapped);
+            schCompleteSnack(t, itemId, { reopen: true });
+            schAutoCollapse(taskId, tapped);
+        }
     } catch (raw) {
         const err = toAppError(raw);
         triggerHaptic('error');
@@ -265,24 +309,64 @@ async function onScheduleCheck(input) {
         showSnack(`Not saved. ${err.userMessage}`);
     } finally { schPendingItems.delete(key); }
 }
+// A milestone just completed: the ring says it, so the snack is for taking it back - Undo unticks that last item
+// (and, from a card, opens its checklist again)
+function schCompleteSnack(t, itemId, { reopen = false } = {}) {
+    showSnack(`${t.title} complete`, 'Undo', async () => {
+        const back = await schRun(() => scheduleService.toggleItem(t.id, itemId), 'Not undone');
+        if (!back) { showSnack('Not undone. Try again'); return; }
+        triggerHaptic('light');
+        if (reopen && !scheduleUi.expanded.has(t.id)) toggleScheduleMilestoneCard(t.id, { quiet: true, open: true });
+    }, { icon: 'ph-check-circle' });
+}
+// A second, firmer tap as the check lands in the ring (250ms after the tick)
+function schCelebrateHaptic(tapped) {
+    setTimeout(() => triggerHaptic('heavy'), Math.max(0, 250 - (performance.now() - tapped)));
+}
+// The last item ticked on an open card: the ring closes and the check lands (progress-ring.js), then at 500ms
+// the checklist folds away (350ms ease-in-out), leaving the card done. Tapping it reopens it as usual; unticking
+// an item takes the ring back to its count.
+function schAutoCollapse(taskId, tapped) {
+    const wait = Math.max(0, 500 - (performance.now() - tapped));
+    setTimeout(() => {
+        const card = document.querySelector(`#sch-mslist .sch-ms[data-id="${CSS.escape(taskId)}"]`);
+        const t = getScheduleTask(taskId);
+        if (!card || !card.classList.contains('is-open') || !t || !ScheduleRules.isComplete(t)) return;
+        const head = card.querySelector('.sch-ms-head');
+        const hadFocus = card.querySelector('.sch-ms-body').contains(document.activeElement);
+        card.classList.add('is-auto-closing');
+        toggleScheduleMilestoneCard(taskId, { quiet: true, open: false });
+        if (hadFocus && head) head.focus({ preventScroll: true });      // the checklist goes inert: keep focus on the card
+        clearTimeout(card._autoClose);
+        card._autoClose = setTimeout(() => card.classList.remove('is-auto-closing'), 400);
+    }, wait);
+}
 // The store changed while the Overview is showing: update the milestone cards in place (rings ease, open cards
 // stay open, focus stays put); redraw them only if the milestones themselves changed. The feed is redrawn.
 function patchScheduleOverview() {
     const list = document.getElementById('sch-mslist');
     if (!list) { renderSchedule(); return; }
-    const tasks = scheduleTasks(), miles = ScheduleRules.milestones(tasks);
+    const tasks = scheduleTasks(), all = ScheduleRules.milestones(tasks), miles = schMilestoneOrder(all);
     const cards = [...list.querySelectorAll('.sch-ms')];
-    const same = cards.length === miles.length && cards.every((c, i) => c.dataset.id === miles[i].id
+    const filedNow = all.filter(schIsFiled).length, filedShown = list.querySelectorAll('#sch-done .sch-ms').length;
+    const same = filedNow === filedShown && cards.length === miles.length && cards.every((c, i) => c.dataset.id === miles[i].id
         && c.querySelectorAll('.sch-check input').length === (miles[i].checklist || []).length);
     if (!same) { renderSchedule(); return; }
     const today = schIso(schToday()), done = miles.filter(ScheduleRules.isComplete).length;
-    const big = document.querySelector('#sch-body .sch-sech .sch-big');
-    if (big) big.textContent = miles.length ? `${done} of ${miles.length} complete` : 'No milestones yet';
+    const big = document.querySelector('#sch-body .sch-sech .sch-big'), roll = big && big.querySelector('.sch-tally');
+    const was = roll ? Number(roll.textContent) : null;
+    if (big && (was !== done || !roll)) {
+        big.innerHTML = schMilestoneTally(done, all.length);
+        const now = big.querySelector('.sch-tally');            // the count rolls up (or down) to its new value
+        if (now && was !== null && was !== done) now.classList.add(done > was ? 'is-up' : 'is-down');
+    }
     miles.forEach((t, i) => {
         const card = cards[i], p = ScheduleRules.progress(t), st = ScheduleRules.milestoneStatus(t, today);
         card.classList.toggle('is-complete', ScheduleRules.isComplete(t));
-        card.querySelector('.sch-ms-ring').innerHTML = renderProgressRing(p, { size: 52, stroke: 6.5, key: `ms:${t.id}`, tone: progressRingTone(st.key) });
-        card.querySelector('.sch-ms-pills').innerHTML = `${schStatusPill(st)}<span class="sch-ms-count" data-count>${p.done} of ${p.total} done</span>`;
+        card.querySelector('.sch-ms-ring').innerHTML = renderProgressRing(p, { size: 56, stroke: 10, key: `ms:${t.id}`, tone: progressRingTone(st.key) });
+        const metaText = card.querySelector('.sch-ms-meta > span');
+        if (metaText) metaText.textContent = `${ScheduleRules.isComplete(t) ? 'Completed' : 'Due'} ${schDay(schParse(t.endDate))}`;
+        card.querySelector('.sch-ms-pills').innerHTML = schStatusPill(st);
         (t.checklist || []).forEach(x => {
             const input = card.querySelector(`input[data-item="${CSS.escape(x.id)}"]`);
             if (!input || schPendingItems.has(`${t.id}|${x.id}`)) return;
@@ -308,9 +392,8 @@ function schFeedHtml(tasks) {
         byDay.get(k).push(t);
     });
     const days = [...byDay.keys()].sort();
-    const addBtn = `<button type="button" class="sch-hbtn" onclick="openScheduleEdit(null, scheduleUi.sel)"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add</button>`;
-    let h = schSectionHead('Next 14 Days', `${schShort(today)} – ${schShort(schAdd(today, 13))}`, false, addBtn);
-    if (!days.length) return h + '<div class="sch-card sch-empty">Nothing booked in the next two weeks. Tap Add to book a trade.</div>';
+    let h = schSectionHead('Next 14 Days', `${schShort(today)} – ${schShort(schAdd(today, 13))}`, false);
+    if (!days.length) return h + '<div class="sch-card sch-empty">Nothing booked in the next two weeks. Tap + to book a trade.</div>';
     h += '<div class="sch-feed">';
     days.forEach(k => {
         const d = schParse(k), isToday = k === t0, list = byDay.get(k).sort((a, b) => (a.milestone ? 1 : 0) - (b.milestone ? 1 : 0));
@@ -334,8 +417,7 @@ function schTradeCard(t, onDay) {
             <span class="sch-trade-main">
                 <span class="sch-trade-top"><span class="sch-trade-title">${schEsc(t.title)}</span><span class="sch-chip ${status.cls}">${status.text}</span></span>
                 <span class="sch-trade-co">${t.crew ? `${schEsc(t.crew)} · ` : ''}<span style="color:${schLight(tr.color)}">${schEsc(tr.name)}</span></span>
-                <span class="sch-trade-when"><i class="ph-fill ph-clock" aria-hidden="true"></i>${schEsc(t.arrival || 'All day')}${n > 1 || k !== t.startDate ? `<span>·</span>${schRange(t.startDate, t.endDate)}` : ''}${t.where ? `<span>·</span><i class="ph-fill ph-map-pin" aria-hidden="true"></i>${schEsc(t.where)}` : ''}</span>
-                ${t.notes ? `<span class="sch-trade-scope">${schEsc(t.notes)}</span>` : ''}
+                <span class="sch-trade-when">${schEsc(schWindow(t.arrival) || 'All day')}${n > 1 || k !== t.startDate ? `<span>·</span>${schSpan(t.startDate, t.endDate)}` : ''}${t.where ? `<span>·</span>${schEsc(t.where)}` : ''}</span>
             </span>
         </button>`;
 }
@@ -344,15 +426,17 @@ function schFeedMilestone(t) {
     return `<button type="button" class="sch-fms${complete ? ' is-complete' : ''}" data-id="${schEsc(t.id)}" onclick="focusScheduleMilestone('${schEsc(t.id)}')">
             <span class="sch-fms-icon"><i class="ph-fill ph-flag-checkered" aria-hidden="true"></i></span>
             <span class="sch-fms-text"><b>${schEsc(t.title)}</b> ${complete ? 'complete' : 'due'}</span>
-            <span class="sch-fms-count">${p.done}/${p.total}</span>
+            ${complete ? '<span class="sch-fms-count is-done" role="img" aria-label="All complete"><i class="ph-bold ph-check" aria-hidden="true"></i></span>' : `<span class="sch-fms-count">${p.done}/${p.total}</span>`}
         </button>`;
 }
 // A milestone named elsewhere on the page (feed, Gantt, Month): its card, opened and in view
 function focusScheduleMilestone(id) {
     triggerHaptic('light');
     scheduleUi.expanded.add(id); scheduleUi.focus = id; saveScheduleUi();
-    if (scheduleUi.view !== 'overview') { scheduleUi.view = 'overview'; saveScheduleUi(); renderSchedule(); }
+    const t = getScheduleTask(id), filed = !!(t && schIsFiled(t));
+    if (scheduleUi.view !== 'overview') { scheduleUi.view = 'overview'; if (filed) scheduleUi.doneOpen = true; saveScheduleUi(); renderSchedule(); }
     else {
+        if (filed && !scheduleUi.doneOpen) toggleScheduleDone(true);
         const card = document.querySelector(`#sch-mslist .sch-ms[data-id="${CSS.escape(id)}"]`);
         if (card && !card.classList.contains('is-open')) { scheduleUi.expanded.delete(id); toggleScheduleMilestoneCard(id); }
     }
@@ -397,14 +481,14 @@ function renderScheduleGantt() {
         const tr = getScheduleTrade(t.tradeId);
         const s = Math.max(0, schDiff(start, schParse(t.startDate))), e = Math.min(N - 1, schDiff(start, schParse(t.endDate)));
         const n = e - s + 1, cl = t.startDate < k0, cr = t.endDate > k1, warn = clash.has(t.id);
-        h += `<button type="button" class="sch-g-label" style="grid-row:${r}" onclick="openScheduleTask('${schEsc(t.id)}')">
+        h += `<button type="button" class="sch-g-label" data-s="${s}" data-e="${e}" style="grid-row:${r}" onclick="openScheduleTask('${schEsc(t.id)}')">
                 <span class="sch-g-dot" style="background:${schEsc(tr.color)}"></span>
-                <span class="sch-g-text"><span class="sch-g-name">${schEsc(t.title)}</span><span class="sch-g-co">${schEsc(t.crew || tr.name)}</span></span>
+                <span class="sch-g-text"><span class="sch-g-name">${schEsc(t.title)}</span></span>
             </button>
             <button type="button" class="sch-g-bar${cl ? ' is-cl' : ''}${cr ? ' is-cr' : ''}${warn ? ' is-clash' : ''}${n === 1 ? ' is-one' : ''}" data-id="${schEsc(t.id)}"
                 style="grid-row:${r};grid-column:${col(s)} / span ${n};--c:${schEsc(tr.color)};--ct:${schTint(tr.color, 0.24)};--cb:${schTint(tr.color, 0.7)};--cl:${schLight(tr.color)}"
                 onclick="openScheduleTask('${schEsc(t.id)}')" aria-label="${schEsc(t.title)}, ${schEsc(t.crew || tr.name)}, ${schRange(t.startDate, t.endDate)}${t.arrival ? `, ${schEsc(t.arrival)}` : ''}${warn ? ', shares an area with another trade' : ''}">
-                <i class="fa-solid ${schEsc(tr.icon || 'fa-helmet-safety')}" aria-hidden="true"></i>${n > 1 ? `<span>${schEsc(t.where || t.crew || '')}</span>` : ''}${warn ? '<b class="sch-g-warn" aria-hidden="true"><i class="ph-fill ph-warning"></i></b>' : ''}
+                <i class="fa-solid ${schEsc(tr.icon || 'fa-helmet-safety')}" aria-hidden="true"></i>${n > 1 ? `<span>${schEsc(t.crew || t.where || '')}</span>` : ''}${warn ? '<b class="sch-g-warn" aria-hidden="true"><i class="ph-fill ph-warning"></i></b>' : ''}
             </button>`;
         r++;
     });
@@ -421,6 +505,15 @@ function renderScheduleGantt() {
         const cell = sc.querySelector('.sch-g-dh.is-today');
         if (cell) sc.scrollLeft = Math.max(0, cell.offsetLeft - sc.querySelector('.sch-g-corner').offsetWidth - 8);
     }
+    if (sc) { schDimGanttRows(sc); sc.addEventListener('scroll', () => { if (!sc._dimQueued) { sc._dimQueued = true; requestAnimationFrame(() => { sc._dimQueued = false; schDimGanttRows(sc); }); } }, { passive: true }); }
+}
+// Rows whose bar is scrolled out of view fade back, so the bookings in the days you're looking at stand out
+function schDimGanttRows(sc) {
+    const corner = sc.querySelector('.sch-g-corner'), head = sc.querySelector('.sch-g-dh');
+    if (!corner || !head) return;
+    const colW = head.offsetWidth, first = Math.floor(sc.scrollLeft / colW + 0.3), last = Math.ceil((sc.scrollLeft + sc.clientWidth - corner.offsetWidth) / colW - 0.3) - 1;
+    sc.querySelectorAll('.sch-g-label[data-s]').forEach(l => { l.classList.toggle('is-off', +l.dataset.e < first || +l.dataset.s > last); });
+    sc.querySelectorAll('.sch-g-bar').forEach(b => { const l = b.previousElementSibling; b.classList.toggle('is-off', !!(l && l.classList.contains('is-off'))); });
 }
 function schGanttLegend(bookings, clashes) {
     const used = [...new Map(bookings.map(t => [t.tradeId, getScheduleTrade(t.tradeId)])).values()];
@@ -440,69 +533,100 @@ function schStages() {
     const first = tasks.reduce((m, t) => (t.startDate < m ? t.startDate : m), miles[0].endDate);
     return ScheduleRules.phases(tasks, first).map((p, i) => ({ ...p, color: SCH_STAGE_COLS[i % SCH_STAGE_COLS.length] }));
 }
+// Month: four weeks from the chosen week (this week on opening), so it's always what's coming. Each day is shaded
+// by how many trades are on site (amber at 3+, as in the 2-Week Plan), carries a dot per trade and an icon for a
+// milestone due, an inspection or a delivery; each week sums up what happens in it. Tap a day for its bookings
+// (below); tap it again, or hold and drag across days, to book.
+const SCH_WEEKS = 4;
+function schInWindow(k) { const m0 = scheduleUi.m0; return !!m0 && k >= m0 && k <= schIso(schAdd(schParse(m0), SCH_WEEKS * 7 - 1)); }
 function renderScheduleMonth() {
     const body = document.getElementById('sch-body');
-    const [y, m] = scheduleUi.ym, N = scheduleUi.days === 'all' ? 7 : 6;
-    const today = schToday(), tasks = scheduleTasks(), weeks = [], stages = schStages();
-    const last = new Date(y, m + 1, 0);
-    for (let w = DateRules.mondayOf(new Date(y, m, 1)); w <= last; w = schAdd(w, 7)) {
-        if ([...Array(N).keys()].some(q => schAdd(w, q).getMonth() === m)) weeks.push(w);
-    }
-    const stageOf = k => stages.find(p => p.start <= k && p.end >= k) || null;
+    const N = scheduleUi.days === 'all' ? 7 : 6, m0 = schParse(scheduleUi.m0), today = schIso(schToday());
+    const tasks = scheduleTasks(), bookings = tasks.filter(t => !t.milestone), stages = schStages();
+    const ks = scheduleUi.m0, ke = schIso(schAdd(m0, SCH_WEEKS * 7 - 1));
+    const dayInfo = k => {
+        const on = bookings.filter(t => t.startDate <= k && t.endDate >= k);
+        const trades = on.filter(t => !schIsDelivery(t) && !schIsInspection(t));
+        return {
+            trades, load: trades.length,
+            ms: tasks.filter(t => t.milestone && t.endDate === k),
+            insp: on.filter(t => schIsInspection(t) && t.startDate === k),
+            del: on.filter(t => schIsDelivery(t) && t.startDate === k)
+        };
+    };
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     const cols = `grid-template-columns:repeat(${N},1fr)`;
-    let h = `<div class="sch-card sch-mcard is-month" id="sch-mcard"><div class="sch-dow" style="${cols}">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].slice(0, N).map(d => `<span>${d}</span>`).join('')}</div><div class="sch-cal" id="sch-cal">`;
-    weeks.forEach(ws => {
-        const segs = [], lanes = [];
-        tasks.forEach(t => {
-            const bs = schParse(t.startDate), be = schParse(t.endDate);
-            let s = schDiff(ws, bs), e = schDiff(ws, be);
-            if (e < 0 || s > N - 1) return;
-            const cr = e >= 7 || e > N - 1; s = Math.max(0, s); e = Math.min(N - 1, e);
-            let L = 0; while (lanes[L] != null && lanes[L] >= s) L++; lanes[L] = e;
-            segs.push({ t, s, e, L, cl: bs < ws, cr });
-        });
-        h += `<div class="sch-week" data-lanes="${lanes.length}" style="${cols}">`;
+    let busyDays = 0, tradeDays = 0;
+    let h = `<div class="sch-card sch-mcard" id="sch-mcard"><div class="sch-dow" style="${cols}">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].slice(0, N).map(d => `<span>${d}</span>`).join('')}</div><div class="sch-cal" id="sch-cal">`;
+    for (let w = 0; w < SCH_WEEKS; w++) {
+        const ws = schAdd(m0, w * 7);
+        const wk = { ms: [], insp: 0, del: 0, busy: 0 };
+        h += `<div class="sch-wk"><div class="sch-week" style="${cols}">`;
         for (let d = 0; d < N; d++) {
-            const dd = schAdd(ws, d), k = schIso(dd), ph = stageOf(k);
-            const cls = ['sch-day'];
-            if (dd.getMonth() !== m) cls.push('is-out'); else if (d >= 5) cls.push('is-we');
-            if (+dd === +today) cls.push('is-today');
+            const dd = schAdd(ws, d), k = schIso(dd), info = dayInfo(k);
+            const ph = stages.find(p => p.start <= k && p.end >= k) || null;
+            const heat = info.load >= 3 ? 'is-busy' : info.load === 2 ? 'is-h2' : info.load === 1 ? 'is-h1' : '';
+            if (info.load >= 3) { busyDays++; wk.busy++; }
+            tradeDays += info.load;
+            wk.ms.push(...info.ms.map(t => ({ t, dd }))); wk.insp += info.insp.length; wk.del += info.del.length;
+            const cls = ['sch-day', heat];
+            if (d >= 5) cls.push('is-we');
+            if (k < today) cls.push('is-past');
+            if (k === today) cls.push('is-today');
             if (k === scheduleUi.sel) cls.push('is-sel');
-            if (ph) cls.push('has-ph');
-            h += `<div class="${cls.join(' ')}" data-d="${k}" role="button" tabindex="0"${ph ? ` style="--ph:${ph.color}"` : ''} aria-label="${schDay(dd)}${ph ? `, ${schEsc(ph.title)} stage` : ''}${k === scheduleUi.sel ? ', selected. Tap again to book' : ''}"><span class="sch-num">${dd.getDate()}</span></div>`;
+            const colours = [...new Map(info.trades.map(t => { const tr = getScheduleTrade(t.tradeId); return [tr.id, tr.color]; })).values()];
+            const icons = (info.ms.length ? `<i class="sch-di is-ms${info.ms.every(ScheduleRules.isComplete) ? ' is-done' : ''}"></i>` : '')
+                + (info.insp.length ? '<i class="sch-di ph-fill ph-clipboard-text is-insp"></i>' : '')
+                + (info.del.length ? '<i class="sch-di ph-fill ph-truck is-del"></i>' : '');
+            const label = [schDay(dd), info.load ? plural(info.load, 'trade', 'trades') + ' on site' : 'no trades',
+                ...info.ms.map(t => `${t.title} due`), info.insp.length ? plural(info.insp.length, 'inspection', 'inspections') : '',
+                info.del.length ? plural(info.del.length, 'delivery', 'deliveries') : '', ph ? `${ph.title} stage` : ''].filter(Boolean).join(', ');
+            h += `<div class="${cls.filter(Boolean).join(' ')}" data-d="${k}" role="button" tabindex="0" aria-label="${schEsc(label)}${k === scheduleUi.sel ? '. Selected: tap again to book' : ''}">
+                    <span class="sch-num">${dd.getDate()}</span>
+                    ${icons ? `<span class="sch-dicons" aria-hidden="true">${icons}</span>` : ''}
+                    <span class="sch-dots" aria-hidden="true">${colours.slice(0, 4).map(c => `<i style="background:${schEsc(c)}"></i>`).join('')}${colours.length > 4 ? `<b>+${colours.length - 4}</b>` : ''}</span>
+                </div>`;
         }
-        segs.forEach(g => {
-            const tr = getScheduleTrade(g.t.tradeId), ms = g.t.milestone;
-            const style = `left:calc(${g.s * 100 / N}% + ${g.cl ? 0 : 2}px);width:calc(${(g.e - g.s + 1) * 100 / N}% - ${(g.cl ? 0 : 2) + (g.cr ? 0 : 2)}px);background:${schTint(tr.color, 0.2)};border-color:${schTint(tr.color, 0.65)};color:${schLight(tr.color)}`;
-            h += `<button type="button" class="sch-ev${g.e === g.s ? ' is-one' : ''}${g.cl ? ' is-cl' : ''}${g.cr ? ' is-cr' : ''}${ms ? ' is-ms' : ''}" data-id="${schEsc(g.t.id)}" data-l="${g.L}" style="${style}" aria-label="${schEsc(g.t.title)}, ${schEsc(tr.name)}${ms ? ', milestone' : ''}">
-                ${ms ? '<i class="sch-ms-dot" aria-hidden="true"></i>' : ''}<span>${schEsc(g.t.title)}</span></button>`;
-        });
-        h += '</div>';
-    });
-    h += '</div></div>' + schMonthLegend(stages, tasks, y, m) + schDayPanel() + schMonthKeyDates(stages, tasks, y, m);
+        // The week in a line: its milestones by name, then inspections, deliveries and busy days by count
+        const bits = [...wk.ms.map(({ t, dd }) => `<span class="sch-wk-ms${ScheduleRules.isComplete(t) ? ' is-done' : ''}"><i aria-hidden="true"></i>${schEsc(t.title)} ${SCH_DAY3[dd.getDay()]}</span>`),
+            wk.insp ? `<span>${plural(wk.insp, 'inspection', 'inspections')}</span>` : '', wk.del ? `<span>${plural(wk.del, 'delivery', 'deliveries')}</span>` : '',
+            wk.busy ? `<span class="is-busy">${plural(wk.busy, 'busy day', 'busy days')}</span>` : ''].filter(Boolean);
+        const we = schAdd(ws, 6);
+        h += `</div><p class="sch-wk-sum"><b>${ws.getDate()}${ws.getMonth() !== we.getMonth() ? ' ' + SCH_MONTHS[ws.getMonth()].slice(0, 3) : ''}–${we.getDate()} ${SCH_MONTHS[we.getMonth()].slice(0, 3)}</b>${bits.length ? bits.join('') : '<span class="is-quiet">Quiet week</span>'}</p></div>`;
+    }
+    h += '</div></div>';
+    // The four weeks at a glance
+    const inWin = bookings.filter(t => t.startDate >= ks && t.startDate <= ke);
+    const msN = tasks.filter(t => t.milestone && t.endDate >= ks && t.endDate <= ke).length;
+    h += `<div class="sch-mstats">
+            <div><b>${busyDays}</b><span>busy day${busyDays === 1 ? '' : 's'}</span></div>
+            <div><b>${inWin.filter(t => !schIsDelivery(t) && !schIsInspection(t)).length}</b><span>bookings</span></div>
+            <div><b>${inWin.filter(schIsInspection).length}</b><span>inspection${inWin.filter(schIsInspection).length === 1 ? '' : 's'}</span></div>
+            <div><b>${msN}</b><span>milestone${msN === 1 ? '' : 's'}</span></div>
+        </div>`;
+    h += schMonthLegend(stages, tasks, ks, ke) + schDayPanel() + schMonthKeyDates(stages, tasks, ks, ke);
     body.innerHTML = h;
     body.querySelectorAll('.sch-day').forEach(el => {
         el.onclick = () => onScheduleDayTap(el.dataset.d);
         el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onScheduleDayTap(el.dataset.d); } };
     });
-    body.querySelectorAll('.sch-ev').forEach(el => { el.onclick = e => { e.stopPropagation(); if (!schSuppressClick) openScheduleTask(el.dataset.id); }; });
-    fitScheduleGrid();
     bindScheduleRange();
 }
-function schMonthLegend(stages, tasks, y, m) {
-    const ms = schIso(new Date(y, m, 1)), me = schIso(new Date(y, m + 1, 0));
-    const inMonth = tasks.filter(t => t.endDate >= ms && t.startDate <= me);
-    const st = stages.filter(p => p.end >= ms && p.start <= me);
-    const trades = [...new Map(inMonth.filter(t => !t.milestone).map(t => [t.tradeId, getScheduleTrade(t.tradeId)])).values()];
+function schMonthLegend(stages, tasks, ks, ke) {
+    const trades = [...new Map(tasks.filter(t => !t.milestone && !schIsDelivery(t) && !schIsInspection(t) && t.endDate >= ks && t.startDate <= ke)
+        .map(t => [t.tradeId, getScheduleTrade(t.tradeId)])).values()];
     return `<div class="sch-legend is-month">
-            <div class="sch-leg-row"><span class="sch-leg-h">Stages</span>${st.length ? st.map(p => `<span class="sch-leg is-stage"><i style="background:${p.color}"></i>${schEsc(p.title)}</span>`).join('') : '<span class="sch-leg">None this month</span>'}</div>
-            <div class="sch-leg-row"><span class="sch-leg-h">Bookings</span>${trades.map(tr => `<span class="sch-leg"><i style="background:${schEsc(tr.color)}"></i>${schEsc(tr.name)}</span>`).join('')}<span class="sch-leg"><i class="is-diamond"></i>Milestone</span></div>
+            <details class="sch-leg-more"><summary>Legend<i class="ph-bold ph-caret-down" aria-hidden="true"></i></summary>
+            <div class="sch-leg-row"><span class="sch-leg-h">How busy</span><span class="sch-leg is-heat"><i class="is-h1"></i>1 trade</span><span class="sch-leg is-heat"><i class="is-h2"></i>2</span><span class="sch-leg is-heat"><i class="is-busy"></i>3+ busy</span></div>
+            <div class="sch-leg-row"><span class="sch-leg-h">On the day</span><span class="sch-leg"><i class="is-diamond"></i>Milestone due</span><span class="sch-leg is-ico"><i class="ph-fill ph-clipboard-text" style="color:#F0ABFC"></i>Inspection</span><span class="sch-leg is-ico"><i class="ph-fill ph-truck" style="color:#F5CF5B"></i>Delivery</span></div>
+            <div class="sch-leg-row"><span class="sch-leg-h">Trades</span>${trades.map(tr => `<span class="sch-leg"><i style="background:${schEsc(tr.color)}"></i>${schEsc(tr.name)}</span>`).join('') || '<span class="sch-leg">None booked</span>'}</div>
+            </details>
             <button type="button" class="sch-days-toggle" onclick="toggleScheduleDays()">${scheduleUi.days === 'all' ? 'Show Mon–Sat' : 'Show 7 days'}</button>
         </div>`;
 }
-// The month's important dates, in order: milestones, stage starts, inspections and deliveries
-function schMonthKeyDates(stages, tasks, y, m) {
-    const ms = schIso(new Date(y, m, 1)), me = schIso(new Date(y, m + 1, 0)), todayIso = schIso(schToday());
+// The four weeks' important dates, in order: milestones, stage starts, inspections and deliveries
+function schMonthKeyDates(stages, tasks, ms, me) {
+    const todayIso = schIso(schToday());
     const items = [];
     tasks.forEach(t => {
         if (t.milestone && t.endDate >= ms && t.endDate <= me) {
@@ -514,8 +638,8 @@ function schMonthKeyDates(stages, tasks, y, m) {
     });
     stages.forEach(p => { if (p.start >= ms && p.start <= me) items.push({ k: p.start, kind: 'Stage', icon: 'ph-hard-hat', tone: 'is-stage', color: p.color, title: `${p.title} begins`, sub: `Through ${schDay(schParse(p.end))}`, act: `focusScheduleMilestone('${schEsc(p.id)}')` }); });
     items.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0));
-    let h = schSectionHead(`${SCH_MONTHS[m].toUpperCase()} ${y}`, items.length ? 'Key dates' : 'No key dates', false);
-    if (!items.length) return h + '<div class="sch-card sch-empty">No milestones, inspections or deliveries this month.</div>';
+    let h = schSectionHead(`${schShort(schParse(ms))} – ${schShort(schParse(me))}`, items.length ? 'Key dates' : 'No key dates', false);
+    if (!items.length) return h + '<div class="sch-card sch-empty">No milestones, inspections or deliveries in these four weeks.</div>';
     return h + `<div class="sch-card sch-keys">${items.map(it => {
         const d = schParse(it.k), past = it.k < todayIso;
         return `<button type="button" class="sch-key${past ? ' is-past' : ''}" onclick="${it.act}">
@@ -531,8 +655,6 @@ function onScheduleDayTap(k) {
     if (scheduleUi.sel === k) { openScheduleEdit(null, k); return; }     // tap the chosen day again: book it
     triggerHaptic('light');
     scheduleUi.sel = k;
-    const d = schParse(k);
-    if (d.getMonth() !== scheduleUi.ym[1]) scheduleUi.ym = [d.getFullYear(), d.getMonth()];
     renderSchedule();
 }
 // The chosen day: what's on, with a warning where two bookings share an area
@@ -541,33 +663,12 @@ function schDayPanel() {
     const on = scheduleTasks().filter(t => t.startDate <= k && t.endDate >= k);
     const count = {};
     on.forEach(t => { const w = (t.where || '').trim().toLowerCase(); if (w) count[w] = (count[w] || 0) + 1; });
-    const btns = `<button type="button" class="sch-hbtn" onclick="copyScheduleWeek()"><i class="ph-fill ph-copy" aria-hidden="true"></i>Copy week</button><button type="button" class="sch-hbtn" onclick="openScheduleEdit(null, scheduleUi.sel)"><i class="ph-bold ph-plus" aria-hidden="true"></i>Add</button>`;
+    const btns = `<button type="button" class="sch-hbtn" onclick="copyScheduleWeek()"><i class="ph-fill ph-copy" aria-hidden="true"></i>Copy week</button>`;   // booking: the + below
     const trades = on.filter(t => !t.milestone), miles = on.filter(t => t.milestone);
     return schSectionHead(isToday ? 'TODAY' : `${SCH_DOW[d.getDay()]} ${d.getDate()} ${SCH_MONTHS[d.getMonth()].slice(0, 3).toUpperCase()}`, trades.length ? `${trades.length} on site` : 'Nothing on', true, btns)
         + `<div class="sch-fcards">${miles.map(schFeedMilestone).join('')}${trades.length ? trades.map(t => schTradeCard(t, d)).join('') : (miles.length ? '' : '<div class="sch-card sch-empty">No trades booked for this day.</div>')}</div>`;
 }
 
-// Bars and rows sized to the room below the calendar (a month should read at a glance, not fill the screen)
-const SCH_NUMH = 36, SCH_GAP = 3;
-function fitScheduleGrid() {
-    const mc = document.getElementById('sch-mcard'), view = document.getElementById('view-schedule');
-    if (!mc || !view) return;
-    const weeks = mc.querySelectorAll('.sch-week'); if (!weeks.length) return;
-    const avail = Math.max(300, Math.min(520, view.clientHeight * 0.62)) - mc.querySelector('.sch-dow').offsetHeight - 2;
-    let totalL = 0; weeks.forEach(w => { totalL += Math.max(1, +w.dataset.lanes); });
-    let barH = Math.floor((avail - weeks.length * (SCH_NUMH + 4)) / totalL) - SCH_GAP;
-    barH = Math.max(18, Math.min(26, barH));
-    const fs = Math.max(11, Math.min(12.5, barH * 0.5));
-    weeks.forEach(w => {
-        w.style.height = `${SCH_NUMH + Math.max(1, +w.dataset.lanes) * (barH + SCH_GAP) + 6}px`;
-        w.querySelectorAll('.sch-ev').forEach(e => {
-            e.style.top = `${SCH_NUMH + (+e.dataset.l) * (barH + SCH_GAP)}px`;
-            e.style.height = `${barH}px`; e.style.fontSize = `${fs}px`;
-            e.style.borderRadius = `${barH > 24 ? 8 : 6}px`;
-        });
-    });
-}
-window.addEventListener('resize', () => { if (scheduleUi.view === 'month' && currentActiveViewName === 'schedule') fitScheduleGrid(); });
 
 // Hold a day, drag across days: book that range. A swipe sideways changes the month.
 let schSuppressClick = false;
@@ -649,24 +750,23 @@ function schDetailHtml(t) {
         </div>
         <dl class="sch-dfacts">
             ${t.crew ? `<div><dt>Company</dt><dd>${schEsc(t.crew)}</dd></div>` : ''}
-            <div><dt>${t.milestone ? 'Due' : n > 1 ? 'Dates' : 'Date'}</dt><dd>${t.milestone ? schDay(schParse(t.endDate)) : schRange(t.startDate, t.endDate)}${n > 1 && !t.milestone ? ` <small>(${n} days)</small>` : ''}</dd></div>
+            <div><dt>${t.milestone ? (ScheduleRules.isComplete(t) ? 'Completed' : 'Due') : n > 1 ? 'Dates' : 'Date'}</dt><dd>${t.milestone ? schDay(schParse(ScheduleRules.completedOn(t) || t.endDate)) : schRange(t.startDate, t.endDate)}${n > 1 && !t.milestone ? ` <small>(${n} days)</small>` : ''}</dd></div>
             ${t.arrival ? `<div><dt>Arrival</dt><dd>${schEsc(t.arrival)}</dd></div>` : ''}
             ${t.where ? `<div><dt>Where</dt><dd>${schEsc(t.where)}</dd></div>` : ''}
         </dl>
         ${t.notes ? `<p class="sheet-label sch-fl">${t.milestone ? 'About' : 'Scope'}</p><p class="sch-dnotes">${schEsc(t.notes)}</p>` : ''}`;
     if (t.milestone) {
         const st = ScheduleRules.milestoneStatus(t, today), p = ScheduleRules.progress(t), c = t.checklist || [];
-        h += `<div class="sch-msbox">${renderProgressRing(p, { size: 64, stroke: 8, key: `ms:${t.id}`, tone: progressRingTone(st.key) })}<div><p class="sch-msbox-big">${p.done} of ${p.total} done</p><p class="sch-msbox-sub">${ScheduleRules.dueLabel({ startDate: t.endDate, endDate: t.endDate }, today)}${p.total - p.done ? ` · ${p.total - p.done} still to do` : ''}</p>${schStatusPill(st)}</div></div>
+        h += `<div class="sch-msbox">${renderProgressRing(p, { size: 72, stroke: 12.5, key: `ms:${t.id}`, tone: progressRingTone(st.key) })}<div><p class="sch-msbox-big">${p.done} of ${p.total} done</p><p class="sch-msbox-sub">${ScheduleRules.isComplete(t) ? `Signed off ${schDay(schParse(ScheduleRules.completedOn(t) || t.endDate))}` : `${ScheduleRules.dueLabel({ startDate: t.endDate, endDate: t.endDate }, today)}${p.total - p.done ? ` · ${p.total - p.done} still to do` : ''}`}</p>${schStatusPill(st)}</div></div>
             <p class="sheet-label sch-fl">Checklist</p><div class="sch-cl">`;
         if (!c.length) h += '<p class="sch-empty">No items yet. Add what needs to be done before this milestone.</p>';
         c.forEach((x, i) => {
             const meta = x.done ? `✓ ${schEsc(x.doneByName || 'Ticked')}${x.doneAt ? ' · ' + schTime(x.doneAt) : ''}` : (x.requestedBy ? `Requested by ${schEsc(x.requestedBy)}` : '');
             h += `<div class="sch-ci${x.done ? ' is-done' : ''}">
                     <button type="button" class="sch-cbox" onclick="toggleScheduleItem('${id}','${schEsc(x.id)}')" role="checkbox" aria-checked="${x.done}" aria-label="${schEsc(x.text)}"><i class="ph-bold ph-check" aria-hidden="true"></i></button>
-                    <button type="button" class="sch-cbody" onclick="toggleScheduleItem('${id}','${schEsc(x.id)}')" tabindex="-1">
+                    <button type="button" class="sch-cbody" onclick="toggleScheduleNote('${schEsc(x.id)}')" aria-expanded="${schNoteOpen === x.id}" aria-label="${schEsc(x.text)}: add a note or remove">
                         <span class="sch-ctext">${schEsc(x.text)}</span>${meta ? `<span class="sch-cmeta">${meta}</span>` : ''}${x.note ? `<span class="sch-cnote">${schEsc(x.note)}</span>` : ''}
                     </button>
-                    <button type="button" class="sch-cmore" onclick="toggleScheduleNote('${schEsc(x.id)}')" aria-label="Note or remove: ${schEsc(x.text)}"><i class="ph-fill ph-note-pencil" aria-hidden="true"></i></button>
                 </div>
                 ${schNoteOpen === x.id ? `<div class="sch-ced"><textarea id="sch-note-${i}" class="sheet-input" placeholder="Add a note, e.g. order number, who’s booked, cert reference">${schEsc(x.note || '')}</textarea>
                     <div class="sch-ced-btns"><button type="button" class="sch-ced-save" onclick="saveScheduleNote('${id}','${schEsc(x.id)}',${i})">Save note</button><button type="button" class="sch-ced-rm" onclick="removeScheduleItem('${id}','${schEsc(x.id)}',${i})">Remove item</button></div></div>` : ''}`;
@@ -708,7 +808,7 @@ async function toggleScheduleItem(taskId, itemId) {
     const t = await schRun(() => scheduleService.toggleItem(taskId, itemId), 'Not saved');
     if (!t) return;
     const p = ScheduleRules.progress(t), item = t.checklist.find(x => x.id === itemId);
-    if (item && item.done && p.done === p.total) { triggerHaptic('success'); showSnack(`All done. ${t.title} is ready`, null, null, { icon: 'ph-check-circle' }); }
+    if (item && item.done && p.done === p.total) { schCelebrateHaptic(performance.now()); schCompleteSnack(t, itemId); }
 }
 function toggleScheduleNote(itemId) {
     schNoteOpen = schNoteOpen === itemId ? null : itemId;
@@ -883,7 +983,7 @@ async function submitScheduleEdit() {
     if (!result.ok) return;
     triggerHaptic('success');
     const saved = result.value;
-    if (!schDraft.id) { const s = schParse(saved.startDate); scheduleUi.sel = saved.startDate; scheduleUi.ym = [s.getFullYear(), s.getMonth()]; }
+    if (!schDraft.id) { const s = schParse(saved.startDate); scheduleUi.sel = saved.startDate; if (!schInWindow(saved.startDate)) scheduleUi.m0 = schIso(DateRules.mondayOf(s)); }
     renderSchedule();
     if (saved.milestone) openScheduleTask(saved.id); else { closeModal(); showSnack(schDraft.id ? 'Booking saved' : 'Booked', null, null, { icon: 'ph-check-circle' }); }
 }
